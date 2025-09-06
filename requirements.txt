@@ -1,1 +1,7 @@
 streamlit
+pandas
+requests
+python-dateutil
+matplotlib
+plotnine
+numpy
