@@ -64,7 +64,7 @@ if not API_KEY:
 
 
 # ---------- Page ----------
-st.set_page_config(page_title="Fed H.4.1 — Reserves Impact", layout="wide")
+
 
 st.title("🏦 Federal Reserve H.4.1 — Assets & Liabilities (Reserves Impact)")
 st.caption("Weekly change vs prior week, and Annual change vs fixed baseline 2025-01-01")
