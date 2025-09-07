@@ -15,5 +15,5 @@ st.page_link("pages/01_Reserves.py", label="➡️ Reserves dashboard")
 #     st.page_link("pages/03_Markets.py", label="📈 Markets / Rates")
 
 # ---- Router'ı çalıştır (son satırda olsun) ----
-nav = st.navigation(pages=pages, position="hidden")
+nav= st.navigation([st.Page("streamlit_app.py"), st.Page("pages/01_Reserves.py")], position="hidden")
 nav.run()
