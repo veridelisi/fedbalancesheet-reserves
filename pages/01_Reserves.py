@@ -150,185 +150,57 @@ def lookup(vals: dict, name: str, default=0.0):
             return v if pd.notna(v) else default
     return default
 
+# ---------- Dates & baseline (radio) ----------
+from datetime import date
 
-# =========================
-# HYBRID DATE PICKER (Quick picks + Year/Date dropdown, with safe snapping)
-# =========================
-import requests, pandas as pd
-from datetime import date, timedelta
-from dateutil.relativedelta import relativedelta
+TARGET_SERIES_ID = "WSHOSHO"  # weekly Wednesday (H.4.1)
+_latest = get_latest_available_date(TARGET_SERIES_ID) or "2025-09-03"
 
-SERIES_ID = "WSHOSHO"   # weekly Wednesday H.4.1 series
+t       = pd.to_datetime(_latest).date()     # Latest Wednesday
+t_w     = t - timedelta(days=7)              # previous week
+t_yoy   = t - relativedelta(years=1)         # YoY (t - 1 year)
+t_fixed = date(2025, 1, 1)                   # 01.01.2025
 
-# --- tiny utils
-def _to_date(s: str) -> date:
-    return pd.to_datetime(s).date()
+fmt = "%d.%m.%Y"
+c1, c2 = st.columns([1, 3])
+with c1:
+    st.markdown(
+        f"""
+        <div style="
+            display:inline-block; padding:10px 14px; border:1px solid #e5e7eb; 
+            border-radius:10px; background:#fafafa;">
+            <div style="font-size:0.95rem; color:#6b7280; margin-bottom:2px;">
+                Latest Wednesday
+            </div>
+            <div style="font-size:1.15rem; font-weight:600; letter-spacing:0.2px;">
+                {t.strftime('%d.%m.%Y')}
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
-@st.cache_data(ttl=3600)
-def fred_obs(series_id: str, start: str = None, end: str = None, limit: int = None, sort: str = "asc"):
-    """Raw observations helper."""
-    url = f"{BASE}/fred/series/observations"
-    params = {"series_id": series_id, "api_key": API_KEY, "file_type": "json", "sort_order": sort}
-    if start: params["observation_start"] = start
-    if end:   params["observation_end"]   = end
-    if limit: params["limit"] = limit
-    r = requests.get(url, params=params, timeout=30)
-    r.raise_for_status()
-    return r.json().get("observations", [])
+with c2:
+    baseline_label = st.radio(
+        "Annual baseline",
+        ("YoY (t - 1 year)", "01.01.2025"),
+        index=0,              # default: YoY
+        horizontal=True       # yuvarlak kutucuklar yatay dursun
+    )
 
-@st.cache_data(ttl=3600)
-def get_latest_date(series_id: str) -> date:
-    obs = fred_obs(series_id, limit=1, sort="desc")
-    return _to_date(obs[0]["date"]) if obs else date.today()
-
-@st.cache_data(ttl=3600)
-def get_year_dates(series_id: str, year: int) -> list[date]:
-    """Return real published dates in a given calendar year (ascending)."""
-    obs = fred_obs(series_id, start=f"{year}-01-01", end=f"{year}-12-31", sort="asc")
-    out = []
-    for o in obs:
-        v = (o.get("value") or "").strip()
-        if v not in ("", ".", "NaN"):   # only real values
-            out.append(_to_date(o["date"]))
-    return sorted(out)
-
-@st.cache_data(ttl=3600)
-def get_recent_dates(series_id: str, latest_dt: date, n_years: int = 3) -> list[date]:
-    """Last n_years worth of published dates (ascending)."""
-    years = list(range(latest_dt.year - (n_years - 1), latest_dt.year + 1))
-    dates = []
-    for y in years:
-        dates += get_year_dates(series_id, y)
-    return sorted(dates)
-
-def prev_n(dates_sorted: list[date], d: date, n: int) -> date:
-    """Return the Nth previous published date from d (safe at edges)."""
-    try:
-        i = dates_sorted.index(d)
-    except ValueError:
-        # If d not in list, snap to closest <= d first
-        cand = [x for x in dates_sorted if x <= d]
-        d = cand[-1] if cand else dates_sorted[0]
-        i = dates_sorted.index(d)
-    j = max(0, i - n)
-    return dates_sorted[j]
-
-def snap_to_published(target: date, prefer_past: bool = True) -> date:
-    """Snap an arbitrary target to an actual published date near it.
-       prefer_past=True -> choose closest <= target if exists, else next >= target."""
-    # fetch needed years lazily
-    years_needed = {target.year, max(1900, target.year - 1), latest.year, latest.year - 1}
-    pool = []
-    for y in sorted(years_needed):
-        pool += get_year_dates(SERIES_ID, y)
-    pool = sorted(set(pool))
-    if not pool:
-        return target
-
-    past = [d for d in pool if d <= target]
-    future = [d for d in pool if d >= target]
-    if prefer_past and past:
-        return past[-1]
-    if not prefer_past and future:
-        return future[0]
-    # fallback other side
-    if past:   return past[-1]
-    if future: return future[0]
-    return pool[-1]
-
-# ---- UI: Quick picks + Custom (Year -> Date) ----
-latest = get_latest_date(SERIES_ID)   # always exists
-recent = get_recent_dates(SERIES_ID, latest, n_years=3)  # enough for -13w comfortably
-
-# state init
-if "target_mode" not in st.session_state: st.session_state["target_mode"] = "latest"
-if "custom_year" not in st.session_state: st.session_state["custom_year"] = latest.year
-if "custom_date" not in st.session_state: st.session_state["custom_date"] = latest
-
-def set_mode(m): st.session_state["target_mode"] = m
-st.markdown("### 📅 Date controls")
-
-c1, c2, c3, c4, c5 = st.columns([1.2, 1, 1, 1, 2.2])
-c1.button("Latest",  use_container_width=True, on_click=set_mode, args=("latest",))
-c2.button("-1w",     use_container_width=True, on_click=set_mode, args=("-1w",))
-c3.button("-4w",     use_container_width=True, on_click=set_mode, args=("-4w",))
-c4.button("-13w",    use_container_width=True, on_click=set_mode, args=("-13w",))
-custom_on = c5.toggle("Custom (pick a specific publication)", value=(st.session_state["target_mode"]=="custom"))
-if custom_on and st.session_state["target_mode"] != "custom":
-    set_mode("custom")
-if not custom_on and st.session_state["target_mode"] == "custom":
-    set_mode("latest")
-
-# --- Custom picker (only valid publications shown)
-if st.session_state["target_mode"] == "custom":
-    coly, cold = st.columns([1, 2])
-    all_years = list(range(2015, latest.year + 1))  # adjust span if you want earlier
-    all_years.reverse()
-    y = coly.selectbox("Year", options=all_years, index=0, key="custom_year")
-    y_dates = get_year_dates(SERIES_ID, y)
-    if not y_dates:
-        st.warning("No published dates for the selected year.")
-        y_dates = [latest]
-    # show most-recent first
-    y_dates_desc = list(reversed(y_dates))
-    # default to first (most recent)
-    idx_default = 0
-    if st.session_state.get("custom_date") in y_dates_desc:
-        idx_default = y_dates_desc.index(st.session_state["custom_date"])
-    chosen_d = cold.selectbox("Publication date", options=y_dates_desc,
-                              index=idx_default,
-                              format_func=lambda d: d.strftime("%d.%m.%Y"),
-                              key="custom_date")
-
-# ---- Resolve target date t from selected mode
-mode = st.session_state["target_mode"]
-if mode == "latest":
-    t = latest
-elif mode == "-1w":
-    t = prev_n(recent, latest, 1)
-elif mode == "-4w":
-    t = prev_n(recent, latest, 4)
-elif mode == "-13w":
-    t = prev_n(recent, latest, 13)
-elif mode == "custom":
-    t = st.session_state["custom_date"]
+# Seçime göre yıllık baz
+if baseline_label.startswith("YoY"):
+    t_y = t_yoy
+    base_label = "YoY"
 else:
-    t = latest
+    t_y = t_fixed
+    base_label = "2025-01-01"
 
-# previous publication (for weekly compare)
-t_w = prev_n(get_recent_dates(SERIES_ID, t, n_years=2), t, 1)
-
-# ---- Annual baseline (YoY default or fixed 01.01.2025)
-st.markdown("### 🎯 Annual baseline")
-base_choice = st.radio(
-    " ",
-    options=("YoY (t - 1 year)", "01.01.2025"),
-    index=0, horizontal=True, label_visibility="collapsed"
-)
-if base_choice.startswith("YoY"):
-    t_y = snap_to_published(t - relativedelta(years=1), prefer_past=True)
-else:
-    t_y = snap_to_published(date(2025, 1, 1), prefer_past=True)
-
-# ---- Status line (compact)
-st.caption(
-    f"**Target:** {t.strftime('%d.%m.%Y')}  •  "
-    f"**vs prior week:** {t_w.strftime('%d.%m.%Y')}  •  "
-    f"**Annual baseline:** {t_y.strftime('%d.%m.%Y')} ({base_choice})"
-)
-
-# ---------- Fetch (MUST BE AFTER t, t_w, t_y are set) ----------
+# ---------- Fetch (seçilen baza göre) ----------
 with st.spinner("Fetching H.4.1 data..."):
-    vals_t = get_table_values(t.isoformat())    # target week
-    vals_w = get_table_values(t_w.isoformat())  # prior publication (t-1 pub)
-    vals_y = get_table_values(t_y.isoformat())  # annual baseline
-
-# (İsteğe bağlı güvenlik)
-if not vals_t or not vals_w or not vals_y:
-    st.error("Data could not be fetched. Check API key / FRED availability.")
-    st.stop()
-
-
+    vals_t = get_table_values(t.isoformat())
+    vals_w = get_table_values(t_w.isoformat())
+    vals_y = get_table_values(t_y.isoformat())
 
 
 
