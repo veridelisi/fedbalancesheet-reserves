@@ -1,20 +1,13 @@
 import streamlit as st
 
-st.set_page_config(page_title="Veridelisi • Analytics Portal", layout="wide")
+st.set_page_config(page_title="Veridelisi • Analytics Portal")
 st.title("📊 Veridelisi • Analytics Portal")
-
-st.write("Soldaki menüden bir proje seçin veya aşağıdaki kısayollardan geçin:")
+st.write("Soldaki aşağıdaki kısayollardan gidin.")
 
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    if st.button("🏦 H.4.1 — Reserves Impact"):
-        st.switch_page("pages/01_Reserves.py")
-
-with col2:
-    if st.button("👷 Labor / Employment"):
-        st.switch_page("pages/02_Labor.py")
-
-with col3:
-    if st.button("💹 Markets / Rates"):
-        st.switch_page("pages/03_Markets.py")
+    st.page_link("pages/01_Reserves.py", label="➡️ Reserves dashboard")
+# diğer projeler geldiğinde:
+# with col2: st.page_link("pages/02_Labor.py", label="👷 Labor / Employment")
+# with col3: st.page_link("pages/03_Markets.py", label="📈 Markets / Rates")

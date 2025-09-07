@@ -8,6 +8,54 @@ from dateutil.relativedelta import relativedelta
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter, AutoLocator
 
+import os
+import streamlit as st
+
+# --- Secrets/env loader: st.secrets -> section -> environment ---
+def get_secret(keys, default=None, cast=None):
+    if isinstance(keys, str):
+        keys = [keys]
+
+    # 1) düz st.secrets["KEY"]
+    for k in keys:
+        try:
+            if k in st.secrets:
+                val = st.secrets[k]
+                return cast(val) if (cast and val is not None) else val
+        except Exception:
+            pass
+
+    # 2) st.secrets tablo (örn. [fred] api_key=...)
+    try:
+        for _, section in st.secrets.items():
+            if isinstance(section, dict):
+                for k in keys:
+                    kl = k.lower()
+                    if kl in section:
+                        val = section[kl]
+                        return cast(val) if (cast and val is not None) else val
+    except Exception:
+        pass
+
+    # 3) ortam değişkeni
+    for k in keys:
+        val = os.environ.get(k)
+        if val is not None:
+            return cast(val) if cast else val
+
+    return default
+
+# --- FRED ayarları (fallback'lı) ---
+API_KEY    = get_secret(["API_KEY", "FRED_API_KEY"])
+BASE       = get_secret(["BASE", "FRED_BASE"], default="https://api.stlouisfed.org")
+RELEASE_ID = get_secret(["RELEASE_ID", "FRED_RELEASE_ID"], default=20, cast=int)
+ELEMENT_ID = get_secret(["ELEMENT_ID", "FRED_ELEMENT_ID"], default=1193943, cast=int)
+
+if not API_KEY:
+    st.error("API key not set. Settings → Secrets'e `API_KEY` (veya `FRED_API_KEY`) ekleyin.")
+    st.stop()
+
+
 # ---------- Page ----------
 st.set_page_config(page_title="Fed H.4.1 — Reserves Impact", layout="wide")
 
