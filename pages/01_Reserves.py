@@ -8,8 +8,15 @@ from dateutil.relativedelta import relativedelta
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter, AutoLocator
 
-import os
-import streamlit as st
+
+
+st.set_page_config(page_title="Veridelisi • Reserve Page")
+st.markdown("""
+    <style>
+        [data-testid="stSidebarNav"] {display: none;}
+        section[data-testid="stSidebar"][aria-expanded="true"]{display: none;}
+    </style>
+    """, unsafe_allow_html=True)
 
 # --- Secrets/env loader: st.secrets -> section -> environment ---
 def get_secret(keys, default=None, cast=None):
