@@ -11,6 +11,18 @@ from matplotlib.ticker import FuncFormatter, AutoLocator
 
 
 st.set_page_config(page_title="Veridelisi • Reserve Page")
+
+# --- Gezinme Barı ---
+st.markdown("""
+<div style="background:#f8f9fa;padding:10px 0 10px 0;margin-bottom:20px;border-radius:8px;display:flex;gap:30px;justify-content:center;">
+    <a href="/" style="font-weight:bold;font-size:16px;text-decoration:none;color:#007bff;">Ana Sayfa</a>
+    <a href="/Reserves" style="font-weight:bold;font-size:16px;text-decoration:none;color:#007bff;">Reserves</a>
+    <a href="/Repo" style="font-weight:bold;font-size:16px;text-decoration:none;color:#007bff;">Diğer Sayfa</a>
+</div>
+""", unsafe_allow_html=True)
+
+
+# --- Sol menü sakla ---
 st.markdown("""
     <style>
         [data-testid="stSidebarNav"] {display: none;}
