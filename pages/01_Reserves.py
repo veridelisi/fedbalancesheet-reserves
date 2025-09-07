@@ -10,7 +10,7 @@ from matplotlib.ticker import FuncFormatter, AutoLocator
 
 
 
-st.set_page_config(page_title="Veridelisi • Reserve Page")
+st.set_page_config(page_title="Veridelisi • Reserve Page", layout="wide")
 
 # --- Gezinme Barı (Yatay Menü, Streamlit-native) ---
 import streamlit as st
