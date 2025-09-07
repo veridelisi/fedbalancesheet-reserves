@@ -1,4 +1,5 @@
 import streamlit as st
+st.set_page_config(page_title="Veridelisi • Analytics Portal")
 st.markdown("""
     <style>
         [data-testid="stSidebarNav"] {display: none;}
@@ -6,7 +7,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-st.set_page_config(page_title="Veridelisi • Analytics Portal")
+
 st.title("📊 Veridelisi • Analytics Portal")
 
 
