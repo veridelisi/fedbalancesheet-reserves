@@ -1,23 +1,6 @@
 import streamlit as st
 
-st.set_page_config(page_title="Veridelisi • Analytics Portal")
-st.title("📊 Veridelisi • Analytics Portal")
-st.write("Soldaki menüden veya aşağıdaki kısayoldan gidin.")
-
-ok = False
-try:
-    # Yeni Streamlit sürümlerinde en temiz yol
-    st.page_link("pages/01_Reserves.py", label="➡️ Reserves dashboard")
-    ok = True
-except Exception:
-    pass
-
-if not ok:
-    # Eski sürüm/önbellek durumlarında garanti olsun diye slugların ikisini de veriyoruz
-    st.markdown(
-        """
-**Kısayol (garanti):**
-- [➡️ Reserves](/Reserves)
-- [➡️ reserves](/reserves)
-        """
-    )
+st.page_link("your_app.py", label="Home", icon="🏠")
+st.page_link("pages/page_1.py", label="Page 1", icon="1️⃣")
+st.page_link("pages/page_2.py", label="Page 2", icon="2️⃣", disabled=True)
+st.page_link("http://www.google.com", label="Google", icon="🌎")
