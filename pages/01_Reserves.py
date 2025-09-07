@@ -164,7 +164,21 @@ t_fixed = date(2025, 1, 1)                   # 01.01.2025
 fmt = "%d.%m.%Y"
 c1, c2 = st.columns([1, 3])
 with c1:
-    st.metric("Latest Wednesday", t.strftime(fmt))  # sadece son Çarşamba
+    st.markdown(
+        f"""
+        <div style="
+            display:inline-block; padding:10px 14px; border:1px solid #e5e7eb; 
+            border-radius:10px; background:#fafafa;">
+            <div style="font-size:0.95rem; color:#6b7280; margin-bottom:2px;">
+                Latest Wednesday
+            </div>
+            <div style="font-size:1.15rem; font-weight:600; letter-spacing:0.2px;">
+                {t.strftime('%d.%m.%Y')}
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 with c2:
     baseline_label = st.radio(
@@ -347,3 +361,13 @@ st.markdown("""
 - Securities = held outright + unamortized premiums + unamortized discounts
 - Annual baseline is **fixed to 2025-01-01** (not YoY)
 """)
+
+st.markdown(
+    """
+    <hr style="margin-top:28px; margin-bottom:10px; border:none; border-top:1px solid #e5e7eb;">
+    <div style="text-align:center; color:#6b7280; font-size:0.95rem;">
+        <strong>Engin Yılmaz</strong> · Visiting Research Scholar · Amherst · September 2025
+    </div>
+    """,
+    unsafe_allow_html=True
+)
