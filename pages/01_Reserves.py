@@ -21,7 +21,7 @@ st.markdown("""
 
 col1, col2, col3 = st.columns([1,1,1])
 with col1:
-    st.page_link("streamlit_app.py", label="🏠 Ana Sayfa")
+    st.page_link("streamlit_app.py", label="🏠 Home")
 with col2:
     st.page_link("pages/01_Reserves.py", label="📊 Reserves")
 with col3:
