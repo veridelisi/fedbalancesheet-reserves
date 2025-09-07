@@ -11,3 +11,11 @@ except Exception:
     # Eski sürüm veya beklenmedik durumlarda düz bağlantıya düş
     # Not: /Reserves yolu sayfa başlığından (st.set_page_config) türetilir
     st.markdown("[➡️ Reserves dashboard](/Reserves)")
+
+st.markdown("""
+    <style>
+        section[data-testid="stSidebar"][aria-expanded="true"]{
+            display: none;
+        }
+    </style>
+    """, unsafe_allow_html=True)    
