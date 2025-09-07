@@ -317,6 +317,16 @@ st.caption(
     f"**Annual baseline:** {t_y.strftime('%d.%m.%Y')} ({base_choice})"
 )
 
+# ---------- Fetch (MUST BE AFTER t, t_w, t_y are set) ----------
+with st.spinner("Fetching H.4.1 data..."):
+    vals_t = get_table_values(t.isoformat())    # target week
+    vals_w = get_table_values(t_w.isoformat())  # prior publication (t-1 pub)
+    vals_y = get_table_values(t_y.isoformat())  # annual baseline
+
+# (İsteğe bağlı güvenlik)
+if not vals_t or not vals_w or not vals_y:
+    st.error("Data could not be fetched. Check API key / FRED availability.")
+    st.stop()
 
 
 
