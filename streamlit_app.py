@@ -1,4 +1,13 @@
 import streamlit as st
 
-st.page_link("streamlit_app.py", label="Home", icon="🏠")
-st.page_link("pages/01_Reserves.py", label="Page 1", icon="1️⃣")
+st.set_page_config(page_title="Veridelisi • Analytics Portal")
+st.title("📊 Veridelisi • Analytics Portal")
+st.write("Soldaki menüden veya aşağıdaki kısayoldan gidin.")
+
+# Önce yerleşik page_link (Streamlit >= 1.37'de sorunsuz)
+try:
+    st.page_link("pages/01_Reserves.py", label="➡️ Reserves dashboard")
+except Exception:
+    # Eski sürüm veya beklenmedik durumlarda düz bağlantıya düş
+    # Not: /Reserves yolu sayfa başlığından (st.set_page_config) türetilir
+    st.markdown("[➡️ Reserves dashboard](/Reserves)")
