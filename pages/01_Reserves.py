@@ -150,33 +150,48 @@ def lookup(vals: dict, name: str, default=0.0):
             return v if pd.notna(v) else default
     return default
 
-# ---------- Dates (no widgets) ----------
+# ---------- Dates & baseline select ----------
 from datetime import date
 
-TARGET_SERIES_ID = "WSHOSHO"  # weekly Wednesday series
+TARGET_SERIES_ID = "WSHOSHO"  # weekly Wednesday (H.4.1)
 _latest = get_latest_available_date(TARGET_SERIES_ID) or "2025-09-03"
 
-# Son Çarşamba
-t = pd.to_datetime(_latest).date()
-t_w = t - timedelta(days=7)
+# t ve yardımcı tarihler
+t       = pd.to_datetime(_latest).date()   # son Çarşamba
+t_w     = t - timedelta(days=7)            # bir önceki hafta
+t_yoy   = t - relativedelta(years=1)       # YoY (t-1 yıl)
+t_fixed = date(2025, 1, 1)                 # sabit baz
 
-# Gösterim için diğer iki tarih
-t_yoy   = t - relativedelta(years=1)      # t-1 yıl (sadece bilgi amaçlı)
-t_fixed = date(2025, 1, 1)                # sabit baz
-t_y     = t_fixed                         # >>> yıllık karşılaştırmalar bu bazla yapılacak
-
-# Üst satırda 3 kutu (sadece görüntü)
+# üst bilgi kutuları (3 tarih her zaman görünür)
 fmt = "%d.%m.%Y"
 c1, c2, c3 = st.columns(3)
 c1.metric("Latest Wednesday", t.strftime(fmt))
 c2.metric("YoY (t - 1 year)", t_yoy.strftime(fmt))
 c3.metric("Fixed baseline", t_fixed.strftime(fmt))
 
+# soldaki küçük seçim (default: YoY)
+left_select_col, _ = st.columns([1, 3])
+baseline_label = left_select_col.selectbox(
+    "Annual baseline (seçiniz)",
+    ("YoY (t-1 year)", "Fixed 01.01.2025"),
+    index=0  # default YoY
+)
+
+# seçime göre kullanılacak baz tarihi
+if baseline_label.startswith("YoY"):
+    t_y = t_yoy
+else:
+    t_y = t_fixed
+
+# grafikte ve tablolarda kullanılacak kısa etiket
+base_label = "YoY" if baseline_label.startswith("YoY") else "2025-01-01"
+
 # ---------- Fetch ----------
 with st.spinner("Fetching H.4.1 data..."):
     vals_t = get_table_values(t.isoformat())
     vals_w = get_table_values(t_w.isoformat())
-    vals_y = get_table_values(t_y.isoformat())   # sabit 01.01.2025 baz için
+    vals_y = get_table_values(t_y.isoformat())   # <-- seçime bağlı baz
+
 
 
 
