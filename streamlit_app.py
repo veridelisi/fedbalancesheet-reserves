@@ -1,9 +1,8 @@
 import streamlit as st
 st.markdown("""
     <style>
-        section[data-testid="stSidebar"][aria-expanded="true"]{
-            display: none;
-        }
+        [data-testid="stSidebarNav"] {display: none;}
+        section[data-testid="stSidebar"][aria-expanded="true"]{display: none;}
     </style>
     """, unsafe_allow_html=True)
 
