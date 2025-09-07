@@ -1,4 +1,11 @@
 import streamlit as st
+st.markdown("""
+    <style>
+        section[data-testid="stSidebar"][aria-expanded="true"]{
+            display: none;
+        }
+    </style>
+    """, unsafe_allow_html=True)
 
 st.set_page_config(page_title="Veridelisi • Analytics Portal")
 st.title("📊 Veridelisi • Analytics Portal")
@@ -12,10 +19,4 @@ except Exception:
     # Not: /Reserves yolu sayfa başlığından (st.set_page_config) türetilir
     st.markdown("[➡️ Reserves dashboard](/Reserves)")
 
-st.markdown("""
-    <style>
-        section[data-testid="stSidebar"][aria-expanded="true"]{
-            display: none;
-        }
-    </style>
-    """, unsafe_allow_html=True)    
+    
