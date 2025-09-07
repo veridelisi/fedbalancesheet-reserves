@@ -1,9 +1,8 @@
 import streamlit as st
 
 st.set_page_config(page_title="Veridelisi • Analytics Portal")
-st.set_page_config(initial_sidebar_state="collapsed")
 st.title("📊 Veridelisi • Analytics Portal")
-st.write("Soldaki menüden veya aşağıdaki kısayoldan gidin.")
+
 
 # Önce yerleşik page_link (Streamlit >= 1.37'de sorunsuz)
 try:
