@@ -1,5 +1,5 @@
 
-
+import streamlit as st
 # ---- Home içeriği (kendi menün) ----
 st.set_page_config(page_title="Veridelisi • Analytics Portal", layout="wide", initial_sidebar_state="collapsed")
 st.title("📊 Veridelisi • Analytics Portal")
@@ -15,4 +15,5 @@ st.page_link("pages/01_Reserves.py", label="➡️ Reserves dashboard")
 #     st.page_link("pages/03_Markets.py", label="📈 Markets / Rates")
 
 # ---- Router'ı çalıştır (son satırda olsun) ----
+nav = st.navigation(pages=pages, position="hidden")
 nav.run()
