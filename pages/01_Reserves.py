@@ -359,7 +359,7 @@ st.markdown("""
 - Thresholds for display: ±$50M (weekly), ±$100M (annual)
 - 🔵 Positive = increases; 🔴 Negative = decreases
 - Securities = held outright + unamortized premiums + unamortized discounts
-- Annual baseline is **fixed to 2025-01-01** (not YoY)
+- Annual baseline is **fixed to YoY (t - 1 year)** (not 01.01.2025)
 """)
 
 st.markdown(
