@@ -150,20 +150,47 @@ def lookup(vals: dict, name: str, default=0.0):
             return v if pd.notna(v) else default
     return default
 
-# ---------- Dates ----------
+# ---------- Dates (interactive) ----------
 TARGET_SERIES_ID = "WSHOSHO"  # weekly Wednesday series
-TARGET_WED = get_latest_available_date(TARGET_SERIES_ID) or "2025-09-03"
-t   = pd.to_datetime(TARGET_WED).date()
-t_w = t - timedelta(days=7)
+_latest = get_latest_available_date(TARGET_SERIES_ID) or "2025-09-03"
+_default_t = pd.to_datetime(_latest).date()
 
-# Annual baseline: FIXED to 2025-01-01 (your requirement)
-t_y = pd.to_datetime("2025-01-01").date()
+# Üstte iki kolon: solda Analiz haftası, sağda Yıllık baz
+c1, c2 = st.columns([1, 1])
+
+with c1:
+    t = st.date_input(
+        "Analysis week (Wednesday)", 
+        value=_default_t, 
+        format="YYYY-MM-DD",
+        help="Varsayılan: FRED'den en güncel Çarşamba"
+    )
+
+with c2:
+    mode = st.radio(
+        "Annual baseline",
+        ["YoY (t - 1 year)", "Fixed date"],
+        index=0, horizontal=True
+    )
+    if mode == "YoY (t - 1 year)":
+        t_y = t - relativedelta(years=1)
+        st.caption(f"Baseline: {t_y.strftime('%Y-%m-%d')} (t-1y)")
+    else:
+        t_y = st.date_input(
+            "Pick a baseline date",
+            value=pd.to_datetime("2025-01-01").date(),
+            format="YYYY-MM-DD"
+        )
+
+# Haftalık kıyas: t - 7 gün
+t_w = t - timedelta(days=7)
 
 # ---------- Fetch ----------
 with st.spinner("Fetching H.4.1 data..."):
     vals_t = get_table_values(t.isoformat())
     vals_w = get_table_values(t_w.isoformat())
     vals_y = get_table_values(t_y.isoformat())
+
 
 # ---------- Calculations ----------
 def net_sec(vdict):
