@@ -12,12 +12,38 @@ from matplotlib.ticker import FuncFormatter, AutoLocator
 
 st.set_page_config(page_title="Veridelisi • Reserve Page")
 
-# --- Gezinme Barı ---
-st.markdown("## Navigation")
-st.page_link("streamlit_app.py", label="Ana Sayfa", icon="🏠")
-st.page_link("pages/01_Reserves.py", label="Reserves", icon="📊")
-st.page_link("pages/01_Repo.py", label="Repo", icon="🔄")
-# ... Diğer sayfalar için ekleyebilirsiniz ...
+# --- Gezinme Barı (Yatay Menü) ---
+st.markdown("""
+<style>
+.navbar {
+  background: #f8f9fa;
+  padding: 10px 0 10px 0;
+  margin-bottom: 24px;
+  border-radius: 8px;
+  display: flex;
+  gap: 32px;
+  justify-content: center;
+  font-size: 16px;
+}
+.navbar a {
+  font-weight: bold;
+  text-decoration: none;
+  color: #007bff;
+  padding: 4px 12px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+.navbar a:hover {
+  background: #e9ecef;
+}
+</style>
+<div class="navbar">
+  <a href="/">🏠 Ana Sayfa</a>
+  <a href="/Reserves">📊 Reserves</a>
+  <a href="/Repo">🔄 Repo</a>
+  <!-- Diğer sayfalar için ekleyebilirsiniz -->
+</div>
+""", unsafe_allow_html=True)
 
 
 # --- Sol menü sakla ---
