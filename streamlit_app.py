@@ -1,16 +1,13 @@
-
 import streamlit as st
-# ---- Home içeriği (kendi menün) ----
-st.set_page_config(page_title="Veridelisi • Analytics Portal", layout="wide", initial_sidebar_state="collapsed")
+
+st.set_page_config(page_title="Veridelisi • Analytics Portal")
 st.title("📊 Veridelisi • Analytics Portal")
-st.write("Soldaki menü yerine aşağıdaki kısayollardan gidin.")
+st.write("Soldaki menüden veya aşağıdaki kısayoldan gidin.")
 
-# Kendi linklerin — artık çalışır çünkü sayfalar önceden bildirildi
-st.page_link("pages/01_Reserves.py", label="➡️ Reserves dashboard")
-
-# (İstersen buton/kolon/grid ile zenginleştir)
-# with st.columns(3)[0]:
-#     st.page_link("pages/02_Labor.py",   label="👷 Labor / Employment")
-# with st.columns(3)[1]:
-#     st.page_link("pages/03_Markets.py", label="📈 Markets / Rates")
-
+# Önce yerleşik page_link (Streamlit >= 1.37'de sorunsuz)
+try:
+    st.page_link("pages/01_Reserves.py", label="➡️ Reserves dashboard")
+except Exception:
+    # Eski sürüm veya beklenmedik durumlarda düz bağlantıya düş
+    # Not: /Reserves yolu sayfa başlığından (st.set_page_config) türetilir
+    st.markdown("[➡️ Reserves dashboard](/Reserves)")
