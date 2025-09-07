@@ -150,47 +150,44 @@ def lookup(vals: dict, name: str, default=0.0):
             return v if pd.notna(v) else default
     return default
 
-# ---------- Dates & baseline select ----------
+# ---------- Dates & baseline (radio) ----------
 from datetime import date
 
 TARGET_SERIES_ID = "WSHOSHO"  # weekly Wednesday (H.4.1)
 _latest = get_latest_available_date(TARGET_SERIES_ID) or "2025-09-03"
 
-# t ve yardımcı tarihler
-t       = pd.to_datetime(_latest).date()   # son Çarşamba
-t_w     = t - timedelta(days=7)            # bir önceki hafta
-t_yoy   = t - relativedelta(years=1)       # YoY (t-1 yıl)
-t_fixed = date(2025, 1, 1)                 # sabit baz
+t       = pd.to_datetime(_latest).date()     # Latest Wednesday
+t_w     = t - timedelta(days=7)              # previous week
+t_yoy   = t - relativedelta(years=1)         # YoY (t - 1 year)
+t_fixed = date(2025, 1, 1)                   # 01.01.2025
 
-# üst bilgi kutuları (3 tarih her zaman görünür)
 fmt = "%d.%m.%Y"
-c1, c2, c3 = st.columns(3)
-c1.metric("Latest Wednesday", t.strftime(fmt))
-c2.metric("YoY (t - 1 year)", t_yoy.strftime(fmt))
-c3.metric("Fixed baseline", t_fixed.strftime(fmt))
+c1, c2 = st.columns([1, 3])
+with c1:
+    st.metric("Latest Wednesday", t.strftime(fmt))  # sadece son Çarşamba
 
-# soldaki küçük seçim (default: YoY)
-left_select_col, _ = st.columns([1, 3])
-baseline_label = left_select_col.selectbox(
-    "Annual baseline (seçiniz)",
-    ("YoY (t-1 year)", "Fixed 01.01.2025"),
-    index=0  # default YoY
-)
+with c2:
+    baseline_label = st.radio(
+        "Annual baseline",
+        ("YoY (t - 1 year)", "01.01.2025"),
+        index=0,              # default: YoY
+        horizontal=True       # yuvarlak kutucuklar yatay dursun
+    )
 
-# seçime göre kullanılacak baz tarihi
+# Seçime göre yıllık baz
 if baseline_label.startswith("YoY"):
     t_y = t_yoy
+    base_label = "YoY"
 else:
     t_y = t_fixed
+    base_label = "2025-01-01"
 
-# grafikte ve tablolarda kullanılacak kısa etiket
-base_label = "YoY" if baseline_label.startswith("YoY") else "2025-01-01"
-
-# ---------- Fetch ----------
+# ---------- Fetch (seçilen baza göre) ----------
 with st.spinner("Fetching H.4.1 data..."):
     vals_t = get_table_values(t.isoformat())
     vals_w = get_table_values(t_w.isoformat())
-    vals_y = get_table_values(t_y.isoformat())   # <-- seçime bağlı baz
+    vals_y = get_table_values(t_y.isoformat())
+
 
 
 
