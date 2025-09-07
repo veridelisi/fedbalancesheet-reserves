@@ -13,13 +13,11 @@ from matplotlib.ticker import FuncFormatter, AutoLocator
 st.set_page_config(page_title="Veridelisi • Reserve Page")
 
 # --- Gezinme Barı ---
-st.markdown("""
-<div style="background:#f8f9fa;padding:10px 0 10px 0;margin-bottom:20px;border-radius:8px;display:flex;gap:30px;justify-content:center;">
-    <a href="/" style="font-weight:bold;font-size:16px;text-decoration:none;color:#007bff;">Home</a>
-    <a href="/Reserves" style="font-weight:bold;font-size:16px;text-decoration:none;color:#007bff;">Reserves</a>
-    <a href="/Repo" style="font-weight:bold;font-size:16px;text-decoration:none;color:#007bff;">Repo</a>
-</div>
-""", unsafe_allow_html=True)
+st.markdown("## Navigation")
+st.page_link("streamlit_app.py", label="Ana Sayfa", icon="🏠")
+st.page_link("pages/01_Reserves.py", label="Reserves", icon="📊")
+st.page_link("pages/01_Repo.py", label="Repo", icon="🔄")
+# ... Diğer sayfalar için ekleyebilirsiniz ...
 
 
 # --- Sol menü sakla ---
