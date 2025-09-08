@@ -291,7 +291,7 @@ with st.container(border=True):
       }}
     </style>
 
-    <div class="id-title">Latest day identity (billions of $)</div>
+    
     <div class="id-grid">
       <!-- 1. satır: etiketler -->
       <div class="lbl" style="grid-column:1;">Opening</div>
