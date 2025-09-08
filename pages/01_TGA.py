@@ -355,11 +355,11 @@ st.altair_chart(
 st.markdown("### Methodology")
 st.markdown(
 """
-- **Closing is computed**: **Opening + Deposits − Withdrawals** (API’dan çekmiyoruz).
-- Baseline seçimi: **YoY (t − 1 year)** (varsayılan) veya **2025-01-01**.
-- **Line chart**: seçilen baz tarihinden **son güne kadar günlük** çizilir; aradaki günler eksen üzerinde yer alır.
-- Kaynak: U.S. Treasury Fiscal Data — *Daily Treasury Statement* (`operating_cash_balance`).
-- Birim: API ham verisi **millions**, grafikler **billions** olarak gösterilir.
+- **Closing is computed**: **Opening + Deposits − Withdrawals** (not fetched from the API).
+- Baseline selection: **YoY (t − 1 year)** (default) or **2025-01-01**.
+- **Line chart**: daily values are plotted from the selected baseline date to the latest date; all days are shown on the axis.
+- Source: U.S. Treasury Fiscal Data — *Daily Treasury Statement* (`operating_cash_balance`).
+- Unit: Raw API data is in **millions**, charts
 """
 )
 
