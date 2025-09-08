@@ -61,7 +61,7 @@ project_card(
 # project_card("Project 3", "Tagline", "Açıklama...", "pages/03_Another.py", "assets/thumbs/another2.jpg")
 
 st.markdown(
-    "<hr style='margin-top:3rem;margin-bottom:1rem'/>"
+    
     "<div style='text-align:center;opacity:0.8'>"
     "Engin Yılmaz • Visiting Research Scholar • Amherst • September 2025"
     "</div>",
