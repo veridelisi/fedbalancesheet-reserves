@@ -251,7 +251,7 @@ closing_latest_bn = (bn(open_latest) or 0) + (bn(depo_latest) or 0) - (bn(wdrw_l
 # --------------------------- Identity line ------------------------
 with st.container(border=True):
     st.subheader("Latest day identity (billions of $)")
-   from textwrap import dedent
+from textwrap import dedent
 
 # --------------------------- Identity line ------------------------
 with st.container(border=True):
