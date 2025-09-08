@@ -116,37 +116,43 @@ def bar_two(df, xfield, ytitle, colors, title):
     base = alt.Chart(df).encode(
         x=alt.X(f"{xfield}:Q", axis=alt.Axis(title=ytitle, format=",.1f")),
         y=alt.Y("label:N", sort="-x", title=None),
-        tooltip=[
-            alt.Tooltip("label:N"),
-            alt.Tooltip(f"{xfield}:Q", title=ytitle, format=",.1f"),
-        ],
+        tooltip=[alt.Tooltip("label:N"),
+                 alt.Tooltip(f"{xfield}:Q", title=ytitle, format=",.1f")]
     )
+    # ❌ mark_bar(color=None) yerine:
     chart = base.mark_bar().encode(
         color=alt.Color("label:N", scale=alt.Scale(range=colors), legend=None)
     )
-    labels = base.mark_text(
-        dx=6, align="left", baseline="middle", fontWeight="bold"
-    ).encode(text=alt.Text(f"{xfield}:Q", format=",.1f"))
-    return (chart + labels).properties(
-        title=title, height=140, padding={"top": 28, "right": 12, "left": 6, "bottom": 8}
+    labels = base.mark_text(dx=6, align="left", baseline="middle", fontWeight="bold").encode(
+        text=alt.Text(f"{xfield}:Q", format=",.1f")
     )
-
+    # ❌ .properties(title=None) yerine:
+    return (chart + labels).properties(
+        title=(title or ""),  # boş string ok
+        height=140,
+        padding={"top":28,"right":12,"left":6,"bottom":8}
+    )
 
 def bar_delta(df, xfield, ytitle, colors, title):
-    # x is delta; center axis at 0
     base = alt.Chart(df).encode(
         x=alt.X(f"{xfield}:Q",
-                axis=alt.Axis(title=ytitle, format=",.1f"),
-                scale=alt.Scale(domain=(float(df[xfield].min()*1.15), float(df[xfield].max()*1.15)) if len(df) else alt.Undefined)),
+                axis=alt.Axis(title=ytitle, format=",.1f")),
         y=alt.Y("label:N", sort="-x", title=None),
-        tooltip=[alt.Tooltip("label:N"), alt.Tooltip(f"{xfield}:Q", title=ytitle, format=",.1f")]
+        tooltip=[alt.Tooltip("label:N"),
+                 alt.Tooltip(f"{xfield}:Q", title=ytitle, format=",.1f")]
     )
-    bar = base.mark_bar().encode(color=alt.Color("label:N", scale=alt.Scale(range=colors), legend=None))
+    bar = base.mark_bar().encode(
+        color=alt.Color("label:N", scale=alt.Scale(range=colors), legend=None)
+    )
     line0 = alt.Chart(pd.DataFrame({"x":[0]})).mark_rule(color="#111").encode(x="x:Q")
     labels = base.mark_text(dx=6, align="left", baseline="middle", fontWeight="bold").encode(
         text=alt.Text(f"{xfield}:Q", format=",.1f")
     )
-    return (bar + line0 + labels).properties(title=title, height=140, padding={"top":28,"right":12,"left":6,"bottom":8})
+    return (bar + line0 + labels).properties(
+        title=(title or ""),
+        height=140,
+        padding={"top":28,"right":12,"left":6,"bottom":8}
+    )
 
 # -----------------------------------------------------------------------------------
 # Header
