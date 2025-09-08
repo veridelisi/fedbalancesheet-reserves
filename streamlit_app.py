@@ -1,5 +1,7 @@
 import streamlit as st
-st.set_page_config(page_title="Veridelisi • Analytics Portal")
+
+st.set_page_config(page_title="Veridelisi • Analytics Portal", layout="wide")
+
 st.markdown("""
     <style>
         [data-testid="stSidebarNav"] {display: none;}
@@ -7,16 +9,63 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-
 st.title("📊 Veridelisi • Analytics Portal")
 
+# ————— Reusable project card —————
+def project_card(title: str, tagline: str, description_md: str, page_path: str, image_path: str, link_label: str):
+    with st.container(border=True):
+        c1, c2 = st.columns([1, 2], vertical_alignment="center")
+        with c1:
+            st.image(image_path, use_container_width=True)
+        with c2:
+            st.subheader(title)
+            if tagline:
+                st.caption(tagline)
+            st.markdown(description_md)
+            st.page_link(page_path, label=link_label)
 
-# Önce yerleşik page_link (Streamlit >= 1.37'de sorunsuz)
-try:
-    st.page_link("pages/01_Reserves.py", label="➡️ Reserves dashboard")
-except Exception:
-    # Eski sürüm veya beklenmedik durumlarda düz bağlantıya düş
-    # Not: /Reserves yolu sayfa başlığından (st.set_page_config) türetilir
-    st.markdown("[➡️ Reserves dashboard](/Reserves)")
+          
+
+# ————— 1. Proje: Fed Reserves —————
+project_card(
+    title="How Fed Assets and Liabilities Affect Bank Reserves",
+    tagline="Federal Reserve H.4.1 weekly release • Drivers of reserves",
+    description_md=(
+        "This dashboard provides comprehensive tracking of the Fed's **H.4.1** weekly release, "
+        "presenting both weekly and annual changes across key balance sheet components. "
+        "Through detailed breakdowns and visual analysis, users can identify the primary drivers "
+        "of reserve fluctuations and assess their impact on overall liquidity conditions."
+    ),
+    page_path="pages/01_Reserves.py",
+    image_path="assets/thumbs/veridelisi_reserves_thumb.jpg",
+    link_label="➡️ Reserves dashboard"
+)
+
+# ————— 2. Proje: Primary Dealer Repo —————
+project_card(
+    title="Primary Dealer Repo & Reverse Repo",
+    tagline="NY Fed Primary Dealer Statistics • Latest snapshot, YoY, YTD",
+    description_md=(
+        "This dashboard ingests the NY Fed **Primary Dealer timeseries** feed and automatically "
+        "pulls the **latest trading date**. It presents a concise snapshot across **Repo** and "
+        "**Reverse Repo** segments (uncleared/cleared bilateral, GCF, tri-party)."
+        
+    ),
+    page_path="pages/01_Repo.py",
+    image_path="assets/thumbs/dealer.png",
+    link_label="➡️ Repo dashboard"
+)
+
+
+
+# project_card("Project 3", "Tagline", "Açıklama...", "pages/03_Another.py", "assets/thumbs/another2.jpg")
+
+st.markdown(
+    "<hr style='margin-top:3rem;margin-bottom:1rem'/>"
+    "<div style='text-align:center;opacity:0.8'>"
+    "Engin Yılmaz • Visiting Research Scholar • Amherst • September 2025"
+    "</div>",
+    unsafe_allow_html=True
+)
 
     
