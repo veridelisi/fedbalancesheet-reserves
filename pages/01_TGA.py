@@ -59,7 +59,7 @@ COLOR_DARK = "#0f172a"
 # Which columns to use per account_type (endpoint vary etse de bunlar kapsıyor)
 COLUMN_PREFS = {
     OPEN : ["open_today_bal","opening_balance_today_amt","open_today_bal_amt","amount"],
-    CLOSE: ["close_today_bal","closing_balance_today_amt","close_today_bal_amt","amount"],
+    CLOSE: ["open_today_bal","close_today_bal","closing_balance_today_amt","close_today_bal_amt","amount"],
     # DİKKAT: Deposits/Withdrawals bu dataset'te de "open_today_bal" kolonunda gelebiliyor
     DEPO : ["open_today_bal","today_amt","transaction_today_amt","deposit_today_amt","amount"],
     WDRW : ["open_today_bal","today_amt","transaction_today_amt","withdraw_today_amt","amount"],
