@@ -251,76 +251,69 @@ closing_latest_bn = (bn(open_latest) or 0) + (bn(depo_latest) or 0) - (bn(wdrw_l
 # --------------------------- Identity line ------------------------
 with st.container(border=True):
     st.subheader("Latest day identity (billions of $)")
-   # ---------------- Latest day identity: full-width card ----------------
-open_bn  = bn(open_latest)
-depo_bn  = bn(depo_latest)
-wdrw_bn  = bn(wdrw_latest)
-close_bn = closing_latest_bn  # Opening + Deposits − Withdrawals (computed)
+   from textwrap import dedent
 
-identity_html = f"""
-<style>
-  .id-card {{
-    border: 1px solid #e5e7eb; border-radius: 12px; background: #fff;
-    padding: 14px 18px; width: 100%;
-  }}
-  .id-title {{
-    font-size: 1.8rem; font-weight: 800; color: #111827; margin: 2px 0 12px 0;
-  }}
-  .id-grid {{
-    display: grid;
-    grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr; /* 4 değer + 3 operatör */
-    grid-template-rows: auto auto;                       /* 1. satır etiketler, 2. satır değerler/operatörler */
-    column-gap: 16px; row-gap: 8px;
-    align-items: center; width: 100%;
-  }}
-  .lbl {{
-    color:#6b7280; font-size:.95rem; grid-row: 1;
-  }}
-  .val {{
-    grid-row: 2;
-    display:inline-block; padding:8px 12px; border-radius:10px;
-    background:#f6f7f9; font-weight:700; font-size:1.25rem;
-  }}
-  .op  {{
-    grid-row: 2; text-align:center; font-weight:800; font-size:1.5rem; color:#374151;
-  }}
-  .val-green {{ color:#10b981; }}
-  .val-blue  {{ color:#2563eb; }}
-  .val-red   {{ color:#ef4444; }}
+# --------------------------- Identity line ------------------------
+with st.container(border=True):
+    # değerleri hesapla (bn = millions -> billions)
+    open_bn  = bn(open_latest)
+    depo_bn  = bn(depo_latest)
+    wdrw_bn  = bn(wdrw_latest)
+    close_bn = closing_latest_bn  # Opening + Deposits − Withdrawals (computed)
 
-  /* küçük ekranlarda biraz sıkıştır */
-  @media (max-width: 900px) {{
-    .id-title {{ font-size: 1.4rem; }}
-    .val {{ font-size: 1.05rem; padding:6px 10px; }}
-    .op  {{ font-size: 1.3rem; }}
-  }}
-</style>
+    html = dedent(f"""
+    <style>
+      .id-title {{
+        font-size: 1.8rem; font-weight: 800; color: #111827; margin: 2px 0 12px 0;
+      }}
+      .id-grid {{
+        display: grid;
+        grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr; /* 4 değer + 3 operatör */
+        grid-template-rows: auto auto;                       /* 1. satır etiketler, 2. satır değerler/operatörler */
+        column-gap: 16px; row-gap: 8px;
+        align-items: center; width: 100%;
+      }}
+      .lbl {{ color:#6b7280; font-size:.95rem; grid-row: 1; }}
+      .val {{
+        grid-row: 2;
+        display:inline-block; padding:8px 12px; border-radius:10px;
+        background:#f6f7f9; font-weight:700; font-size:1.25rem;
+      }}
+      .op  {{ grid-row: 2; text-align:center; font-weight:800; font-size:1.5rem; color:#374151; }}
+      .val-green {{ color:#10b981; }}
+      .val-blue  {{ color:#2563eb; }}
+      .val-red   {{ color:#ef4444; }}
 
-<div class="id-card">
-  <div class="id-title">Latest day identity (billions of $)</div>
+      @media (max-width: 900px) {{
+        .id-title {{ font-size: 1.4rem; }}
+        .val {{ font-size: 1.05rem; padding:6px 10px; }}
+        .op  {{ font-size: 1.3rem; }}
+      }}
+    </style>
 
-  <div class="id-grid">
-    <!-- 1. satır: etiketler -->
-    <div class="lbl" style="grid-column:1;">Opening</div>
-    <div class="lbl" style="grid-column:3;">Deposits</div>
-    <div class="lbl" style="grid-column:5;">Withdrawals</div>
-    <div class="lbl" style="grid-column:7;">Closing</div>
+    <div class="id-title">Latest day identity (billions of $)</div>
+    <div class="id-grid">
+      <!-- 1. satır: etiketler -->
+      <div class="lbl" style="grid-column:1;">Opening</div>
+      <div class="lbl" style="grid-column:3;">Deposits</div>
+      <div class="lbl" style="grid-column:5;">Withdrawals</div>
+      <div class="lbl" style="grid-column:7;">Closing</div>
 
-    <!-- 2. satır: değerler + operatörler -->
-    <div class="val val-green" style="grid-column:1;">{fmt_bn(open_bn)}</div>
-    <div class="op"             style="grid-column:2;">+</div>
+      <!-- 2. satır: değerler + operatörler -->
+      <div class="val val-green" style="grid-column:1;">{fmt_bn(open_bn)}</div>
+      <div class="op"             style="grid-column:2;">+</div>
 
-    <div class="val val-blue"  style="grid-column:3;">{fmt_bn(depo_bn)}</div>
-    <div class="op"             style="grid-column:4;">−</div>
+      <div class="val val-blue"  style="grid-column:3;">{fmt_bn(depo_bn)}</div>
+      <div class="op"             style="grid-column:4;">−</div>
 
-    <div class="val val-red"   style="grid-column:5;">{fmt_bn(wdrw_bn)}</div>
-    <div class="op"             style="grid-column:6;">=</div>
+      <div class="val val-red"   style="grid-column:5;">{fmt_bn(wdrw_bn)}</div>
+      <div class="op"             style="grid-column:6;">=</div>
 
-    <div class="val val-green" style="grid-column:7;">{fmt_bn(close_bn)}</div>
-  </div>
-</div>
-"""
-st.markdown(identity_html, unsafe_allow_html=True)
+      <div class="val val-green" style="grid-column:7;">{fmt_bn(close_bn)}</div>
+    </div>
+    """)
+
+    st.markdown(html, unsafe_allow_html=True)
 
 
 # --------------------------- Row 1: Dikey bar (latest) ------------
