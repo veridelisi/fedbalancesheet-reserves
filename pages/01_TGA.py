@@ -359,7 +359,7 @@ st.markdown(
 - Baseline selection: **YoY (t − 1 year)** (default) or **2025-01-01**.
 - **Line chart**: daily values are plotted from the selected baseline date to the latest date; all days are shown on the axis.
 - Source: U.S. Treasury Fiscal Data — *Daily Treasury Statement* (`operating_cash_balance`).
-- Unit: Raw API data is in **billions**, charts
+- Unit: Raw API data is in **billions**.
 """
 )
 
