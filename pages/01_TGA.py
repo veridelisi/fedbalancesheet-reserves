@@ -108,15 +108,12 @@ for c in num_candidates:
             row[c] = math.nan
 
 
-
-
-
     for col in COLUMN_PREFS[account_type]:
         if col in row and pd.notna(row[col]):
             val = float(row[col])
             # withdrawals are reported positive; for equations use minus WDRW
             return val
-    return None
+            return None
 
 def bn(x):  # millions -> billions
     return None if x is None or pd.isna(x) else x/1000.0
