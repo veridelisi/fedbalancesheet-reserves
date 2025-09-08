@@ -249,8 +249,7 @@ wdrw_latest  = get_value_on_or_before(t_latest.isoformat(), WDRW)
 closing_latest_bn = (bn(open_latest) or 0) + (bn(depo_latest) or 0) - (bn(wdrw_latest) or 0)
 
 # --------------------------- Identity line ------------------------
-with st.container(border=True):
-    st.subheader("Latest day identity (billions of $)")
+
 from textwrap import dedent
 
 # --------------------------- Identity line ------------------------
