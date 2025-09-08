@@ -16,7 +16,7 @@ def project_card(title: str, tagline: str, description_md: str, page_path: str, 
     with st.container(border=True):
         c1, c2 = st.columns([1, 2], vertical_alignment="center")
         with c1:
-            st.image(image_path, use_container_width=True)
+             st.image(image_path, use_column_width=True)  # <-- fix
         with c2:
             st.subheader(title)
             if tagline:
