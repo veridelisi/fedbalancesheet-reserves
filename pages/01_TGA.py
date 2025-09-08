@@ -60,9 +60,11 @@ COLOR_WDR = "#ef4444"  # red
 COLUMN_PREFS = {
     OPEN : ["open_today_bal","opening_balance_today_amt","open_today_bal_amt","amount"],
     CLOSE: ["close_today_bal","closing_balance_today_amt","close_today_bal_amt","amount"],
-    DEPO : ["today_amt","transaction_today_amt","deposit_today_amt","amount"],
-    WDRW : ["today_amt","transaction_today_amt","withdraw_today_amt","amount"],
+    # DİKKAT: Deposits/Withdrawals için de open_today_bal ilk sıraya alındı
+    DEPO : ["open_today_bal","today_amt","transaction_today_amt","deposit_today_amt","amount"],
+    WDRW : ["open_today_bal","today_amt","transaction_today_amt","withdraw_today_amt","amount"],
 }
+
 
 # -----------------------------------------------------------------------------------
 # Helpers
@@ -91,12 +93,24 @@ def get_value_on_or_before(target_date: str, account_type: str) -> float | None:
         return None
     row = data[0]
     # normalize numeric candidates
-    for c in set(sum(COLUMN_PREFS.values(), [])):
-        if c in row and row[c] is not None:
-            try:
-                row[c] = float(str(row[c]).replace(",", "").replace("$",""))
-            except:
-                row[c] = math.nan
+    num_candidates = {
+    "open_today_bal","close_today_bal",
+    "opening_balance_today_amt","closing_balance_today_amt",
+    "open_today_bal_amt","close_today_bal_amt",
+    "today_amt","transaction_today_amt","amount",
+    "deposit_today_amt","withdraw_today_amt",
+}
+for c in num_candidates:
+    if c in row and row[c] is not None:
+        try:
+            row[c] = float(str(row[c]).replace(",", "").replace("$",""))
+        except:
+            row[c] = math.nan
+
+
+
+
+
     for col in COLUMN_PREFS[account_type]:
         if col in row and pd.notna(row[col]):
             val = float(row[col])
