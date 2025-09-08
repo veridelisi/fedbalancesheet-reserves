@@ -5,8 +5,8 @@ import pandas as pd
 import numpy as np
 import streamlit as st
 from dateutil.relativedelta import relativedelta
-import matplotlib.pyplot as plt
-from matplotlib.ticker import FuncFormatter, AutoLocator
+from datetime import date, timedelta
+from dateutil.relativedelta import relativedelta
 import altair as alt
 
 
@@ -166,7 +166,7 @@ _latest = get_latest_available_date(TARGET_SERIES_ID) or "2025-09-03"
 t       = pd.to_datetime(_latest).date()     # Latest Wednesday
 t_w     = t - timedelta(days=7)              # previous week
 t_yoy   = t - relativedelta(years=1)         # YoY (t - 1 year)
-t_fixed = date(2025, 1, 1)                   # 01.01.2025
+t_fixed = date(2025, 1, 1)                  # 01.01.2025
 
 c1, c2 = st.columns([1, 3])
 with c1:
