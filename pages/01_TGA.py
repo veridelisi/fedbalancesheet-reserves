@@ -251,19 +251,79 @@ closing_latest_bn = (bn(open_latest) or 0) + (bn(depo_latest) or 0) - (bn(wdrw_l
 # --------------------------- Identity line ------------------------
 with st.container(border=True):
     st.subheader("Latest day identity (billions of $)")
-    st.markdown(
-        f"""
-        <div style="font-size:1.1rem;">
-        Opening <span style="color:#6b7280;">(+)</span> Deposits
-        <span style="color:#6b7280;">(−)</span> Withdrawals = Closing<br/>
-        <code>{fmt_bn(bn(open_latest))}</code> +
-        <code style="color:{COLOR_DEP};">{fmt_bn(bn(depo_latest))}</code> −
-        <code style="color:{COLOR_WDR};">{fmt_bn(bn(wdrw_latest))}</code> =
-        <code style="color:{COLOR_OK};">{fmt_bn(closing_latest_bn)}</code>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    # ---- Latest day identity (FULL-WIDTH) ----
+open_bn  = bn(open_latest)
+depo_bn  = bn(depo_latest)
+wdrw_bn  = bn(wdrw_latest)
+close_bn = closing_latest_bn  # already computed: opening + deposits − withdrawals
+
+st.subheader("Latest day identity (billions of $)")
+
+identity_html = f"""
+<style>
+.identity-row {{
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr; /* 4 değer + 3 operatör */
+  column-gap: 14px;
+  align-items: end;
+  width: 100%;
+}}
+.identity-seg .lbl {{
+  display:block; font-size:.95rem; color:#6b7280; margin-bottom:2px;
+}}
+.identity-seg .val {{
+  display:inline-block; padding:6px 10px; border-radius:8px;
+  background:#f6f7f9; font-weight:700; font-size:1.15rem;
+}}
+.identity-op {{
+  text-align:center; font-weight:800; font-size:1.35rem; color:#374151;
+  line-height:1;
+}}
+.val-green {{ color:#10b981; }}
+.val-blue  {{ color:#2563eb; }}
+.val-red   {{ color:#ef4444; }}
+
+/* Dar ekran: iki sütunlu kompakt yerleşim */
+@media (max-width: 900px) {{
+  .identity-row {{
+    grid-template-columns: 1fr 1fr;
+    row-gap: 10px;
+  }}
+  .identity-op {{ display:none; }}
+}}
+</style>
+
+<div class="identity-row">
+  <div class="identity-seg">
+    <span class="lbl">Opening</span>
+    <span class="val val-green">{fmt_bn(open_bn)}</span>
+  </div>
+
+  <div class="identity-op">+</div>
+
+  <div class="identity-seg">
+    <span class="lbl">Deposits</span>
+    <span class="val val-blue">{fmt_bn(depo_bn)}</span>
+  </div>
+
+  <div class="identity-op">−</div>
+
+  <div class="identity-seg">
+    <span class="lbl">Withdrawals</span>
+    <span class="val val-red">{fmt_bn(wdrw_bn)}</span>
+  </div>
+
+  <div class="identity-op">=</div>
+
+  <div class="identity-seg">
+    <span class="lbl">Closing</span>
+    <span class="val val-green">{fmt_bn(close_bn)}</span>
+  </div>
+</div>
+"""
+
+st.markdown(identity_html, unsafe_allow_html=True)
+
 
 # --------------------------- Row 1: Dikey bar (latest) ------------
 st.subheader("Latest Day — Deposits & Withdrawals (bn)")
