@@ -27,7 +27,7 @@ with col2:
 with col3:
     st.page_link("pages/01_Repo.py", label="🔄 Repo")
 with col4:
-    st.page_link("pages/01_TGA.py", label="🔄 Repo")
+    st.page_link("pages/01_TGA.py", label="🔄 TGA")
 
 st.markdown("</div>", unsafe_allow_html=True)
 
