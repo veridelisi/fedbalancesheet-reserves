@@ -101,15 +101,7 @@ if not API_KEY:
     st.error("API key not set. Go to Settings → Secrets and set `API_KEY`.")
     st.stop()
 
-# --- Reserves page (Altair, aligned axes) ---
-import math, re, requests
-from datetime import timedelta, date
-from dateutil.relativedelta import relativedelta
 
-import pandas as pd
-import numpy as np
-import streamlit as st
-import altair as alt
 
 # ---------------------------------------------------------------------
 # Config
