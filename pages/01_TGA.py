@@ -8,10 +8,41 @@ from datetime import date
 from dateutil.relativedelta import relativedelta
 
 
-# -----------------------------------------------------------------------------------
-# Config
-# -----------------------------------------------------------------------------------
+
 st.set_page_config(page_title="TGA — Deposits, Withdrawals & Closing Balance", layout="wide")
+
+# --- Gezinme Barı (Yatay Menü, Streamlit-native) ---
+import streamlit as st
+
+st.markdown("""
+<div style="background:#f8f9fa;padding:10px 0 10px 0;margin-bottom:24px;border-radius:8px;display:flex;gap:32px;justify-content:center;">
+""", unsafe_allow_html=True)
+
+col1, col2, col3 = st.columns([1,1,1])
+with col1:
+    st.page_link("streamlit_app.py", label="🏠 Home")
+with col2:
+    st.page_link("pages/01_Reserves.py", label="📊 Reserves")
+with col3:
+    st.page_link("pages/01_Repo.py", label="🔄 Repo")
+with col4:
+    st.page_link("pages/01_TGA.py", label="🔄 Repo")
+
+st.markdown("</div>", unsafe_allow_html=True)
+
+
+# --- Sol menü sakla ---
+st.markdown("""
+    <style>
+        [data-testid="stSidebarNav"] {display: none;}
+        section[data-testid="stSidebar"][aria-expanded="true"]{display: none;}
+    </style>
+    """, unsafe_allow_html=True)
+
+
+
+
+# Config
 
 BASE = "https://api.fiscaldata.treasury.gov/services/api/fiscal_service"
 ENDP = "/v1/accounting/dts/operating_cash_balance"
@@ -82,17 +113,24 @@ def fmt_bn(x):
     return f"{x:,.1f}"
 
 def bar_two(df, xfield, ytitle, colors, title):
-    """df: columns [label, value]; xfield = 'value'; colors = list by label order."""
     base = alt.Chart(df).encode(
         x=alt.X(f"{xfield}:Q", axis=alt.Axis(title=ytitle, format=",.1f")),
         y=alt.Y("label:N", sort="-x", title=None),
-        tooltip=[alt.Tooltip("label:N"), alt.Tooltip(f"{xfield}:Q", title=ytitle, format=",.1f")]
+        tooltip=[
+            alt.Tooltip("label:N"),
+            alt.Tooltip(f"{xfield}:Q", title=ytitle, format=",.1f"),
+        ],
     )
-    chart = base.mark_bar(color=None).encode(color=alt.Color("label:N", scale=alt.Scale(range=colors), legend=None))
-    labels = base.mark_text(dx=6, align="left", baseline="middle", fontWeight="bold").encode(
-        text=alt.Text(f"{xfield}:Q", format=",.1f")
+    chart = base.mark_bar().encode(
+        color=alt.Color("label:N", scale=alt.Scale(range=colors), legend=None)
     )
-    return (chart + labels).properties(title=title, height=140, padding={"top":28,"right":12,"left":6,"bottom":8})
+    labels = base.mark_text(
+        dx=6, align="left", baseline="middle", fontWeight="bold"
+    ).encode(text=alt.Text(f"{xfield}:Q", format=",.1f"))
+    return (chart + labels).properties(
+        title=title, height=140, padding={"top": 28, "right": 12, "left": 6, "bottom": 8}
+    )
+
 
 def bar_delta(df, xfield, ytitle, colors, title):
     # x is delta; center axis at 0
