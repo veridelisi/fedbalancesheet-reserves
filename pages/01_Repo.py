@@ -358,15 +358,7 @@ with st.container(border=True):
     st.markdown("### Net = repo − reverse repo")
     st.markdown(f"**Daily Net (billions of $):** `{daily_net_B:,.1f}`")  # e.g., 689.5
 
-    # Yearly vs selected baseline (YoY default)
-    baseline_day, baseline_label = get_baseline(sub, LATEST, baseline_choice)
-    if baseline_day is not None:
-        repo_M_base = side_total_M(sub, baseline_day, "PDSORA")
-        rr_M_base   = side_total_M(sub, baseline_day, "PDSIRRA")
-        yearly_net_B = ((repo_M_latest - rr_M_latest) - (repo_M_base - rr_M_base)) / 1000.0
-        st.markdown(f"**Yearly Net (billions of $) ({baseline_label}):** `{yearly_net_B:,.1f}`")
-    else:
-        st.caption("Yearly Net: baseline date unavailable.")
+   
 
 
 
