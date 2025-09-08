@@ -59,11 +59,12 @@ COLOR_DARK = "#0f172a"
 # Which columns to use per account_type (endpoint vary etse de bunlar kapsıyor)
 COLUMN_PREFS = {
     OPEN : ["open_today_bal","opening_balance_today_amt","open_today_bal_amt","amount"],
+    # DİKKAT: CLOSE da çoğu gün 'open_today_bal' kolonu ile geliyor
     CLOSE: ["open_today_bal","close_today_bal","closing_balance_today_amt","close_today_bal_amt","amount"],
-    # DİKKAT: Deposits/Withdrawals bu dataset'te de "open_today_bal" kolonunda gelebiliyor
     DEPO : ["open_today_bal","today_amt","transaction_today_amt","deposit_today_amt","amount"],
     WDRW : ["open_today_bal","today_amt","transaction_today_amt","withdraw_today_amt","amount"],
 }
+
 
 NUM_CANDIDATES = {
     "open_today_bal","close_today_bal",
@@ -92,13 +93,17 @@ def _to_float(x):
         return math.nan
 
 @st.cache_data(ttl=1800)
+@st.cache_data(ttl=1800)
 def get_value_on_or_before(target_date: str, account_type: str) -> float | None:
     """
     Returns the latest value (in millions of $) on/before target_date for given account_type.
+    We explicitly request all numeric candidates via 'fields' to avoid missing columns.
     """
+    fields = ["record_date", "account_type"] + sorted(NUM_CANDIDATES)
     r = requests.get(
         f"{BASE}{ENDP}",
         params={
+            "fields": ",".join(fields),
             "filter": f"record_date:lte:{target_date},account_type:eq:{account_type}",
             "sort": "-record_date",
             "page[size]": 1
@@ -113,12 +118,16 @@ def get_value_on_or_before(target_date: str, account_type: str) -> float | None:
     # normalize numeric fields
     for c in NUM_CANDIDATES:
         if c in row and row[c] is not None:
-            row[c] = _to_float(row[c])
+            try:
+                row[c] = float(str(row[c]).replace(",", "").replace("$", ""))
+            except:
+                row[c] = math.nan
     # pick first available from preferences
     for col in COLUMN_PREFS[account_type]:
         if col in row and pd.notna(row[col]):
             return float(row[col])
     return None
+
 
 def bn(x):  # millions -> billions
     return None if x is None or pd.isna(x) else x/1000.0
