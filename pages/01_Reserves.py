@@ -101,8 +101,7 @@ if not API_KEY:
     st.error("API key not set. Go to Settings → Secrets and set `API_KEY`.")
     st.stop()
 
-# Colors
-COLOR_POS = "#2563eb"  # blue for + (adds to reserves)
+COLOR_POS = "#2563eb"  # blue for +
 COLOR_NEG = "#ef4444"  # red  for -
 
 # ---------------------------------------------------------------------
@@ -166,7 +165,7 @@ _latest = get_latest_available_date(TARGET_SERIES_ID) or "2025-09-03"
 t       = pd.to_datetime(_latest).date()     # Latest Wednesday
 t_w     = t - timedelta(days=7)              # previous week
 t_yoy   = t - relativedelta(years=1)         # YoY (t - 1 year)
-t_fixed = date(2025, 1, 1)                  # 01.01.2025
+t_fixed = date(2025, 1, 1)                   # 01.01.2025
 
 c1, c2 = st.columns([1, 3])
 with c1:
@@ -271,7 +270,19 @@ for orig, clean in liab_map.items():
 df_liab = pd.DataFrame(liab_rows)
 
 # ---------------------------------------------------------------------
-# Altair chart helpers (billions)
+# Aligned axes helpers
+# ---------------------------------------------------------------------
+def shared_domain(df, *cols, margin=0.10, divide=1000.0):
+    """Return symmetric x-domain (min,max) shared by a set of columns (in $M)."""
+    m = 0.0
+    for c in cols:
+        if isinstance(df, pd.DataFrame) and (c in df.columns):
+            m = max(m, float(df[c].abs().max()) / divide if not df.empty else 0.0)
+    M = (1.0 + margin) * m
+    return (-M, M)
+
+# ---------------------------------------------------------------------
+# Altair chart helpers (billions) with fixed row height & tooltips
 # ---------------------------------------------------------------------
 def _prep(df: pd.DataFrame, col: str) -> pd.DataFrame:
     if df.empty: 
@@ -282,14 +293,21 @@ def _prep(df: pd.DataFrame, col: str) -> pd.DataFrame:
     dd = dd.sort_values("val_b")
     return dd
 
-def barh_billions(df: pd.DataFrame, col: str, title: str, xlabel: str):
+def barh_billions(df: pd.DataFrame, col: str, title: str, xlabel: str, x_domain=None):
     dd = _prep(df, col)
     if dd.empty or (dd["val_b"].abs().max() == 0):
         return None
 
     base = alt.Chart(dd).encode(
-        y=alt.Y("name:N", sort="-x", title=None),
-        x=alt.X("val_b:Q", title=xlabel, axis=alt.Axis(format=",.1f")),
+        y=alt.Y("name:N",
+                sort="-x",
+                title=None,
+                scale=alt.Scale(rangeStep=26),      # fixed row height
+                axis=alt.Axis(labelLimit=220)),
+        x=alt.X("val_b:Q",
+                title=xlabel,
+                axis=alt.Axis(format=",.1f"),
+                scale=alt.Scale(domain=x_domain) if x_domain else alt.Undefined),
     )
 
     color = alt.Color(
@@ -298,25 +316,30 @@ def barh_billions(df: pd.DataFrame, col: str, title: str, xlabel: str):
         legend=None
     )
 
-    bars = base.mark_bar().encode(color=color, tooltip=[
-        alt.Tooltip("name:N"),
-        alt.Tooltip("val_b:Q", title="Billions", format=",.1f")
-    ])
-
+    bars = base.mark_bar().encode(
+        color=color,
+        tooltip=[alt.Tooltip("name:N"),
+                 alt.Tooltip("val_b:Q", title="Billions", format=",.1f")]
+    )
     labels = base.mark_text(dx=6, align="left", baseline="middle", fontWeight="bold").encode(
         text=alt.Text("val_b:Q", format=",.1f")
     )
 
+    height = max(140, 26*len(dd) + 60)
     return (bars + labels).properties(
         title=alt.TitleParams(text=title, anchor="start", dy=12),
-        height=max(120, int(36*len(dd)) + 40),
-        padding={"top":28,"right":8,"left":8,"bottom":8},
+        height=height,
+        padding={"top":28, "right":12, "left":8, "bottom":8},
     ).configure_title(fontSize=16, fontWeight="bold")
 
 # ---------------------------------------------------------------------
-# Layout (Altair charts with tooltips)
+# Layout (with shared domains)
 # ---------------------------------------------------------------------
 left, right = st.columns(2, gap="large")
+
+# Shared domains per pair (assets / liabilities)
+dom_assets = shared_domain(df_assets, 'weekly', 'annual')
+dom_liab   = shared_domain(df_liab,   'weekly_impact', 'annual_impact')
 
 with left:
     st.subheader("Assets — Changes (billions)")
@@ -324,7 +347,8 @@ with left:
         ch = barh_billions(
             df_assets, 'weekly',
             f"Weekly change ({t.strftime('%b %d, %Y')} vs {t_w.strftime('%b %d, %Y')})",
-            "Change (billions of dollars)"
+            "Change (billions of dollars)",
+            x_domain=dom_assets
         )
         if ch is not None:
             st.altair_chart(ch, use_container_width=True, theme=None)
@@ -334,7 +358,8 @@ with left:
             df_assets, 'annual',
             f"Annual change vs baseline {t_y.strftime('%Y-%m-%d')} "
             f"({t.strftime('%b %d, %Y')} vs {t_y.strftime('%b %d, %Y')})",
-            "Change (billions of dollars)"
+            "Change (billions of dollars)",
+            x_domain=dom_assets
         )
         if ch is not None:
             st.altair_chart(ch, use_container_width=True, theme=None)
@@ -345,7 +370,8 @@ with right:
         ch = barh_billions(
             df_liab, 'weekly_impact',
             f"Weekly impact on reserves ({t.strftime('%b %d, %Y')} vs {t_w.strftime('%b %d, %Y')})",
-            "Reserve impact (billions of dollars)"
+            "Reserve impact (billions of dollars)",
+            x_domain=dom_liab
         )
         if ch is not None:
             st.altair_chart(ch, use_container_width=True, theme=None)
@@ -355,13 +381,14 @@ with right:
             df_liab, 'annual_impact',
             f"Annual impact vs baseline {t_y.strftime('%Y-%m-%d')} "
             f"({t.strftime('%b %d, %Y')} vs {t_y.strftime('%b %d, %Y')})",
-            "Reserve impact (billions of dollars)"
+            "Reserve impact (billions of dollars)",
+            x_domain=dom_liab
         )
         if ch is not None:
             st.altair_chart(ch, use_container_width=True, theme=None)
 
 # ---------------------------------------------------------------------
-# Tables & Net (unchanged)
+# Tables & Net
 # ---------------------------------------------------------------------
 st.markdown("---")
 st.subheader("Detailed breakdown (millions)")
@@ -400,8 +427,8 @@ st.markdown("""
 - 🔵 Positive bars increase the line item; 🔴 Negative bars decrease it.  
   For liabilities, “impact on reserves” is shown with **opposite sign** (increase in liabilities → negative reserve impact).
 - **Securities (net)** = held outright + unamortized premiums + unamortized discounts.
-- **Annual baseline** is user-selectable (radio): **YoY (t−1y)** or **fixed 2025-01-01**.
-- Units in charts are **billions ($bn)** with tooltips and labels using thousand separators and 1 decimal.
+- Annual baseline selectable: **YoY (t−1y)** or **fixed 2025-01-01**.
+- Charts use **shared symmetric x-axes** within each pair and **fixed row height** to prevent layout drift.
 """)
 
 st.markdown(
