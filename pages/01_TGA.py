@@ -257,7 +257,7 @@ depo_bn  = bn(depo_latest)
 wdrw_bn  = bn(wdrw_latest)
 close_bn = closing_latest_bn  # already computed: opening + deposits − withdrawals
 
-st.subheader("Latest day identity (billions of $)")
+
 
 identity_html = f"""
 <style>
