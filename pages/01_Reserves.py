@@ -302,8 +302,8 @@ def barh_billions(df: pd.DataFrame, col: str, title: str, xlabel: str, x_domain=
         y=alt.Y("name:N",
                 sort="-x",
                 title=None,
-                scale=alt.Scale(rangeStep=26),      # fixed row height
-                axis=alt.Axis(labelLimit=220)),
+                scale=alt.Scale(paddingInner=0.15, paddingOuter=0.10),
+                axis=alt.Axis(labelLimit=220),
         x=alt.X("val_b:Q",
                 title=xlabel,
                 axis=alt.Axis(format=",.1f"),
