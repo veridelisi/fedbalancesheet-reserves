@@ -56,7 +56,20 @@ project_card(
     link_label="➡️ Repo dashboard"
 )
 
-
+# ————— 3. Proje: TGA —————
+project_card(
+    title="Treasury General Account (TGA) — Deposits, Withdrawals & Closing",
+    tagline="Daily Treasury Statement • Latest snapshot • YoY / 2025-01-01 baseline",
+    description_md=(
+        "Tracks the **TGA** with the latest record date, showing the identity "
+        "**Opening + Deposits − Withdrawals = Closing**. Includes side-by-side "
+        "charts for latest-day levels and **annual Δ** vs selected baseline (YoY or 01.01.2025), "
+        "plus a baseline compare for **Closing Balance**."
+    ),
+    page_path="pages/01_TGA.py",
+    image_path="assets/thumbs/tga.png",
+    link_label="➡️ TGA dashboard"
+)
 
 # project_card("Project 3", "Tagline", "Açıklama...", "pages/03_Another.py", "assets/thumbs/another2.jpg")
 
