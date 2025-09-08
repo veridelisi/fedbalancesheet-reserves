@@ -13,19 +13,21 @@ from matplotlib.ticker import FuncFormatter, AutoLocator
 st.set_page_config(page_title="Veridelisi • Reserve Page", layout="wide")
 
 # --- Gezinme Barı (Yatay Menü, Streamlit-native) ---
-import streamlit as st
+
 
 st.markdown("""
 <div style="background:#f8f9fa;padding:10px 0 10px 0;margin-bottom:24px;border-radius:8px;display:flex;gap:32px;justify-content:center;">
 """, unsafe_allow_html=True)
 
-col1, col2, col3 = st.columns([1,1,1])
+col1, col2, col3, col4 = st.columns([1,1,1,1])
 with col1:
     st.page_link("streamlit_app.py", label="🏠 Home")
 with col2:
     st.page_link("pages/01_Reserves.py", label="📊 Reserves")
 with col3:
     st.page_link("pages/01_Repo.py", label="🔄 Repo")
+with col4:
+    st.page_link("pages/01_TGA.py", label="🔄 Repo")
 
 st.markdown("</div>", unsafe_allow_html=True)
 

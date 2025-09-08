@@ -12,7 +12,7 @@ from dateutil.relativedelta import relativedelta
 st.set_page_config(page_title="TGA — Deposits, Withdrawals & Closing Balance", layout="wide")
 
 # --- Gezinme Barı (Yatay Menü, Streamlit-native) ---
-import streamlit as st
+
 
 st.markdown("""
 <div style="background:#f8f9fa;padding:10px 0 10px 0;margin-bottom:24px;border-radius:8px;display:flex;gap:32px;justify-content:center;">
