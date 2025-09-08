@@ -39,45 +39,63 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-
-
-
-# Config
-
+# -----------------------------------------------------------------------------------
+# Constants
+# -----------------------------------------------------------------------------------
 BASE = "https://api.fiscaldata.treasury.gov/services/api/fiscal_service"
 ENDP = "/v1/accounting/dts/operating_cash_balance"
 
-# Account types we care about
 OPEN  = "Treasury General Account (TGA) Opening Balance"
 DEPO  = "Total TGA Deposits (Table II)"
 WDRW  = "Total TGA Withdrawals (Table II) (-)"
 CLOSE = "Treasury General Account (TGA) Closing Balance"
 
+# Colors
 COLOR_DEP = "#2563eb"  # blue
 COLOR_WDR = "#ef4444"  # red
+COLOR_GRAY = "#94a3b8"
+COLOR_DARK = "#0f172a"
 
-# Which columns to use per account_type (dataset versions vary)
+# Which columns to use per account_type (endpoint vary etse de bunlar kapsıyor)
 COLUMN_PREFS = {
     OPEN : ["open_today_bal","opening_balance_today_amt","open_today_bal_amt","amount"],
     CLOSE: ["close_today_bal","closing_balance_today_amt","close_today_bal_amt","amount"],
-    # DİKKAT: Deposits/Withdrawals için de open_today_bal ilk sıraya alındı
+    # DİKKAT: Deposits/Withdrawals bu dataset'te de "open_today_bal" kolonunda gelebiliyor
     DEPO : ["open_today_bal","today_amt","transaction_today_amt","deposit_today_amt","amount"],
     WDRW : ["open_today_bal","today_amt","transaction_today_amt","withdraw_today_amt","amount"],
 }
 
+NUM_CANDIDATES = {
+    "open_today_bal","close_today_bal",
+    "opening_balance_today_amt","closing_balance_today_amt",
+    "open_today_bal_amt","close_today_bal_amt",
+    "today_amt","transaction_today_amt","amount",
+    "deposit_today_amt","withdraw_today_amt",
+}
 
 # -----------------------------------------------------------------------------------
 # Helpers
 # -----------------------------------------------------------------------------------
-
-
+@st.cache_data(ttl=1800)
 def latest_record_date() -> str:
-    r = requests.get(f"{BASE}{ENDP}", params={"fields":"record_date","sort":"-record_date","page[size]":1}, timeout=60)
+    r = requests.get(f"{BASE}{ENDP}", params={"fields":"record_date","sort":"-record_date","page[size]":1}, timeout=40)
     r.raise_for_status()
-    return r.json()["data"][0]["record_date"]
+    js = r.json().get("data", [])
+    if not js:
+        raise RuntimeError("No latest record_date returned by API.")
+    return js[0]["record_date"]
 
+def _to_float(x):
+    try:
+        return float(str(x).replace(",", "").replace("$", ""))
+    except:
+        return math.nan
+
+@st.cache_data(ttl=1800)
 def get_value_on_or_before(target_date: str, account_type: str) -> float | None:
-    """Fetch the most recent value ON/BEFORE target_date for given account_type."""
+    """
+    Returns the latest value (in millions of $) on/before target_date for given account_type.
+    """
     r = requests.get(
         f"{BASE}{ENDP}",
         params={
@@ -85,72 +103,67 @@ def get_value_on_or_before(target_date: str, account_type: str) -> float | None:
             "sort": "-record_date",
             "page[size]": 1
         },
-        timeout=60
+        timeout=40
     )
     r.raise_for_status()
     data = r.json().get("data", [])
     if not data:
         return None
     row = data[0]
-    # normalize numeric candidates
-    num_candidates = {
-    "open_today_bal","close_today_bal",
-    "opening_balance_today_amt","closing_balance_today_amt",
-    "open_today_bal_amt","close_today_bal_amt",
-    "today_amt","transaction_today_amt","amount",
-    "deposit_today_amt","withdraw_today_amt",
-}
-for c in num_candidates:
-    if c in row and row[c] is not None:
-        try:
-            row[c] = float(str(row[c]).replace(",", "").replace("$",""))
-        except:
-            row[c] = math.nan
-
-
+    # normalize numeric fields
+    for c in NUM_CANDIDATES:
+        if c in row and row[c] is not None:
+            row[c] = _to_float(row[c])
+    # pick first available from preferences
     for col in COLUMN_PREFS[account_type]:
         if col in row and pd.notna(row[col]):
-            val = float(row[col])
-            # withdrawals are reported positive; for equations use minus WDRW
-            return val
-            return None
+            return float(row[col])
+    return None
 
 def bn(x):  # millions -> billions
     return None if x is None or pd.isna(x) else x/1000.0
 
 def fmt_bn(x):
     if x is None or pd.isna(x): return "—"
-    # 2,090.3 format for trillions, otherwise 1 decimal
     return f"{x:,.1f}"
 
-def bar_two(df, xfield, ytitle, colors, title):
+def bar_two(df, xfield, ytitle, colors, title=""):
+    """df: columns [label, value]"""
+    if df.empty:
+        return alt.Chart(pd.DataFrame({"label":[],"value":[]})).mark_bar()
     base = alt.Chart(df).encode(
         x=alt.X(f"{xfield}:Q", axis=alt.Axis(title=ytitle, format=",.1f")),
         y=alt.Y("label:N", sort="-x", title=None),
-        tooltip=[alt.Tooltip("label:N"),
-                 alt.Tooltip(f"{xfield}:Q", title=ytitle, format=",.1f")]
+        tooltip=[
+            alt.Tooltip("label:N"),
+            alt.Tooltip(f"{xfield}:Q", title=ytitle, format=",.1f"),
+        ],
     )
-    # ❌ mark_bar(color=None) yerine:
     chart = base.mark_bar().encode(
         color=alt.Color("label:N", scale=alt.Scale(range=colors), legend=None)
     )
     labels = base.mark_text(dx=6, align="left", baseline="middle", fontWeight="bold").encode(
         text=alt.Text(f"{xfield}:Q", format=",.1f")
     )
-    # ❌ .properties(title=None) yerine:
     return (chart + labels).properties(
-        title=(title or ""),  # boş string ok
+        title=(title or ""),
         height=140,
-        padding={"top":28,"right":12,"left":6,"bottom":8}
+        padding={"top": 28, "right": 12, "left": 6, "bottom": 8}
     )
 
-def bar_delta(df, xfield, ytitle, colors, title):
+def bar_delta(df, xfield, ytitle, colors, title=""):
+    """df: columns [label, value] where value is a delta (can be +/-)"""
+    if df.empty:
+        return alt.Chart(pd.DataFrame({"label":[],"value":[]})).mark_bar()
+    vmin = float(df[xfield].min()) if len(df) else -1.0
+    vmax = float(df[xfield].max()) if len(df) else 1.0
+    dom = (min(0, vmin*1.15), max(0, vmax*1.15))
     base = alt.Chart(df).encode(
-        x=alt.X(f"{xfield}:Q",
-                axis=alt.Axis(title=ytitle, format=",.1f")),
+        x=alt.X(f"{xfield}:Q", axis=alt.Axis(title=ytitle, format=",.1f"),
+                scale=alt.Scale(domain=dom)),
         y=alt.Y("label:N", sort="-x", title=None),
         tooltip=[alt.Tooltip("label:N"),
-                 alt.Tooltip(f"{xfield}:Q", title=ytitle, format=",.1f")]
+                 alt.Tooltip(f"{xfield}:Q", title=ytitle, format=",.1f")],
     )
     bar = base.mark_bar().encode(
         color=alt.Color("label:N", scale=alt.Scale(range=colors), legend=None)
@@ -169,10 +182,15 @@ def bar_delta(df, xfield, ytitle, colors, title):
 # Header
 # -----------------------------------------------------------------------------------
 st.title("🏦 TGA — Deposits, Withdrawals & Closing Balance")
-st.caption("Latest day snapshot, and annual compare vs selected baseline (YoY or fixed 2025-01-01)")
+st.caption("Latest day snapshot • Annual compare vs selected baseline (YoY or 2025-01-01)")
 
 # Latest date card + baseline selector
-_latest = latest_record_date()
+try:
+    _latest = latest_record_date()
+except Exception as e:
+    st.error(f"Failed to fetch latest record date: {e}")
+    st.stop()
+
 t_latest = pd.to_datetime(_latest).date()
 
 c1, c2 = st.columns([1,3])
@@ -225,7 +243,9 @@ with st.container(border=True):
     st.markdown(
         f"""
         <div style="font-size:1.1rem;">
-        <strong>Opening</strong> <span style="color:#6b7280;">(+)</span> <strong>Deposits</strong> <span style="color:#6b7280;">(−)</span> <strong>Withdrawals</strong>
+        <strong>Opening</strong> <span style="color:#6b7280;">(+)</span>
+        <strong>Deposits</strong> <span style="color:#6b7280;">(−)</span>
+        <strong>Withdrawals</strong>
         <span style="color:#6b7280;">=</span> <strong>Closing</strong><br/>
         <code>{fmt_bn(bn(open_latest))}</code> + <code style="color:{COLOR_DEP};">{fmt_bn(bn(depo_latest))}</code>
         − <code style="color:{COLOR_WDR};">{fmt_bn(bn(wdrw_latest))}</code>
@@ -235,7 +255,7 @@ with st.container(border=True):
         unsafe_allow_html=True
     )
     if latest_diff is not None:
-        st.caption(f"Check: Opening + Deposits − Withdrawals − Closing = {latest_diff:+.1f} bn")
+        st.caption(f"Check (Opening + Deposits − Withdrawals − Closing): {latest_diff:+.1f} bn")
 
 # -----------------------------------------------------------------------------------
 # 2) Row: Latest Deposits vs Withdrawals  •  Annual Δ per selected baseline
@@ -247,15 +267,15 @@ with colA:
         "label": ["Deposits", "Withdrawals"],
         "value": [bn(depo_latest) or 0.0, bn(wdrw_latest) or 0.0]
     })
-    ch = bar_two(df_latest, "value", "Billions of $", [COLOR_DEP, COLOR_WDR], title=None)
+    ch = bar_two(df_latest, "value", "Billions of $", [COLOR_DEP, COLOR_WDR])
     st.altair_chart(ch, use_container_width=True, theme=None)
 
 with colB:
     st.subheader(f"Annual Δ — per {base_tag} baseline")
     d_dep = (bn(depo_latest) or 0.0) - (bn(depo_base) or 0.0 if depo_base is not None else 0.0)
     d_wdr = (bn(wdrw_latest) or 0.0) - (bn(wdrw_base) or 0.0 if wdrw_base is not None else 0.0)
-    df_delta = pd.DataFrame({"label":["Deposits Δ","Withdrawals Δ"], "delta":[d_dep, d_wdr]})
-    ch2 = bar_delta(df_delta.rename(columns={"delta":"value"}), "value", "Change (billions of $)", [COLOR_DEP, COLOR_WDR], title=None)
+    df_delta = pd.DataFrame({"label":["Deposits Δ","Withdrawals Δ"], "value":[d_dep, d_wdr]})
+    ch2 = bar_delta(df_delta, "value", "Change (billions of $)", [COLOR_DEP, COLOR_WDR])
     st.altair_chart(ch2, use_container_width=True, theme=None)
 
 # -----------------------------------------------------------------------------------
@@ -267,7 +287,7 @@ df_close = pd.DataFrame({
     "value": [bn(close_base) if close_base is not None else np.nan,
               bn(close_latest) if close_latest is not None else np.nan]
 })
-cl = bar_two(df_close, "value", "Billions of $", ["#94a3b8", "#0f172a"], title=None)  # gray vs dark
+cl = bar_two(df_close, "value", "Billions of $", [COLOR_GRAY, COLOR_DARK])
 st.altair_chart(cl, use_container_width=True, theme=None)
 
 # -----------------------------------------------------------------------------------
@@ -277,13 +297,11 @@ st.markdown("### Methodology")
 st.markdown(
 """
 - **Source:** U.S. Treasury Fiscal Data — *Daily Treasury Statement* (`operating_cash_balance`).
-- We fetch the **latest available record date** and compute values **on/before** the selected baseline (YoY or **2025-01-01**).
-- **Units:** Millions of dollars in the raw feed; charts/totals shown in **billions**.
-- **Deposits/Withdrawals:** Reported as positive amounts in the source; the identity uses **Opening + Deposits − Withdrawals = Closing**.
-- Bars:
-  - Left: latest-day **levels** (Deposits = blue, Withdrawals = red).
-  - Right: **annual change (Δ)** vs the selected baseline (YoY or fixed date).
-- If the baseline date falls on a holiday/weekend, we use the **nearest observation on or before** that date.
+- We fetch the **latest available record date** and compute values **on/before** the selected baseline (**YoY** or **2025-01-01**).
+- **Units:** Millions in the raw feed; charts and text show **billions**.
+- **Deposits/Withdrawals:** Reported as **positive** amounts in the source; identity uses **Opening + Deposits − Withdrawals = Closing**.
+- Left chart shows **latest-day levels** (Deposits = blue, Withdrawals = red). Right chart shows **annual change (Δ)** vs the selected baseline.
+- If the baseline date is a weekend/holiday, we use the **nearest observation on/before** that date.
 """
 )
 
@@ -299,3 +317,5 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
+
