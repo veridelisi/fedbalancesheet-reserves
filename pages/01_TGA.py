@@ -54,18 +54,16 @@ COLOR_DARK = "#0f172a"
 COLOR_OK   = "#10b981"
 
 # Dataset sürümlerine göre değişebilen kolon isimleri
+# YERİNE GEÇSİN
 COLUMN_PREFS = {
-    OPEN : ["open_today_bal","opening_balance_today_amt","open_today_bal_amt","amount"],
-    DEPO : ["open_today_bal","today_amt","transaction_today_amt","deposit_today_amt","amount"],
-    WDRW : ["open_today_bal","today_amt","transaction_today_amt","withdraw_today_amt","amount"],
+    OPEN : ["open_today_bal"],                 # Opening
+    DEPO : ["today_amt", "open_today_bal"],    # Deposits
+    WDRW : ["today_amt", "open_today_bal"],    # Withdrawals
 }
-NUM_CANDIDATES = {
-    "open_today_bal","close_today_bal",
-    "opening_balance_today_amt","closing_balance_today_amt",
-    "open_today_bal_amt","close_today_bal_amt",
-    "today_amt","transaction_today_amt","amount",
-    "deposit_today_amt","withdraw_today_amt",
-}
+
+NUM_CANDIDATES = {"open_today_bal", "close_today_bal", "today_amt"}
+SAFE_FIELDS    = ["record_date", "account_type", "open_today_bal", "close_today_bal", "today_amt"]
+
 
 # --------------------------- Helpers -------------------------------
 @st.cache_data(ttl=1800)
@@ -85,37 +83,49 @@ def _to_float(x):
     except:
         return math.nan
 
+
 @st.cache_data(ttl=1800)
 def get_value_on_or_before(target_date: str, account_type: str) -> float | None:
     """
     Verilen hesap türü için target_date tarihindeki (veya öncesindeki) son değeri döndürür.
     Değerler *milyon $* olarak gelir.
     """
-    fields = ["record_date", "account_type"] + sorted(NUM_CANDIDATES)
-    r = requests.get(
-        f"{BASE}{ENDP}",
-        params={
-            "fields": ",".join(fields),
-            "filter": f"record_date:lte:{target_date},account_type:eq:{account_type}",
-            "sort": "-record_date",
-            "page[size]": 1
-        },
-        timeout=40
-    )
-    r.raise_for_status()
+    params = {
+        "fields": ",".join(SAFE_FIELDS),
+        "filter": f"record_date:lte:{target_date},account_type:eq:{account_type}",
+        "sort": "-record_date",
+        "page[size]": 1,
+    }
+    url = f"{BASE}{ENDP}"
+    try:
+        r = requests.get(url, params=params, timeout=40)
+        r.raise_for_status()
+    except requests.HTTPError:
+        # Bazı ortamlarda fields parametresi reddedilirse 'fields'ı çıkartıp tekrar dene
+        params.pop("fields", None)
+        r = requests.get(url, params=params, timeout=40)
+        r.raise_for_status()
+
     data = r.json().get("data", [])
     if not data:
         return None
+
     row = data[0]
-    # numerik alanları normalize et
+    # numerikleri normalize et
     for c in NUM_CANDIDATES:
         if c in row and row[c] is not None:
-            row[c] = _to_float(row[c])
+            try:
+                row[c] = float(str(row[c]).replace(",", "").replace("$", ""))
+            except:
+                row[c] = math.nan
+
     # tercih sırasına göre ilk mevcut alanı seç
     for col in COLUMN_PREFS[account_type]:
         if col in row and pd.notna(row[col]):
             return float(row[col])
+
     return None
+
 
 def bn(x):  # millions -> billions
     return None if x is None or pd.isna(x) else x/1000.0
