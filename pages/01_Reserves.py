@@ -5,9 +5,8 @@ import pandas as pd
 import numpy as np
 import streamlit as st
 from dateutil.relativedelta import relativedelta
-from datetime import date, timedelta
-from dateutil.relativedelta import relativedelta
-import altair as alt
+import matplotlib.pyplot as plt
+from matplotlib.ticker import FuncFormatter, AutoLocator
 
 
 
@@ -101,21 +100,7 @@ if not API_KEY:
     st.error("API key not set. Go to Settings → Secrets and set `API_KEY`.")
     st.stop()
 
-
-
-# ---------------------------------------------------------------------
-# Config
-# ---------------------------------------------------------------------
-st.set_page_config(page_title="H.4.1 Reserves Impact", layout="wide")
-
-# NOTE: BASE, API_KEY, RELEASE_ID, ELEMENT_ID environment/config should exist.
-
-COLOR_POS = "#2563eb"  # blue for +
-COLOR_NEG = "#ef4444"  # red  for -
-
-# ---------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------
+# ---------- Helpers ----------
 def clean_num(x):
     if x is None: return math.nan
     s = str(x).strip().replace(",", "").replace("–", "-")
@@ -165,9 +150,9 @@ def lookup(vals: dict, name: str, default=0.0):
             return v if pd.notna(v) else default
     return default
 
-# ---------------------------------------------------------------------
-# Dates & baseline selection
-# ---------------------------------------------------------------------
+# ---------- Dates & baseline (radio) ----------
+from datetime import date
+
 TARGET_SERIES_ID = "WSHOSHO"  # weekly Wednesday (H.4.1)
 _latest = get_latest_available_date(TARGET_SERIES_ID) or "2025-09-03"
 
@@ -176,13 +161,17 @@ t_w     = t - timedelta(days=7)              # previous week
 t_yoy   = t - relativedelta(years=1)         # YoY (t - 1 year)
 t_fixed = date(2025, 1, 1)                   # 01.01.2025
 
+fmt = "%d.%m.%Y"
 c1, c2 = st.columns([1, 3])
 with c1:
     st.markdown(
         f"""
-        <div style="display:inline-block; padding:10px 14px; border:1px solid #e5e7eb; 
+        <div style="
+            display:inline-block; padding:10px 14px; border:1px solid #e5e7eb; 
             border-radius:10px; background:#fafafa;">
-            <div style="font-size:0.95rem; color:#6b7280; margin-bottom:2px;">Latest Wednesday</div>
+            <div style="font-size:0.95rem; color:#6b7280; margin-bottom:2px;">
+                Latest Wednesday
+            </div>
             <div style="font-size:1.15rem; font-weight:600; letter-spacing:0.2px;">
                 {t.strftime('%d.%m.%Y')}
             </div>
@@ -190,15 +179,16 @@ with c1:
         """,
         unsafe_allow_html=True
     )
+
 with c2:
     baseline_label = st.radio(
         "Annual baseline",
         ("YoY (t - 1 year)", "01.01.2025"),
-        index=0,
-        horizontal=True
+        index=0,              # default: YoY
+        horizontal=True       # yuvarlak kutucuklar yatay dursun
     )
 
-# Choose baseline date
+# Seçime göre yıllık baz
 if baseline_label.startswith("YoY"):
     t_y = t_yoy
     base_label = "YoY"
@@ -206,17 +196,17 @@ else:
     t_y = t_fixed
     base_label = "2025-01-01"
 
-# ---------------------------------------------------------------------
-# Fetch
-# ---------------------------------------------------------------------
+# ---------- Fetch (seçilen baza göre) ----------
 with st.spinner("Fetching H.4.1 data..."):
     vals_t = get_table_values(t.isoformat())
     vals_w = get_table_values(t_w.isoformat())
     vals_y = get_table_values(t_y.isoformat())
 
-# ---------------------------------------------------------------------
-# Calculations
-# ---------------------------------------------------------------------
+
+
+
+
+# ---------- Calculations ----------
 def net_sec(vdict):
     return (
         lookup(vdict, "Securities held outright")
@@ -278,127 +268,61 @@ for orig, clean in liab_map.items():
         })
 df_liab = pd.DataFrame(liab_rows)
 
-# ---------------------------------------------------------------------
-# Aligned axes helpers
-# ---------------------------------------------------------------------
-def shared_domain(df, *cols, margin=0.10, divide=1000.0):
-    """Return symmetric x-domain (min,max) shared by a set of columns (in $M)."""
-    m = 0.0
-    for c in cols:
-        if isinstance(df, pd.DataFrame) and (c in df.columns):
-            m = max(m, float(df[c].abs().max()) / divide if not df.empty else 0.0)
-    M = (1.0 + margin) * m
-    return (-M, M)
+# ---------- Plot helpers (billions) ----------
+def _fmtB(x, pos):
+    return f"{x:,.1f}B" if abs(x) < 10 else f"{x:,.0f}B"
+fmtB = FuncFormatter(_fmtB)
 
-# ---------------------------------------------------------------------
-# Altair chart helpers (billions) with fixed row height & tooltips
-# ---------------------------------------------------------------------
-def _prep(df: pd.DataFrame, col: str) -> pd.DataFrame:
-    if df.empty: 
-        return pd.DataFrame(columns=["name","val_b","Sign"])
+def plot_barh_billions(df, col, title, xlabel):
+    if df.empty or df[col].abs().max() == 0:
+        return
     dd = df.copy()
-    dd["val_b"] = dd[col] / 1000.0
-    dd["Sign"] = np.where(dd["val_b"] >= 0, "pos", "neg")
-    dd = dd.sort_values("val_b")
-    return dd
+    dd['val_b'] = dd[col] / 1000.0
+    dd = dd.sort_values('val_b')
+    colors = ['#1f77b4' if x >= 0 else 'red' for x in dd['val_b']]
 
-def barh_billions(df: pd.DataFrame, col: str, title: str, xlabel: str, x_domain=None):
-    dd = _prep(df, col)
-    if dd.empty or (dd["val_b"].abs().max() == 0):
-        return None
+    fig, ax = plt.subplots(figsize=(12, max(4, 0.45*len(dd)+2)))
+    ax.barh(dd['name'], dd['val_b'], color=colors, alpha=0.85)
+    ax.set_title(title, fontweight='bold')
+    ax.set_xlabel(xlabel)
+    ax.grid(axis='x', alpha=0.3)
+    ax.axvline(0, color='black', lw=1)
+    max_val = max(abs(dd['val_b'].min()), abs(dd['val_b'].max()))
+    ax.set_xlim(-max_val*1.2, max_val*1.2)
+    ax.xaxis.set_major_locator(AutoLocator())
+    ax.xaxis.set_major_formatter(fmtB)
+    st.pyplot(fig, clear_figure=True)
 
-    base = alt.Chart(dd).encode(
-        y=alt.Y("name:N",
-                sort="-x",
-                title=None,
-                scale=alt.Scale(rangeStep=26),      # fixed row height
-                axis=alt.Axis(labelLimit=220)),
-        x=alt.X("val_b:Q",
-                title=xlabel,
-                axis=alt.Axis(format=",.1f"),
-                scale=alt.Scale(domain=x_domain) if x_domain else alt.Undefined),
-    )
-
-    color = alt.Color(
-        "Sign:N",
-        scale=alt.Scale(domain=["pos","neg"], range=[COLOR_POS, COLOR_NEG]),
-        legend=None
-    )
-
-    bars = base.mark_bar().encode(
-        color=color,
-        tooltip=[alt.Tooltip("name:N"),
-                 alt.Tooltip("val_b:Q", title="Billions", format=",.1f")]
-    )
-    labels = base.mark_text(dx=6, align="left", baseline="middle", fontWeight="bold").encode(
-        text=alt.Text("val_b:Q", format=",.1f")
-    )
-
-    height = max(140, 26*len(dd) + 60)
-    return (bars + labels).properties(
-        title=alt.TitleParams(text=title, anchor="start", dy=12),
-        height=height,
-        padding={"top":28, "right":12, "left":8, "bottom":8},
-    ).configure_title(fontSize=16, fontWeight="bold")
-
-# ---------------------------------------------------------------------
-# Layout (with shared domains)
-# ---------------------------------------------------------------------
+# ---------- Layout ----------
 left, right = st.columns(2, gap="large")
-
-# Shared domains per pair (assets / liabilities)
-dom_assets = shared_domain(df_assets, 'weekly', 'annual')
-dom_liab   = shared_domain(df_liab,   'weekly_impact', 'annual_impact')
 
 with left:
     st.subheader("Assets — Changes (billions)")
-    with st.container(border=True):
-        ch = barh_billions(
-            df_assets, 'weekly',
-            f"Weekly change ({t.strftime('%b %d, %Y')} vs {t_w.strftime('%b %d, %Y')})",
-            "Change (billions of dollars)",
-            x_domain=dom_assets
-        )
-        if ch is not None:
-            st.altair_chart(ch, use_container_width=True, theme=None)
-
-    with st.container(border=True):
-        ch = barh_billions(
-            df_assets, 'annual',
-            f"Annual change vs baseline {t_y.strftime('%Y-%m-%d')} "
-            f"({t.strftime('%b %d, %Y')} vs {t_y.strftime('%b %d, %Y')})",
-            "Change (billions of dollars)",
-            x_domain=dom_assets
-        )
-        if ch is not None:
-            st.altair_chart(ch, use_container_width=True, theme=None)
+    plot_barh_billions(
+        df_assets, 'weekly',
+        f"Weekly change ({t.strftime('%b %d, %Y')} vs {t_w.strftime('%b %d, %Y')})",
+        "Change (billions of dollars)"
+    )
+    plot_barh_billions(
+        df_assets, 'annual',
+        f"Annual change vs baseline {t_y} ({t.strftime('%b %d, %Y')} vs {t_y.strftime('%b %d, %Y')})",
+        "Change (billions of dollars)"
+    )
 
 with right:
     st.subheader("Liabilities — Reserve impact (billions)")
-    with st.container(border=True):
-        ch = barh_billions(
-            df_liab, 'weekly_impact',
-            f"Weekly impact on reserves ({t.strftime('%b %d, %Y')} vs {t_w.strftime('%b %d, %Y')})",
-            "Reserve impact (billions of dollars)",
-            x_domain=dom_liab
-        )
-        if ch is not None:
-            st.altair_chart(ch, use_container_width=True, theme=None)
+    plot_barh_billions(
+        df_liab, 'weekly_impact',
+        f"Weekly impact on reserves ({t.strftime('%b %d, %Y')} vs {t_w.strftime('%b %d, %Y')})",
+        "Reserve impact (billions of dollars)"
+    )
+    plot_barh_billions(
+        df_liab, 'annual_impact',
+        f"Annual impact vs baseline {t_y} ({t.strftime('%b %d, %Y')} vs {t_y.strftime('%b %d, %Y')})",
+        "Reserve impact (billions of dollars)"
+    )
 
-    with st.container(border=True):
-        ch = barh_billions(
-            df_liab, 'annual_impact',
-            f"Annual impact vs baseline {t_y.strftime('%Y-%m-%d')} "
-            f"({t.strftime('%b %d, %Y')} vs {t_y.strftime('%b %d, %Y')})",
-            "Reserve impact (billions of dollars)",
-            x_domain=dom_liab
-        )
-        if ch is not None:
-            st.altair_chart(ch, use_container_width=True, theme=None)
-
-# ---------------------------------------------------------------------
-# Tables & Net
-# ---------------------------------------------------------------------
+# ---------- Tables & Net ----------
 st.markdown("---")
 st.subheader("Detailed breakdown (millions)")
 
@@ -431,13 +355,11 @@ st.metric("Annual Net Impact ($M)", f"{net_annual:+,.0f}")
 
 st.markdown("""
 **Methodology**
-- Data source: Federal Reserve H.4.1 Statistical Release (FRED `release/tables` API).
-- Display thresholds: ±$50M (weekly), ±$100M (annual).
-- 🔵 Positive bars increase the line item; 🔴 Negative bars decrease it.  
-  For liabilities, “impact on reserves” is shown with **opposite sign** (increase in liabilities → negative reserve impact).
-- **Securities (net)** = held outright + unamortized premiums + unamortized discounts.
-- Annual baseline selectable: **YoY (t−1y)** or **fixed 2025-01-01**.
-- Charts use **shared symmetric x-axes** within each pair and **fixed row height** to prevent layout drift.
+- Data source: Federal Reserve H.4.1 Statistical Release (FRED release/tables)
+- Thresholds for display: ±$50M (weekly), ±$100M (annual)
+- 🔵 Positive = increases; 🔴 Negative = decreases
+- Securities = held outright + unamortized premiums + unamortized discounts
+- Annual baseline is **fixed to YoY (t - 1 year)** (not 01.01.2025)
 """)
 
 st.markdown(
