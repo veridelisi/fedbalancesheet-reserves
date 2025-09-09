@@ -172,80 +172,84 @@ exp_bn   = bn(latest["expenditures"])
 rd_bn    = bn(latest["redemp"])
 res_bn   = tax_bn + nd_bn - exp_bn - rd_bn  # Daily Result
 
-# --------------------------- Identity card (4 values + centered result) ---------------------------
+# ----------------------- Latest-day big card ---------------------------
 
-identity_html = f"""
-<style>
-  .tga-card {{
-    border:1px solid #e5e7eb; border-radius:12px; background:#fff;
-    padding:16px 18px; width:100%;
-  }}
-  .tga-grid {{
-    display:grid;
-    grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
-    grid-template-rows: auto auto;
-    column-gap:18px; row-gap:6px; align-items:center;
-  }}
-  .tga-lbl {{ color:#6b7280; font-weight:600; grid-row:1; }}
-  .tga-pill {{
-    grid-row:2; display:inline-block; padding:12px 16px;
-    border-radius:14px; background:#f6f7f9; font-weight:800; font-size:1.35rem;
-  }}
-  .tga-blue {{ color:#2563eb; }}
-  .tga-red  {{ color:#ef4444; }}
-  .tga-op {{ grid-row:2; text-align:center; font-weight:800; font-size:1.6rem; color:#374151; }}
-
-  .tga-result {{
-    margin-top:12px; padding-top:12px; border-top:1px dashed #e5e7eb;
-    text-align:center; color:#374151; font-size:1.05rem;
-  }}
-  .tga-result .val {{ font-weight:900; font-size:1.5rem; }}
-  .tga-result .pos {{ color:#10b981; }}
-  .tga-result .neg {{ color:#ef4444; }}
-
-  @media (max-width: 900px) {{
-    .tga-pill {{ font-size:1.1rem; padding:10px 12px; }}
-    .tga-op   {{ font-size:1.3rem; }}
-  }}
-</style>
-
-<div class="tga-card">
-  <div class="tga-grid">
-    <div class="tga-lbl" style="grid-column:1;">Taxes</div>
-    <div class="tga-lbl" style="grid-column:3;">New Debt (IIIB)</div>
-    <div class="tga-lbl" style="grid-column:5;">Expenditures</div>
-    <div class="tga-lbl" style="grid-column:7;">Debt Redemp (IIIB)</div>
-
-    <div class="tga-pill tga-blue" style="grid-column:1;">{fmt_bn(tax_bn)}</div>
-    <div class="tga-op"              style="grid-column:2;">+</div>
-
-    <div class="tga-pill tga-blue"  style="grid-column:3;">{fmt_bn(nd_bn)}</div>
-    <div class="tga-op"              style="grid-column:4;">−</div>
-
-    <div class="tga-pill tga-red"   style="grid-column:5;">{fmt_bn(exp_bn)}</div>
-    <div class="tga-op"              style="grid-column:6;">−</div>
-
-    <div class="tga-pill tga-red"   style="grid-column:7;">{fmt_bn(rd_bn)}</div>
-  </div>
-
-  <div class="tga-result">
-    <div>
-      Government daily result — {latest_date.strftime('%d.%m.%Y')}
-      <span class="val {'pos' if res_bn >= 0 else 'neg'}">
-        {'▲' if res_bn >= 0 else '▼'} {fmt_bn(res_bn)}
-      </span>
-      <span>
-        TGA cash has {'increased' if res_bn >= 0 else 'decreased'} by {fmt_bn(abs(res_bn))}.
-      </span>
-    </div>
-  </div>
-</div>
-"""
 with st.container(border=True):
-    st.subheader("Latest day identity (billions of $)")
-    st.markdown(identity_html, unsafe_allow_html=True)
+    st.subheader("Latest day — components (billions of $)")
 
-st.markdown("---")
+    # Tarih etiketi
+    st.markdown(
+        f"""
+        <div style="display:inline-block;padding:6px 10px;border:1px solid #e5e7eb;
+                    border-radius:10px;background:#fafafa;margin-bottom:10px;">
+            <span style="color:#6b7280">Latest business day</span>
+            <span style="font-weight:600;margin-left:8px;">{latest_date.strftime('%d.%m.%Y')}</span>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    # 4 kalem: Taxes & New Debt = mavi, Expenditures & Redemp = kırmızı
+    st.markdown(
+        f"""
+        <style>
+          .kpi-grid {{
+            display:grid; grid-template-columns:repeat(4,1fr); gap:24px; width:100%;
+            margin-top:4px; margin-bottom:8px;
+          }}
+          .kpi-card .lbl {{ color:#6b7280; font-weight:600; margin:0 0 6px 0; }}
+          .pill {{
+            display:inline-block; width:100%;
+            padding:16px 18px; border-radius:14px; background:#f6f7f9;
+            font-weight:800; font-size:1.8rem; line-height:1; text-align:left;
+          }}
+          .blue {{ color:#2563eb; }}
+          .red  {{ color:#ef4444; }}
+          .result-line {{
+            margin-top:14px; padding-top:12px; border-top:1px dashed #e5e7eb;
+            text-align:center; color:#374151; font-size:1.08rem;
+          }}
+          .result-val.pos {{ color:#10b981; font-weight:900; }}
+          .result-val.neg {{ color:#ef4444; font-weight:900; }}
+        </style>
+
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="lbl">Taxes</div>
+            <div class="pill blue">{fmt_bn(tax_bn)}</div>
+          </div>
+          <div class="kpi-card">
+            <div class="lbl">New Debt (IIIB)</div>
+            <div class="pill blue">{fmt_bn(nd_bn)}</div>
+          </div>
+          <div class="kpi-card">
+            <div class="lbl">Expenditures</div>
+            <div class="pill red">{fmt_bn(exp_bn)}</div>
+          </div>
+          <div class="kpi-card">
+            <div class="lbl">Debt Redemp (IIIB)</div>
+            <div class="pill red">{fmt_bn(rd_bn)}</div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    # Ortalanmış günlük sonuç cümlesi
+    arrow = "▲" if res_bn >= 0 else "▼"
+    cls   = "pos" if res_bn >= 0 else "neg"
+    verb  = "increased" if res_bn >= 0 else "decreased"
+
+    st.markdown(
+        f"""
+        <div class="result-line">
+            <span>Government daily result — {latest_date.strftime('%d.%m.%Y')}</span>
+            <span class="result-val {cls}" style="margin-left:10px;">{arrow} {fmt_bn(res_bn)}</span>
+            <span style="margin-left:8px;">TGA cash has {verb} by {fmt_bn(abs(res_bn))}.</span>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 # ----------------------- Daily Top-10 detail tables ----------------------
 
