@@ -114,18 +114,39 @@ def compute_components_for_day(df_day: pd.DataFrame) -> dict:
     )
 
 def top_n_detail(df_day: pd.DataFrame, typ: str, n: int, base_total_m: float) -> pd.DataFrame:
-    """Top-N detay (Total ve IIIB hariç)."""
+    """
+    Return top-N rows for Deposits/Withdrawals excluding:
+      - null/blank categories
+      - 'Total TGA Deposits/Withdrawals'
+      - IIIB debt lines (Issues/Redemptions)
+    Adds percentage vs base_total_m.
+    """
     sub = df_day[df_day["transaction_type"] == typ].copy()
+
+    # kategori sütunu
+    cat = sub["transaction_catg"]
+
+    # 1) null/boş kategorileri at
+    keep = cat.notna() & (cat.str.strip() != "")
+
+    # 2) toplam ve IIIB kalemlerini dışla
     if typ == "Deposits":
-        mask = ~sub["transaction_catg"].str.contains("Total TGA Deposits|Public Debt Cash Issues", na=False)
-    else:
-        mask = ~sub["transaction_catg"].str.contains("Total TGA Withdrawals|Public Debt Cash Redemptions", na=False)
-    sub = sub[mask]
-    sub = sub[["transaction_catg", "transaction_today_amt"]].copy()
-    sub = sub.sort_values("transaction_today_amt", ascending=False).head(n)
-    sub["Percentage"] = (sub["transaction_today_amt"] / base_total_m * 100.0) if base_total_m else 0.0
-    sub.rename(columns={"transaction_catg":"Category", "transaction_today_amt":"Amount (m$)"}, inplace=True)
+        keep &= ~cat.str.contains(r"(?:Total TGA Deposits|Public Debt Cash Issues)", na=False)
+    else:  # Withdrawals
+        keep &= ~cat.str.contains(r"(?:Total TGA Withdrawals|Public Debt Cash Redemptions)", na=False)
+
+    sub = sub[keep]
+
+    # 3) tabloyu hazırla
+    sub = (sub[["transaction_catg", "transaction_today_amt"]]
+           .sort_values("transaction_today_amt", ascending=False)
+           .head(n)
+           .rename(columns={"transaction_catg": "Category", "transaction_today_amt": "Amount (m$)"}))
+
+    sub["Percentage"] = (sub["Amount (m$)"] / base_total_m * 100.0) if base_total_m else 0.0
+
     return sub.reset_index(drop=True)
+
 
 # --------------------- Fetch & compute latest day ----------------------
 
