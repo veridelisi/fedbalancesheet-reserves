@@ -258,7 +258,7 @@ with st.container(border=True):
                     color:#374151; font-size:1.05rem;">
             <span>Government daily result — {latest_date.strftime('%d.%m.%Y')}</span>
             <span style="font-weight:900; margin-left:10px; color:{res_color};">
-                {res_arrow} {fmt_bn(res_bn)}
+                {res_arrow} {fmt_bn(res_bn)} billions
             </span>
             <span style="margin-left:8px;">
                 TGA cash has {res_verb} by {fmt_bn(abs(res_bn))}.
