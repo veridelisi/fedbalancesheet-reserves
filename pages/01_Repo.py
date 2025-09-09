@@ -15,13 +15,11 @@ API_URL = "https://markets.newyorkfed.org/api/pd/get/all/timeseries.csv"
 st.set_page_config(page_title="NY Fed Primary Dealer • Repo Dashboard", layout="wide")
 
 # --- Gezinme Barı (Yatay Menü, Streamlit-native) ---
-
-
 st.markdown("""
 <div style="background:#f8f9fa;padding:10px 0 10px 0;margin-bottom:24px;border-radius:8px;display:flex;gap:32px;justify-content:center;">
 """, unsafe_allow_html=True)
 
-col1, col2, col3, col4 = st.columns([1,1,1,1])
+col1, col2, col3, col4, col5 = st.columns([1,1,1,1,1])
 with col1:
     st.page_link("streamlit_app.py", label="🏠 Home")
 with col2:
@@ -30,6 +28,8 @@ with col3:
     st.page_link("pages/01_Repo.py", label="🔄 Repo")
 with col4:
     st.page_link("pages/01_TGA.py", label="🔄 TGA")
+with col5:
+    st.page_link("pages/01_PublicBalance.py", label="🔄 Public Balance")
 
 st.markdown("</div>", unsafe_allow_html=True)
 
