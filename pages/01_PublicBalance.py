@@ -212,6 +212,18 @@ if baseline_date is not None:
 else:
     base = None
 
+# --------------------------- Identity big card ---------------------------
+
+tax_bn   = bn(latest["taxes"])
+exp_bn   = bn(latest["expenditures"])
+nd_bn    = bn(latest["newdebt"])
+rd_bn    = bn(latest["redemp"])
+res_bn   = tax_bn + nd_bn - exp_bn - rd_bn
+
+res_class = "pos" if res_bn >= 0 else "neg"
+res_arrow = "▲" if res_bn >= 0 else "▼"
+res_verb  = "increased" if res_bn >= 0 else "decreased"
+
 # --------------------------- Identity (metrics + result line) ---------------------------
 with st.container(border=True):
     st.subheader("Latest day identity (billions of $)")
