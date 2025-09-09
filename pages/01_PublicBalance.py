@@ -42,408 +42,304 @@ st.title("🏦 Public Balance (Taxes, Expenditures, New Debt, Debt Redemptions)"
 st.caption("Latest snapshot • Annual compare (YoY or fixed 2025-01-01) • Daily Top-10 breakdowns")
 
 
-# ---------------- API ----------------
+# -------------------------- Helpers --------------------------
+
 BASE = "https://api.fiscaldata.treasury.gov/services/api/fiscal_service"
 ENDP = "/v1/accounting/dts/deposits_withdrawals_operating_cash"
 
+def to_float(x):
+    """Robust numeric parser (string -> float)."""
+    try:
+        return float(str(x).replace(",", "").strip())
+    except Exception:
+        return 0.0
 
-# ---------------- Helpers ----------------
-def to_num(x):
-    """Virgül/boşluk temizleyip float döndür."""
-    return pd.to_numeric(str(x).replace(",", "").strip(), errors="coerce")
-
-def bn(m):
-    """$M → $Bn"""
-    return float(m) / 1000.0
+def bn(million_value):
+    """Millions -> Billions (float)."""
+    return float(million_value) / 1000.0
 
 def fmt_bn(x):
+    """Nice 1-dec format for billions."""
     return f"{x:,.1f}"
 
-def get_latest_date():
-    url = f"{BASE}{ENDP}?fields=record_date&sort=-record_date&page[size]=1"
+@st.cache_data(ttl=1800)
+def fetch_latest_window(page_size: int = 500) -> pd.DataFrame:
+    """
+    Pulls a recent window sorted by date desc.
+    We then compute per-day metrics from this frame.
+    """
+    url = f"{BASE}{ENDP}?sort=-record_date&page[size]={page_size}"
     r = requests.get(url, timeout=40)
     r.raise_for_status()
-    js = r.json().get("data", [])
-    if not js:
-        raise RuntimeError("No data returned for latest date.")
-    return js[0]["record_date"]
+    df = pd.DataFrame(r.json().get("data", []))
+    # Ensure expected columns exist
+    for c in ("record_date","transaction_type","transaction_catg","transaction_today_amt"):
+        if c not in df.columns:
+            df[c] = None
+    # Normalize
+    df["record_date"] = pd.to_datetime(df["record_date"]).dt.date
+    df["transaction_today_amt"] = df["transaction_today_amt"].apply(to_float)
+    return df
 
-def fetch_day_records(on_or_before: str):
-    """
-    İstenen tarihte veya öncesindeki **son** günü getirir (lte + sort desc).
-    """
-    url = (
-        f"{BASE}{ENDP}"
-        f"?filter=record_date:lte:{on_or_before}"
-        f"&sort=-record_date&page[size]=1"
-        f"&fields=record_date"
-    )
-    r = requests.get(url, timeout=40)
-    r.raise_for_status()
-    rows = r.json().get("data", [])
-    if not rows:
-        return None, pd.DataFrame()
-    picked = rows[0]["record_date"]
+def nearest_on_or_before(dates: pd.Series, target: date) -> date | None:
+    """Return the max(d) where d <= target; dates must be dtype 'date'."""
+    s = pd.Series(sorted(set(dates)))
+    s = s[s <= target]
+    return None if s.empty else s.iloc[-1]
 
-    # O günün tüm kayıtları:
-    url2 = (
-        f"{BASE}{ENDP}"
-        f"?filter=record_date:eq:{picked}"
-        f"&sort=transaction_catg&page[size]=500"
-        f"&fields=record_date,transaction_type,transaction_catg,transaction_today_amt"
-    )
-    r2 = requests.get(url2, timeout=60)
-    r2.raise_for_status()
-    df = pd.DataFrame(r2.json().get("data", []))
-    return picked, df
+def day_slice(df: pd.DataFrame, d: date) -> pd.DataFrame:
+    return df[df["record_date"] == d].copy()
 
+# ---- Per-day metrics (Taxes, NewDebt, Expenditures, Redemp) ----
+# Dataset düzeni: Gün içi Deposits / Withdrawals kalemleri, son kalem 'Total ...' oluyor.
+# Ayrıca IIIB kalemleri: 'Public Debt Cash Issues (Table IIIB)', 'Public Debt Cash Redemptions (Table IIIB)'.
 
-def compute_flows(df_day: pd.DataFrame):
-    """
-    Bir günün verisinden Taxes, Expenditures, NewDebt, DebtRedemp ve
-    ayrıntı tablolarını çıkar. (Sıkılaştırma: iloc fallback + isim temizliği)
-    """
-    if df_day.empty:
-        return None
+def compute_components_for_day(df_day: pd.DataFrame) -> dict:
+    dep = df_day[df_day["transaction_type"] == "Deposits"].copy()
+    wdr = df_day[df_day["transaction_type"] == "Withdrawals"].copy()
 
-    # Sayısal ve temizlik
-    df = df_day.copy()
-    df["amt"] = df["transaction_today_amt"].map(to_num).fillna(0.0)
-    df["transaction_catg"] = (
-        df["transaction_catg"]
-        .replace({None: "Unclassified", "null": "Unclassified"})
-        .fillna("Unclassified")
-    )
+    # ---- Deposits side ----
+    # Total
+    dep_total_row = dep[dep["transaction_catg"].str.contains("Total TGA Deposits", na=False)]
+    dep_total = dep_total_row["transaction_today_amt"].sum() if not dep_total_row.empty else (dep["transaction_today_amt"].iloc[-1] if len(dep) else 0.0)
 
-    # ---- Deposits ----
-    dep = df[df["transaction_type"].str.lower() == "deposits"].copy()
-    dep = dep.sort_values("transaction_catg")
-    total_dep = dep["amt"].sum()
+    # New Debt (IIIB)
+    new_debt_row = dep[dep["transaction_catg"].str.contains("Public Debt Cash Issues", na=False)]
+    new_debt = new_debt_row["transaction_today_amt"].sum() if not new_debt_row.empty else (dep["transaction_today_amt"].iloc[-2] if len(dep) >= 2 else 0.0)
 
-    # Fallback: son iki satır varsayımı (Table IIIB + Total)
-    if len(dep) >= 2:
-        dep_newdebt = float(dep["amt"].iloc[-2])  # Public Debt Cash Issues (IIIB)
-        dep_total_last = float(dep["amt"].iloc[-1])  # Total
-        # Emniyet: eğer toplam ile sum uyuşmuyorsa yine de sum'ı kullan
-        total_dep = float(dep["amt"].sum())
-    else:
-        dep_newdebt = 0.0
-        dep_total_last = total_dep
+    # Taxes (residual)
+    taxes = dep_total - new_debt
 
-    taxes = total_dep - dep_newdebt
+    # ---- Withdrawals side ----
+    wdr_total_row = wdr[wdr["transaction_catg"].str.contains("Total TGA Withdrawals", na=False)]
+    wdr_total = wdr_total_row["transaction_today_amt"].sum() if not wdr_total_row.empty else (wdr["transaction_today_amt"].iloc[-1] if len(wdr) else 0.0)
 
-    # Top-10 taxes havuzu (Total & IIIB hariç)
-    dep_pool = dep.iloc[:-2].copy() if len(dep) >= 2 else dep.copy()
-    # Emniyet ismiyle de dışarıda tut
-    dep_lc = dep_pool["transaction_catg"].str.lower()
-    mask_excl_dep = (
-        dep_lc.str.contains("public debt cash issues", na=False)
-        | dep_lc.str.contains("table iiib", na=False)
-        | dep_lc.str.contains("total", na=False)
-    )
-    dep_pool = dep_pool.loc[~mask_excl_dep].copy()
-    dep_pool.rename(
-        columns={"transaction_catg": "Category", "amt": "Amount ($M)"},
-        inplace=True,
-    )
-    dep_pool["Share of Taxes (%)"] = (
-        100.0 * dep_pool["Amount ($M)"] / taxes if taxes != 0 else 0.0
-    )
+    redemp_row = wdr[wdr["transaction_catg"].str.contains("Public Debt Cash Redemptions", na=False)]
+    redemp = redemp_row["transaction_today_amt"].sum() if not redemp_row.empty else (wdr["transaction_today_amt"].iloc[-2] if len(wdr) >= 2 else 0.0)
 
-    # ---- Withdrawals ----
-    w = df[df["transaction_type"].str.lower() == "withdrawals"].copy()
-    w = w.sort_values("transaction_catg")
-    total_w = w["amt"].sum()
+    expenditures = wdr_total - redemp
 
-    if len(w) >= 2:
-        w_redemp = float(w["amt"].iloc[-2])  # Public Debt Cash Redemptions (IIIB)
-        w_total_last = float(w["amt"].iloc[-1])  # Total
-        total_w = float(w["amt"].sum())
-    else:
-        w_redemp = 0.0
-        w_total_last = total_w
-
-    expenditures = total_w - w_redemp
-
-    # Top-10 expenditures havuzu (Total & IIIB hariç)
-    w_pool = w.iloc[:-2].copy() if len(w) >= 2 else w.copy()
-    w_lc = w_pool["transaction_catg"].str.lower()
-    mask_excl_w = (
-        w_lc.str.contains("public debt cash redemp", na=False)
-        | w_lc.str.contains("table iiib", na=False)
-        | w_lc.str.contains("total", na=False)
-    )
-    w_pool = w_pool.loc[~mask_excl_w].copy()
-    w_pool.rename(
-        columns={"transaction_catg": "Category", "amt": "Amount ($M)"},
-        inplace=True,
-    )
-    w_pool["Share of Expenditures (%)"] = (
-        100.0 * w_pool["Amount ($M)"] / expenditures if expenditures != 0 else 0.0
-    )
-
-    # Sonuçlar
     return dict(
-        taxes=taxes,
-        newdebt=dep_newdebt,
-        expenditures=expenditures,
-        redemp=w_redemp,
-        dep_pool=dep_pool,
-        w_pool=w_pool,
+        taxes=taxes, expenditures=expenditures, newdebt=new_debt, redemp=redemp,
+        deposits_total=dep_total, withdrawals_total=wdr_total
     )
 
+def top_n_detail(df_day: pd.DataFrame, typ: str, n: int, base_total_m: float) -> pd.DataFrame:
+    """Return top-N detail rows for Deposits or Withdrawals excluding IIIB & Total rows, with % share."""
+    sub = df_day[df_day["transaction_type"] == typ].copy()
+    if typ == "Deposits":
+        # exclude totals & debt issues
+        mask = ~sub["transaction_catg"].str.contains("Total TGA Deposits|Public Debt Cash Issues", na=False)
+    else:
+        mask = ~sub["transaction_catg"].str.contains("Total TGA Withdrawals|Public Debt Cash Redemptions", na=False)
+    sub = sub[mask]
 
-def bar_pair(title, baseline_val_bn, latest_val_bn, color):
-    """
-    Baseline vs Latest küçük çubuk grafik (Altair).
-    """
-    data = pd.DataFrame(
-        {
-            "Label": ["Baseline", "Latest"],
-            "Value": [baseline_val_bn, latest_val_bn],
-        }
-    )
-    chart = (
-        alt.Chart(data, title=title)
-        .mark_bar()
-        .encode(
-            x=alt.X("Label:N", axis=alt.Axis(title=None)),
-            y=alt.Y("Value:Q", axis=alt.Axis(title="Billions of $")),
-            color=alt.value(color),
-            tooltip=[alt.Tooltip("Label:N"), alt.Tooltip("Value:Q", format=",.1f")],
-        )
-        .properties(height=260)
-    )
-    labels = chart.mark_text(
-        dy=-8,
-        fontWeight="bold",
-        color="black",
-    ).encode(text=alt.Text("Value:Q", format=",.1f"))
-    return chart + labels
+    sub = sub[["transaction_catg", "transaction_today_amt"]].copy()
+    sub = sub.sort_values("transaction_today_amt", ascending=False).head(n)
+    sub["Percentage"] = (sub["transaction_today_amt"] / base_total_m * 100.0) if base_total_m else 0.0
+    sub.rename(columns={"transaction_catg":"Category", "transaction_today_amt":"Amount (m$)"}, inplace=True)
+    return sub.reset_index(drop=True)
 
+# ------------------------- UI: Title & baseline -------------------------
 
-def bar_top_share(df, value_col, share_col, title, bar_color):
-    """Yüzde katkılarına göre Top-10 yatay çubuk."""
-    dd = df.sort_values(share_col, ascending=True).tail(10)
-    ch = (
-        alt.Chart(dd, title=title)
-        .mark_bar(color=bar_color)
-        .encode(
-            x=alt.X(f"{share_col}:Q", axis=alt.Axis(title="%")),
-            y=alt.Y("Category:N", sort="-x", axis=alt.Axis(title=None)),
-            tooltip=[
-                alt.Tooltip("Category:N"),
-                alt.Tooltip(value_col, type="quantitative", title="Amount ($M)", format=",.0f"),
-                alt.Tooltip(share_col, type="quantitative", title="Share (%)", format=",.1f"),
-            ],
-        )
-        .properties(height=320)
-    )
-    return ch
+st.title("Public Balance Position Statement")
+st.caption("Daily Treasury Statement • Latest snapshot — taxes, expenditures, and debt cash flows")
 
+df_all = fetch_latest_window()
+latest_date = df_all["record_date"].max()
 
-# ---------------- UI ----------------
-
-
-
-with st.spinner("Fetching latest Treasury DTS data..."):
-    latest_iso = get_latest_date()
-    latest_dt, df_latest = fetch_day_records(latest_iso)
-    if df_latest.empty:
-        st.error("No data returned for the latest day.")
-        st.stop()
-
-# Baseline seçimi
-colA, colB = st.columns([1, 3])
-with colA:
+c0, c1 = st.columns([1, 3])
+with c0:
     st.markdown(
         f"""
-        <div style="display:inline-block; padding:10px 14px; border:1px solid #e5e7eb; 
-            border-radius:10px; background:#fafafa;">
-            <div style="font-size:0.95rem; color:#6b7280;">Latest day</div>
-            <div style="font-size:1.15rem; font-weight:600;">{pd.to_datetime(latest_dt).strftime('%d.%m.%Y')}</div>
+        <div style="display:inline-block;padding:10px 14px;border:1px solid #e5e7eb;border-radius:10px;background:#fafafa;">
+            <div style="font-size:0.95rem;color:#6b7280;margin-bottom:2px;">Latest business day</div>
+            <div style="font-size:1.15rem;font-weight:600;letter-spacing:0.2px;">{latest_date.strftime('%d.%m.%Y')}</div>
         </div>
-        """,
-        unsafe_allow_html=True,
+        """, unsafe_allow_html=True
     )
-
-with colB:
-    baseline_choice = st.radio(
-        "Annual baseline",
-        ("YoY (t − 1 year)", "01.01.2025"),
-        horizontal=True,
-        index=0,
-    )
-
-# Baz tarihi belirle
-if baseline_choice.startswith("YoY"):
-    base_date = (pd.to_datetime(latest_dt) - relativedelta(years=1)).date().isoformat()
-    base_label = "YoY baseline"
-else:
-    base_date = date(2025, 1, 1).isoformat()
-    base_label = "Fixed 2025-01-01"
-
-# Baz veriyi çek
-with st.spinner(f"Fetching baseline day on/before {base_date} ..."):
-    base_dt, df_base = fetch_day_records(base_date)
-    if df_base.empty:
-        st.warning("Baseline day could not be fetched; using latest as baseline for display.")
-        base_dt, df_base = latest_dt, df_latest.copy()
-
-# Akım bileşenlerini çıkar
-latest = compute_flows(df_latest)
-base = compute_flows(df_base)
-
-if latest is None or base is None:
-    st.error("Failed to compute flows.")
-    st.stop()
-
-# Kimlik eşitliği: ΔTGA'ya göre göster
-latest_delta_bn = bn(latest["taxes"] + latest["newdebt"] - latest["expenditures"] - latest["redemp"])
-
-
-
-# ---------------- Identity (4 değer) ----------------
-st.subheader("Latest day identity — components (billions of $)")
-
-def metric_header(col, label, right_text: str = ""):
-    col.markdown(
-        f"""
-        <div style="display:flex;justify-content:space-between;align-items:baseline;
-                    margin-bottom:6px;">
-            <span style="font-weight:700;">{label}</span>
-            <span style="color:#6b7280;font-size:.75rem;">{right_text}</span>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-# Kolonlar
-c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 1])
-
 with c1:
-    metric_header(c1, "Taxes")
-    c1.metric(label="", value=fmt_bn(bn(latest["taxes"])))
+    baseline_label = st.radio("Annual baseline", ("YoY (t − 1 year)", "01.01.2025"), horizontal=True, index=0)
 
-with c2:
-    metric_header(c2, "Expenditures")
-    c2.metric(label="", value=fmt_bn(bn(latest["expenditures"])))
+if baseline_label.startswith("YoY"):
+    target_baseline = latest_date - relativedelta(years=1)
+else:
+    target_baseline = date(2025, 1, 1)
 
-with c3:
-    metric_header(c3, "New Debt (IIIB)")
-    c3.metric(label="", value=fmt_bn(bn(latest["newdebt"])))
+baseline_date = nearest_on_or_before(df_all["record_date"], target_baseline)
 
-with c4:
-    metric_header(c4, "Debt Redemp (IIIB)")
-    c4.metric(label="", value=fmt_bn(bn(latest["redemp"])))
+# ----------------------- Compute latest / baseline -----------------------
 
-with c5:
-    # tarihi sağ tarafa koy (d_latest: datetime.date / pd.Timestamp)
-    metric_header(c5, "Daily Result")
-    c5.metric(label="", value=fmt_bn(latest_delta_bn))
+df_latest = day_slice(df_all, latest_date)
+latest = compute_components_for_day(df_latest)
+
+if baseline_date is not None:
+    df_base = day_slice(df_all, baseline_date)
+    base = compute_components_for_day(df_base)
+else:
+    base = None
+
+# --------------------------- Identity big card ---------------------------
+
+tax_bn   = bn(latest["taxes"])
+exp_bn   = bn(latest["expenditures"])
+nd_bn    = bn(latest["newdebt"])
+rd_bn    = bn(latest["redemp"])
+res_bn   = tax_bn + nd_bn - exp_bn - rd_bn
+
+res_class = "pos" if res_bn >= 0 else "neg"
+res_arrow = "▲" if res_bn >= 0 else "▼"
+res_verb  = "increased" if res_bn >= 0 else "decreased"
+
+identity_html = f"""
+<style>
+  .tga-card {{
+    border:1px solid #e5e7eb; border-radius:12px; background:#fff;
+    padding:16px 18px; width:100%;
+  }}
+  .tga-grid {{
+    display:grid;
+    grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
+    grid-template-rows: auto auto;
+    column-gap:16px; row-gap:6px; align-items:center;
+  }}
+  .tga-lbl {{ color:#6b7280; font-weight:600; grid-row:1; }}
+  .tga-pill {{
+    grid-row:2; display:inline-block; padding:12px 16px;
+    border-radius:14px; background:#f6f7f9; font-weight:800; font-size:1.35rem;
+  }}
+  .tga-blue {{ color:#2563eb; }}
+  .tga-red  {{ color:#ef4444; }}
+  .tga-op {{
+    grid-row:2; text-align:center; font-weight:800; font-size:1.6rem; color:#374151;
+  }}
+
+  .tga-result {{
+    margin-top:12px; padding-top:10px; border-top:1px dashed #e5e7eb;
+    display:flex; gap:12px; align-items:baseline; flex-wrap:wrap;
+  }}
+  .tga-result .dt {{ color:#6b7280; }}
+  .tga-result .val {{ font-weight:900; font-size:1.5rem; }}
+  .tga-result.pos .val {{ color:#10b981; }}
+  .tga-result.neg .val {{ color:#ef4444; }}
+  .tga-result .exp {{ color:#374151; }}
+
+  @media (max-width: 900px) {{
+    .tga-pill {{ font-size:1.1rem; padding:10px 12px; }}
+    .tga-op   {{ font-size:1.3rem; }}
+  }}
+</style>
+
+<div class="tga-card">
+  <div class="tga-grid">
+    <div class="tga-lbl" style="grid-column:1;">Taxes</div>
+    <div class="tga-lbl" style="grid-column:3;">New Debt (IIIB)</div>
+    <div class="tga-lbl" style="grid-column:5;">Expenditures</div>
+    <div class="tga-lbl" style="grid-column:7;">Debt Redemp (IIIB)</div>
+
+    <div class="tga-pill tga-blue" style="grid-column:1;">{fmt_bn(tax_bn)}</div>
+    <div class="tga-op"              style="grid-column:2;">+</div>
+
+    <div class="tga-pill tga-blue" style="grid-column:3;">{fmt_bn(nd_bn)}</div>
+    <div class="tga-op"              style="grid-column:4;">−</div>
+
+    <div class="tga-pill tga-red"  style="grid-column:5;">{fmt_bn(exp_bn)}</div>
+    <div class="tga-op"              style="grid-column:6;">−</div>
+
+    <div class="tga-pill tga-red"  style="grid-column:7;">{fmt_bn(rd_bn)}</div>
+  </div>
+
+  <div class="tga-result {res_class}">
+    <div class="dt">Government daily result — {latest_date.strftime('%d.%m.%Y')}</div>
+    <div class="val">{res_arrow} {fmt_bn(res_bn)}</div>
+    <div class="exp">TGA cash has {res_verb} by {fmt_bn(abs(res_bn))}.</div>
+  </div>
+</div>
+"""
+st.markdown(identity_html, unsafe_allow_html=True)
 
 st.markdown("---")
 
+# ----------------------- Baseline vs Latest charts -----------------------
 
+st.subheader("Baseline vs Latest (per selection)")
 
+def two_bar_chart(title: str, base_val_bn: float, latest_val_bn: float, color: str):
+    dfc = pd.DataFrame({
+        "Period": ["Baseline", "Latest"],
+        "Billions of $": [base_val_bn, latest_val_bn]
+    })
+    ch = alt.Chart(dfc).mark_bar().encode(
+        x=alt.X("Period:N", title=""),
+        y=alt.Y("Billions of $:Q", title="Billions of $"),
+        color=alt.value(color),
+        tooltip=["Period", alt.Tooltip("Billions of $:Q", format=",.1f")]
+    ).properties(height=220, title=title)
+    st.altair_chart(ch, use_container_width=True)
 
-# ---------------- Annual compare — 3 grafik ----------------
-st.subheader(f"Annual compare per baseline ({base_label})")
+colA, colB, colC = st.columns(3)
 
-left, mid, right = st.columns(3)
+if base is None:
+    st.info("Baseline date not available in the API window. Charts hidden.")
+else:
+    with colA:
+        two_bar_chart("Taxes", bn(base["taxes"]), bn(latest["taxes"]), "#2563eb")
+    with colB:
+        two_bar_chart("Expenditures", bn(base["expenditures"]), bn(latest["expenditures"]), "#ef4444")
+    with colC:
+        base_net = bn(base["newdebt"] - base["redemp"])
+        last_net = bn(latest["newdebt"] - latest["redemp"])
+        two_bar_chart("Net debt cash (New − Redemp)", base_net, last_net, "#6b7280")
+
+st.markdown("---")
+
+# ----------------------- Daily Top-10 detail tables ----------------------
+
+st.subheader("Daily Top-10 categories (latest day)")
+
+# Taxes detail (Deposits excluding Issues & Total)
+taxes_total_m = latest["taxes"]
+expend_total_m = latest["expenditures"]
+
+left, right = st.columns(2)
+
 with left:
-    ch = bar_pair(
-        f"Taxes — Baseline ({base_dt}) vs Latest ({latest_dt})",
-        bn(base["taxes"]),
-        bn(latest["taxes"]),
-        color="#2563eb",
-    )
-    st.altair_chart(ch, use_container_width=True)
-
-with mid:
-    ch = bar_pair(
-        f"Expenditures — Baseline ({base_dt}) vs Latest ({latest_dt})",
-        bn(base["expenditures"]),
-        bn(latest["expenditures"]),
-        color="#ef4444",
-    )
-    st.altair_chart(ch, use_container_width=True)
+    st.markdown("**Taxes — top 10 categories (share of Taxes)**")
+    taxes_top = top_n_detail(df_latest, typ="Deposits", n=10, base_total_m=taxes_total_m)
+    taxes_top["Amount (m$)"] = taxes_top["Amount (m$)"].map(lambda v: f"{v:,.0f}")
+    taxes_top["Percentage"] = taxes_top["Percentage"].map(lambda v: f"{v:,.1f}%")
+    st.dataframe(taxes_top, use_container_width=True)
 
 with right:
-    base_debt_net = bn(base["newdebt"] - base["redemp"])
-    latest_debt_net = bn(latest["newdebt"] - latest["redemp"])
-    ch = bar_pair(
-        f"Debt net (New Debt − Redemp) — Baseline vs Latest",
-        base_debt_net,
-        latest_debt_net,
-        color="#6b7280",
-    )
-    st.altair_chart(ch, use_container_width=True)
+    st.markdown("**Expenditures — top 10 categories (share of Expenditures)**")
+    expend_top = top_n_detail(df_latest, typ="Withdrawals", n=10, base_total_m=expend_total_m)
+    expend_top["Amount (m$)"] = expend_top["Amount (m$)"].map(lambda v: f"{v:,.0f}")
+    expend_top["Percentage"] = expend_top["Percentage"].map(lambda v: f"{v:,.1f}%")
+    st.dataframe(expend_top, use_container_width=True)
 
 st.markdown("---")
 
-# ---------------- Top-10 (% pay) — Taxes & Expenditures ----------------
-st.subheader("Daily Top-10 contributors (share %)")
+# ---------------------------- Methodology -------------------------------
 
-colL, colR = st.columns(2)
+st.markdown("### Methodology")
+st.markdown(
+"""
+- **Source:** U.S. Treasury – FiscalData `deposits_withdrawals_operating_cash`.
+- **Latest day** = most recent `record_date` available in the API; **baseline** is either
+  **YoY (t−1y)** or **fixed 2025-01-01**, using the nearest date **on/before** the target if needed.
+- **Taxes** are computed as **Total TGA Deposits (Table II) − Public Debt Cash Issues (Table IIIB)**.
+- **Expenditures** are computed as **Total TGA Withdrawals (Table II) − Public Debt Cash Redemptions (Table IIIB)**.
+- **Daily Result** = **Taxes + NewDebt − Expenditures − Redemp** (displayed in billions).
+- Top-10 tables exclude the **Total** lines and **IIIB** debt lines.
+"""
+)
 
-with colL:
-    st.caption("Taxes — Top-10 categories (share of Taxes)")
-    st.altair_chart(
-        bar_top_share(
-            latest["dep_pool"],
-            value_col="Amount ($M)",
-            share_col="Share of Taxes (%)",
-            title=f"Latest {latest_dt}",
-            bar_color="#2563eb",
-        ),
-        use_container_width=True,
-    )
-
-with colR:
-    st.caption("Expenditures — Top-10 categories (share of Expenditures)")
-    st.altair_chart(
-        bar_top_share(
-            latest["w_pool"],
-            value_col="Amount ($M)",
-            share_col="Share of Expenditures (%)",
-            title=f"Latest {latest_dt}",
-            bar_color="#ef4444",
-        ),
-        use_container_width=True,
-    )
-
-st.markdown("---")
-
-# ---------------- Tam tablolar (seviye) ----------------
-st.subheader("Category-level tables (latest day)")
-t1, t2 = st.columns(2)
-
-with t1:
-    st.markdown("**Taxes pool (Deposits excl. IIIB & Total)**")
-    dep_tbl = latest["dep_pool"].copy()
-    dep_tbl["Amount ($Bn)"] = dep_tbl["Amount ($M)"] / 1000.0
-    st.dataframe(
-        dep_tbl[["Category", "Amount ($Bn)", "Share of Taxes (%)"]].sort_values("Amount ($Bn)", ascending=False),
-        use_container_width=True,
-    )
-
-with t2:
-    st.markdown("**Expenditures pool (Withdrawals excl. IIIB & Total)**")
-    w_tbl = latest["w_pool"].copy()
-    w_tbl["Amount ($Bn)"] = w_tbl["Amount ($M)"] / 1000.0
-    st.dataframe(
-        w_tbl[["Category", "Amount ($Bn)", "Share of Expenditures (%)"]].sort_values("Amount ($Bn)", ascending=False),
-        use_container_width=True,
-    )
-
-# ---------------- Footer ----------------
 st.markdown(
     """
-    <hr style="margin-top:28px; margin-bottom:10px; border:none; border-top:1px solid #e5e7eb;">
-    <div style="text-align:center; color:#6b7280; font-size:0.95rem;">
+    <hr style="margin-top:20px;margin-bottom:8px;border:none;border-top:1px solid #e5e7eb;">
+    <div style="text-align:center;color:#6b7280;font-size:.95rem;">
         <strong>Engin Yılmaz</strong> · Visiting Research Scholar · UMASS Amherst · September 2025
     </div>
     """,
-    unsafe_allow_html=True,
+    unsafe_allow_html=True
 )
