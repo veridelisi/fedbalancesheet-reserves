@@ -317,28 +317,31 @@ def metric_header(col, label, right_text: str = ""):
         unsafe_allow_html=True
     )
 
-c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 2.2])
+# ...existing code...
+
+c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 1])
 
 with c1:
-    metric_header(st, "Taxes")
-    st.metric(label="", value=fmt_bn(bn(latest["taxes"])))
+    metric_header(c1, "Taxes")
+    c1.metric(label="", value=fmt_bn(bn(latest["taxes"])))
 
 with c2:
-    metric_header(st, "Expenditures")
-    st.metric(label="", value=fmt_bn(bn(latest["expenditures"])))
+    metric_header(c2, "Expenditures")
+    c2.metric(label="", value=fmt_bn(bn(latest["expenditures"])))
 
 with c3:
-    metric_header(st, "New Debt (IIIB)")
-    st.metric(label="", value=fmt_bn(bn(latest["newdebt"])))
+    metric_header(c3, "New Debt (IIIB)")
+    c3.metric(label="", value=fmt_bn(bn(latest["newdebt"])))
 
 with c4:
-    metric_header(st, "Debt Redemp (IIIB)")
-    st.metric(label="", value=fmt_bn(bn(latest["redemp"])))
+    metric_header(c4, "Debt Redemp (IIIB)")
+    c4.metric(label="", value=fmt_bn(bn(latest["redemp"])))
 
 with c5:
-    # Tarihi başlıkla aynı satıra al — ek satır yok, kayma olmaz
-    metric_header(st, "Daily Result")
-    st.metric(label="", value=fmt_bn(latest_delta_bn))
+    metric_header(c5, "Daily Result")
+    c5.metric(label="", value=fmt_bn(latest_delta_bn))
+
+# ...existing code...
 
 st.markdown("---")
 
