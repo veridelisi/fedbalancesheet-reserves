@@ -301,10 +301,11 @@ if latest is None or base is None:
 # Kimlik eşitliği: ΔTGA'ya göre göster
 latest_delta_bn = bn(latest["taxes"] + latest["newdebt"] - latest["expenditures"] - latest["redemp"])
 
+
+
 # ---------------- Identity (4 değer) ----------------
 st.subheader("Latest day identity — components (billions of $)")
 
-# Tek satır başlık (solda etiket, sağda opsiyonel yazı) — hizayı korur
 def metric_header(col, label, right_text: str = ""):
     col.markdown(
         f"""
@@ -317,8 +318,7 @@ def metric_header(col, label, right_text: str = ""):
         unsafe_allow_html=True
     )
 
-# ...existing code...
-
+# Kolonlar
 c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 1])
 
 with c1:
@@ -338,10 +338,12 @@ with c4:
     c4.metric(label="", value=fmt_bn(bn(latest["redemp"])))
 
 with c5:
-    metric_header(c5, "Daily Result")
+    # tarihi sağ tarafa koy (d_latest: datetime.date / pd.Timestamp)
+    metric_header(c5, "Daily Result", right_text=f"{d_latest:%d.%m.%Y}")
     c5.metric(label="", value=fmt_bn(latest_delta_bn))
 
-# ...existing code...
+st.markdown("---")
+
 
 
 
