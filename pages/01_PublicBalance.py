@@ -339,7 +339,7 @@ with c4:
 
 with c5:
     # tarihi sağ tarafa koy (d_latest: datetime.date / pd.Timestamp)
-    metric_header(c5, "Daily Result", right_text=f"{d_latest:%d.%m.%Y}")
+    metric_header(c5, "Daily Result")
     c5.metric(label="", value=fmt_bn(latest_delta_bn))
 
 st.markdown("---")
