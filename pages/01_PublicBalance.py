@@ -322,7 +322,7 @@ with c4:
     st.metric(label="", value=fmt_bn(bn(latest["redemp"])))
 
 with c5:
-    st.markdown("**Identity (Taxes + NewDebt − Expenditures − Redemp)**")
+    st.markdown("**Daily Result**")
     st.metric(label=f"{pd.to_datetime(latest_dt).strftime('%d.%m.%Y')}", value=fmt_bn(latest_delta_bn))
 
 st.markdown("---")
