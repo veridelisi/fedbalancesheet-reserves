@@ -258,7 +258,7 @@ with st.container(border=True):
                     color:#374151; font-size:1.05rem;">
             <span>Government daily result — {latest_date.strftime('%d.%m.%Y')}</span>
             <span style="font-weight:900; margin-left:10px; color:{res_color};">
-                {res_arrow} {fmt_bn(res_bn)} billions
+                {res_arrow} {fmt_bn(res_bn)} 
             </span>
             <span style="margin-left:8px;">
                 TGA cash has {res_verb} by {fmt_bn(abs(res_bn))}.
@@ -268,41 +268,7 @@ with st.container(border=True):
         unsafe_allow_html=True
     )
 
-# (Burada artık st.markdown('---') koymana gerek yok; varsa bırakabilirsin)
 
-
-# ----------------------- Baseline vs Latest charts -----------------------
-
-st.subheader("Baseline vs Latest (per selection)")
-
-def two_bar_chart(title: str, base_val_bn: float, latest_val_bn: float, color: str):
-    dfc = pd.DataFrame({
-        "Period": ["Baseline", "Latest"],
-        "Billions of $": [base_val_bn, latest_val_bn]
-    })
-    ch = alt.Chart(dfc).mark_bar().encode(
-        x=alt.X("Period:N", title=""),
-        y=alt.Y("Billions of $:Q", title="Billions of $"),
-        color=alt.value(color),
-        tooltip=["Period", alt.Tooltip("Billions of $:Q", format=",.1f")]
-    ).properties(height=220, title=title)
-    st.altair_chart(ch, use_container_width=True)
-
-colA, colB, colC = st.columns(3)
-
-if base is None:
-    st.info("Baseline date not available in the API window. Charts hidden.")
-else:
-    with colA:
-        two_bar_chart("Taxes", bn(base["taxes"]), bn(latest["taxes"]), "#2563eb")
-    with colB:
-        two_bar_chart("Expenditures", bn(base["expenditures"]), bn(latest["expenditures"]), "#ef4444")
-    with colC:
-        base_net = bn(base["newdebt"] - base["redemp"])
-        last_net = bn(latest["newdebt"] - latest["redemp"])
-        two_bar_chart("Net debt cash (New − Redemp)", base_net, last_net, "#6b7280")
-
-st.markdown("---")
 
 # ----------------------- Daily Top-10 detail tables ----------------------
 
