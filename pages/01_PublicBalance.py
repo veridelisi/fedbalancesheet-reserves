@@ -286,7 +286,6 @@ st.markdown(
 - **Taxes** = **Total TGA Deposits (Table II) − Public Debt Cash Issues (Table IIIB)**.
 - **Expenditures** = **Total TGA Withdrawals (Table II) − Public Debt Cash Redemptions (Table IIIB)**.
 - **Daily Result** = **Taxes + NewDebt − Expenditures − Redemp** (billions).
-- Top-10 tablolarında **IIIB** ve **Total** satırları hariç tutulur; `null` kategoriler temizlenir.
 """
 )
 
