@@ -312,7 +312,7 @@ def metric_header(col, label, right_text: str = ""):
         <div style="display:flex;justify-content:space-between;align-items:baseline;
                     margin-bottom:6px;">
             <span style="font-weight:700;">{label}</span>
-            <span style="color:#6b7280;font-size:.95rem;">{right_text}</span>
+            <span style="color:#6b7280;font-size:.75rem;">{right_text}</span>
         </div>
         """,
         unsafe_allow_html=True
