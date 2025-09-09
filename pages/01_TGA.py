@@ -7,9 +7,8 @@ import altair as alt
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
-
-
 st.set_page_config(page_title="Public Balance: spending, taxation and borrowing", layout="wide")
+
 
 # --- Gezinme Barı (Yatay Menü, Streamlit-native) ---
 st.markdown("""
