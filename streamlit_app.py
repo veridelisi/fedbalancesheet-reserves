@@ -69,6 +69,20 @@ project_card(
     image_path="assets/thumbs/tga.png",
     link_label="➡️ TGA dashboard"
 )
+# ————— 4. Proje: Public Balance —————
+project_card(
+    title="Public Balance Position Statement",
+    tagline="U.S. Treasury • Latest snapshot • YoY / 2025-01-01 baseline",
+    description_md=(
+        "Tracks the **Public Balance** with daily flows and levels, offering quick "
+        "context via year-over-year or fixed **2025-01-01** baselines. "
+        "Use it to monitor liquidity conditions, cash operations, and trend shifts."
+    ),
+    page_path="pages/01_PublicBalance.py",
+    image_path="assets/thumbs/public_balance.png",
+    link_label="➡️ Public Balance dashboard"
+)
+
 
 # project_card("Project 3", "Tagline", "Açıklama...", "pages/03_Another.py", "assets/thumbs/another2.jpg")
 
