@@ -303,26 +303,41 @@ latest_delta_bn = bn(latest["taxes"] + latest["newdebt"] - latest["expenditures"
 
 # ---------------- Identity (4 değer) ----------------
 st.subheader("Latest day identity — components (billions of $)")
-c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 1])
+
+# Tek satır başlık (solda etiket, sağda opsiyonel yazı) — hizayı korur
+def metric_header(col, label, right_text: str = ""):
+    col.markdown(
+        f"""
+        <div style="display:flex;justify-content:space-between;align-items:baseline;
+                    margin-bottom:6px;">
+            <span style="font-weight:700;">{label}</span>
+            <span style="color:#6b7280;font-size:.95rem;">{right_text}</span>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 1.2])
 
 with c1:
-    st.markdown("**Taxes**")
+    metric_header(st, "Taxes")
     st.metric(label="", value=fmt_bn(bn(latest["taxes"])))
 
 with c2:
-    st.markdown("**Expenditures**")
+    metric_header(st, "Expenditures")
     st.metric(label="", value=fmt_bn(bn(latest["expenditures"])))
 
 with c3:
-    st.markdown("**New Debt (IIIB)**")
+    metric_header(st, "New Debt (IIIB)")
     st.metric(label="", value=fmt_bn(bn(latest["newdebt"])))
 
 with c4:
-    st.markdown("**Debt Redemp (IIIB)**")
+    metric_header(st, "Debt Redemp (IIIB)")
     st.metric(label="", value=fmt_bn(bn(latest["redemp"])))
 
 with c5:
-    st.markdown("**Daily Result**")
+    # Tarihi başlıkla aynı satıra al — ek satır yok, kayma olmaz
+    metric_header(st, "Daily Result", right_text=f"{d_latest:%d.%m.%Y}")
     st.metric(label="", value=fmt_bn(latest_delta_bn))
 
 st.markdown("---")
