@@ -254,7 +254,7 @@ with st.container(border=True):
 
     st.markdown(
         f'''
-        <div style="margin-top:10px; padding-top:10px; border-top:1px dashed #e5e7eb;
+        <div text-align:center;  style="margin-top:10px; padding-top:10px; border-top:1px dashed #e5e7eb;
                     color:#374151; font-size:1.05rem;">
             <span>Government daily result — {latest_date.strftime('%d.%m.%Y')}</span>
             <span style="font-weight:900; margin-left:10px; color:{res_color};">
