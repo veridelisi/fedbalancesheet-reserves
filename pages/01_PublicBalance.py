@@ -301,11 +301,9 @@ if latest is None or base is None:
 # Kimlik eşitliği: ΔTGA'ya göre göster
 latest_delta_bn = bn(latest["taxes"] + latest["newdebt"] - latest["expenditures"] - latest["redemp"])
 
-# ...existing code...
-
 # ---------------- Identity (4 değer) ----------------
 st.subheader("Latest day identity — components (billions of $)")
-c1, c2, c3, c4, c5 = st.columns(5)  # Hepsi eşit genişlikte
+c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 1])
 
 with c1:
     st.markdown("**Taxes**")
@@ -325,9 +323,10 @@ with c4:
 
 with c5:
     st.markdown("**Daily Result**")
-    st.metric(label="", value=fmt_bn(latest_delta_bn))
+    st.metric(label=f"{pd.to_datetime(latest_dt).strftime('%d.%m.%Y')}", value=fmt_bn(latest_delta_bn))
 
-# ...existing code...
+st.markdown("---")
+
 # ---------------- Annual compare — 3 grafik ----------------
 st.subheader(f"Annual compare per baseline ({base_label})")
 
