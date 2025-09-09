@@ -1,4 +1,3 @@
-# pages/01_TGA_Flows.py
 # ---------------------------------------------------------------
 # TGA Flows (Taxes, Expenditures, New Debt, Debt Redemptions)
 # Latest snapshot + Annual compare (YoY or fixed 01.01.2025)
@@ -11,7 +10,7 @@ from datetime import date, timedelta
 from dateutil.relativedelta import relativedelta
 import streamlit as st
 
-
+st.set_page_config(page_title="Public Balance (Taxes, Expenditures, New Debt, Debt Redemptions)", layout="wide")
 # --- Gezinme Barı (Yatay Menü, Streamlit-native) ---
 st.markdown("""
 <div style="background:#f8f9fa;padding:10px 0 10px 0;margin-bottom:24px;border-radius:8px;display:flex;gap:32px;justify-content:center;">
