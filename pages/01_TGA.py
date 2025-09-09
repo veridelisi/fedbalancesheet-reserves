@@ -359,7 +359,7 @@ st.markdown(
 - Baseline selection: **YoY (t − 1 year)** (default) or **2025-01-01**.
 - **Line chart**: daily values are plotted from the selected baseline date to the latest date; all days are shown on the axis.
 - Source: U.S. Treasury Fiscal Data — *Daily Treasury Statement* (`operating_cash_balance`).
-- Unit: Raw API data is in **billions**.
+
 """
 )
 
@@ -368,7 +368,7 @@ st.markdown(
     """
     <hr style="margin-top:28px;margin-bottom:10px;border:none;border-top:1px solid #e5e7eb;">
     <div style="text-align:center;color:#6b7280;font-size:0.95rem;">
-        <strong>Engin Yılmaz</strong> · Visiting Research Scholar · UMASS Amherst · September 2025
+        <strong>Engin Yılmaz</strong> · September 2025
     </div>
     """,
     unsafe_allow_html=True
