@@ -229,8 +229,8 @@ def bar_top_share(df, value_col, share_col, title, bar_color):
 
 
 # ---------------- UI ----------------
-st.set_page_config(page_title="TGA — Taxes & Expenditures", layout="wide")
-st.title("🏦 TGA — Taxes, Expenditures, New Debt & Debt Redemptions")
+
+st.title("🏦 Public Balance (Taxes, Expenditures, New Debt, Debt Redemptions)")
 st.caption("Latest snapshot • Annual compare (YoY or fixed 2025-01-01) • Daily Top-10 breakdowns")
 
 with st.spinner("Fetching latest Treasury DTS data..."):
