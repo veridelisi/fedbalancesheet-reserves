@@ -303,29 +303,29 @@ latest_delta_bn = bn(latest["taxes"] + latest["newdebt"] - latest["expenditures"
 
 # ---------------- Identity (4 değer) ----------------
 st.subheader("Latest day identity — components (billions of $)")
-c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 1.2])
+c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 1])
 
-def metric_cell(col, label, value, right_text=""):
-    html = f"""
-    <div style="display:flex;flex-direction:column;gap:8px;">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;
-                  color:#6b7280;font-size:1.05rem;font-weight:700;margin:0;">
-        <span>{label}</span>
-        <span style="font-size:.95rem;font-weight:500;">{right_text}</span>
-      </div>
-      <div style="font-size:3.0rem;line-height:1;font-weight:700;color:#111827;">
-        {value}
-      </div>
-    </div>
-    """
-    col.markdown(html, unsafe_allow_html=True)
+with c1:
+    st.markdown("**Taxes**")
+    st.metric(label="", value=fmt_bn(bn(latest["taxes"])))
 
-# vars: taxes_bn, exp_bn, new_debt_bn, debt_redemp_bn, identity_bn, d_latest
-metric_cell(c1, "Taxes",              f"{latest["taxes"]}")
-metric_cell(c2, "Expenditures",       f"{latest["expenditures"]}")
-metric_cell(c3, "New Debt (IIIB)",    f"{latest["newdebt"]}")
-metric_cell(c4, "Debt Redemp (IIIB)", f"{latest["redemp"]}")
-metric_cell(c5, "Daily Result",       f"{latest_delta_bn}")
+with c2:
+    st.markdown("**Expenditures**")
+    st.metric(label="", value=fmt_bn(bn(latest["expenditures"])))
+
+with c3:
+    st.markdown("**New Debt (IIIB)**")
+    st.metric(label="", value=fmt_bn(bn(latest["newdebt"])))
+
+with c4:
+    st.markdown("**Debt Redemp (IIIB)**")
+    st.metric(label="", value=fmt_bn(bn(latest["redemp"])))
+
+with c5:
+    st.markdown("**Daily Result**")
+    st.metric(label="", value=fmt_bn(latest_delta_bn))
+
+st.markdown("---")
 
 # ---------------- Annual compare — 3 grafik ----------------
 st.subheader(f"Annual compare per baseline ({base_label})")
