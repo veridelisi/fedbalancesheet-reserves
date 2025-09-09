@@ -343,7 +343,7 @@ with c5:
 
 # ...existing code...
 
-st.markdown("---")
+
 
 # ---------------- Annual compare — 3 grafik ----------------
 st.subheader(f"Annual compare per baseline ({base_label})")
