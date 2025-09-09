@@ -317,7 +317,7 @@ def metric_header(col, label, right_text: str = ""):
         unsafe_allow_html=True
     )
 
-c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 1.5])
+c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 2.2])
 
 with c1:
     metric_header(st, "Taxes")
