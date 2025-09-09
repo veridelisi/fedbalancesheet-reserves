@@ -28,6 +28,20 @@ with col4:
 with col5:
     st.page_link("pages/01_PublicBalance.py", label="🔄 Public Balance")
 
+# --- Sol menü sakla ---
+st.markdown("""
+    <style>
+        [data-testid="stSidebarNav"] {display: none;}
+        section[data-testid="stSidebar"][aria-expanded="true"]{display: none;}
+    </style>
+    """, unsafe_allow_html=True)
+
+
+
+st.title("🏦 Public Balance (Taxes, Expenditures, New Debt, Debt Redemptions)")
+st.caption("Latest snapshot • Annual compare (YoY or fixed 2025-01-01) • Daily Top-10 breakdowns")
+
+
 # ---------------- API ----------------
 BASE = "https://api.fiscaldata.treasury.gov/services/api/fiscal_service"
 ENDP = "/v1/accounting/dts/deposits_withdrawals_operating_cash"
@@ -230,8 +244,7 @@ def bar_top_share(df, value_col, share_col, title, bar_color):
 
 # ---------------- UI ----------------
 
-st.title("🏦 Public Balance (Taxes, Expenditures, New Debt, Debt Redemptions)")
-st.caption("Latest snapshot • Annual compare (YoY or fixed 2025-01-01) • Daily Top-10 breakdowns")
+
 
 with st.spinner("Fetching latest Treasury DTS data..."):
     latest_iso = get_latest_date()
