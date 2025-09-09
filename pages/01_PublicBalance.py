@@ -42,6 +42,19 @@ st.title("🏦 Public Balance (Taxes, Expenditures, New Debt, Debt Redemptions)"
 st.caption("Latest snapshot • Annual compare (YoY or fixed 2025-01-01) • Daily Top-10 breakdowns")
 
 
+# ==============================================================
+# Public Balance / TGA Cash – Daily Treasury Statement dashboard
+# ==============================================================
+
+import streamlit as st
+import pandas as pd
+import requests
+from datetime import datetime, date, timedelta
+from dateutil.relativedelta import relativedelta
+import altair as alt
+
+st.set_page_config(page_title="Public Balance • Daily Treasury Statement", layout="wide")
+
 # -------------------------- Helpers --------------------------
 
 BASE = "https://api.fiscaldata.treasury.gov/services/api/fiscal_service"
