@@ -53,8 +53,9 @@ from datetime import datetime, date, timedelta
 from dateutil.relativedelta import relativedelta
 import altair as alt
 
-st.set_page_config(page_title="Public Balance • Daily Treasury Statement", layout="wide")
 
+st.title("Public Balance Position Statement")
+st.caption("Daily Treasury Statement • Latest snapshot — taxes, expenditures, and debt cash flows")
 # -------------------------- Helpers --------------------------
 
 BASE = "https://api.fiscaldata.treasury.gov/services/api/fiscal_service"
@@ -155,8 +156,7 @@ def top_n_detail(df_day: pd.DataFrame, typ: str, n: int, base_total_m: float) ->
 
 # ------------------------- UI: Title & baseline -------------------------
 
-st.title("Public Balance Position Statement")
-st.caption("Daily Treasury Statement • Latest snapshot — taxes, expenditures, and debt cash flows")
+
 
 df_all = fetch_latest_window()
 latest_date = df_all["record_date"].max()
