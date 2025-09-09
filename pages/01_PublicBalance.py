@@ -320,7 +320,12 @@ def metric_cell(col, label, value, right_text=""):
     """
     col.markdown(html, unsafe_allow_html=True)
 
-
+# vars: taxes_bn, exp_bn, new_debt_bn, debt_redemp_bn, identity_bn, d_latest
+metric_cell(c1, "Taxes",              f"{latest["taxes"]}")
+metric_cell(c2, "Expenditures",       f"{latest["expenditures"]}")
+metric_cell(c3, "New Debt (IIIB)",    f"{latest["newdebt"]}")
+metric_cell(c4, "Debt Redemp (IIIB)", f"{latest["redemp"]}")
+metric_cell(c5, "Daily Result",       f"{latest_delta_bn}")
 
 # ---------------- Annual compare — 3 grafik ----------------
 st.subheader(f"Annual compare per baseline ({base_label})")
