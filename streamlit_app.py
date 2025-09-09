@@ -47,7 +47,7 @@ project_card(
 
 # ————— 2. Proje: Primary Dealer Repo —————
 project_card(
-    title="Primary Dealer Repo & Reverse Repo",
+    title="Primary Dealer's Repo & Reverse Repo",
     tagline="NY Fed Primary Dealer Statistics • Primary Dealer's Net Position",
     description_md=(
         "This dashboard provides a concise snapshot across Repo and Reverse Repo segments" 
