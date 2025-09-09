@@ -79,7 +79,7 @@ project_card(
     tagline="Daily Treasury Statement (DTS) Deposits and Withdrawals of Operating Cash • TGA Cash Position",
     description_md=(
         "It decomposes daily inflows and outflows—tax receipts, expenditures, new issuance, and redemptions. "
-        "It monitors government liquidity and cash management operations with clear visuals and trend breakdowns."
+        "It monitors Daily Top-10 categories in tax and expenditure categories."
     ),
     page_path="pages/01_PublicBalance.py",
     image_path="assets/thumbs/public_balance.png",
