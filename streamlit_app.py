@@ -9,7 +9,11 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-st.title("📊 Veridelisi • Analytics Portal")
+
+st.markdown(
+    "<h1 style='text-align:center;'>📊 Veridelisi • Analytics Portal</h1>",
+    unsafe_allow_html=True
+)
 
 # ————— Reusable project card —————
 def project_card(title: str, tagline: str, description_md: str, page_path: str, image_path: str, link_label: str):
