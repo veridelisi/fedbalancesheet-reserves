@@ -151,16 +151,6 @@ def top10_withdrawals_simple(df_day: pd.DataFrame, expend_m: float, n: int = 10)
                               "transaction_today_amt": "Amount (m$)"}))
     out["Percentage in Expenditures"] = (out["Amount (m$)"] / expend_m * 100.0) if expend_m else 0.0
     return out.reset_index(drop=True)
-taxes_top  = top10_deposits_simple(df_latest, latest["taxes"], n=10)
-expend_top = top10_withdrawals_simple(df_latest, latest["expenditures"], n=10)
-
-# kozmetik
-taxes_top["Amount (m$)"]  = taxes_top["Amount (m$)"].map(lambda v: f"{v:,.0f}")
-taxes_top["Percentage in Taxes"] = taxes_top["Percentage in Taxes"].round(1).map(lambda v: f"{v:.1f}%")
-
-expend_top["Amount (m$)"] = expend_top["Amount (m$)"].map(lambda v: f"{v:,.0f}")
-expend_top["Percentage in Expenditures"] = expend_top["Percentage in Expenditures"].round(1).map(lambda v: f"{v:.1f}%")
-
 
 
 
