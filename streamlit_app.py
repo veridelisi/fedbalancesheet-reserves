@@ -50,9 +50,10 @@ project_card(
     title="Primary Dealer Repo & Reverse Repo",
     tagline="NY Fed Primary Dealer Statistics • Primary Dealer's Net Position",
     description_md=(
-        "This dashboard ingests the NY Fed **Primary Dealer timeseries** feed and automatically "
-        "pulls the **latest trading date**. It presents a concise snapshot across **Repo** and "
-        "**Reverse Repo** segments (uncleared/cleared bilateral, GCF, tri-party)."
+        "This dashboard provides a concise snapshot across Repo and Reverse Repo segments" 
+        "(uncleared/cleared bilateral, GCF, tri-party). Users can also view the net market position"
+          "of primary dealers, enabling a clearer understanding of their role in short-term funding" 
+          "dynamics."
         
     ),
     page_path="pages/01_Repo.py",
