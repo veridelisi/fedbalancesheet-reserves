@@ -66,8 +66,8 @@ project_card(
     title="Treasury General Account (TGA)  Cash Position Statement",
     tagline="Daily Treasury Statement (DTS) Operating Cash Balance • TGA Cash Position ",
     description_md=(
-             "This dashboard tracks daily changes in the Treasury General Account (TGA).",
-             "It also presents an annual TGA trend chart for longer-term perspective.",
+        "This dashboard tracks daily changes in the Treasury General Account (TGA). "
+        "It also presents an annual TGA trend chart for longer-term perspective."
     ),
     page_path="pages/01_TGA.py",
     image_path="assets/thumbs/tga.png",
