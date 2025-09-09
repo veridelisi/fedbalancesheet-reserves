@@ -76,7 +76,7 @@ project_card(
     description_md=(
         "Tracks the **Public Balance** with daily flows and levels, offering quick "
         "TGA Flows (Taxes, Expenditures, New Debt, Debt Redemptions) "
-        "Use it to monitor liquidity conditions, cash operations, and trend shifts."
+        "Understand Public Balance from daily Taxes, Expenditures, New Debt, Debt Redemptions flows"
     ),
     page_path="pages/01_PublicBalance.py",
     image_path="assets/thumbs/public_balance.png",
