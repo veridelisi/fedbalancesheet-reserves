@@ -8,6 +8,8 @@ import altair as alt
 from datetime import date, timedelta
 from dateutil.relativedelta import relativedelta
 import streamlit as st
+from textwrap import dedent
+
 
 st.set_page_config(page_title="Public Balance (Taxes, Expenditures, New Debt, Debt Redemptions)", layout="wide")
 # --- Gezinme Barı (Yatay Menü, Streamlit-native) ---
@@ -35,13 +37,11 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-
-
 st.title("🏦 Public Balance (Taxes, Expenditures, New Debt, Debt Redemptions)")
 st.caption("Latest snapshot • Annual compare (YoY or fixed 2025-01-01) • Daily Top-10 breakdowns")
 
 
-# -------------------------- Helpers --------------------------
+# -------------------------- Helpers ----------------------------------
 
 BASE = "https://api.fiscaldata.treasury.gov/services/api/fiscal_service"
 ENDP = "/v1/accounting/dts/deposits_withdrawals_operating_cash"
@@ -55,11 +55,17 @@ def to_float(x):
 
 def bn(million_value):
     """Millions -> Billions (float)."""
-    return float(million_value) / 1000.0
+    try:
+        return float(million_value) / 1000.0
+    except Exception:
+        return 0.0
 
 def fmt_bn(x):
     """Nice 1-dec format for billions."""
-    return f"{x:,.1f}"
+    try:
+        return f"{float(x):,.1f}"
+    except Exception:
+        return "0.0"
 
 @st.cache_data(ttl=1800)
 def fetch_latest_window(page_size: int = 500) -> pd.DataFrame:
@@ -71,18 +77,23 @@ def fetch_latest_window(page_size: int = 500) -> pd.DataFrame:
     r = requests.get(url, timeout=40)
     r.raise_for_status()
     df = pd.DataFrame(r.json().get("data", []))
+
     # Ensure expected columns exist
     for c in ("record_date","transaction_type","transaction_catg","transaction_today_amt"):
         if c not in df.columns:
             df[c] = None
+
     # Normalize
-    df["record_date"] = pd.to_datetime(df["record_date"]).dt.date
+    df["record_date"] = pd.to_datetime(df["record_date"], errors="coerce").dt.date
+    df = df.dropna(subset=["record_date"])
     df["transaction_today_amt"] = df["transaction_today_amt"].apply(to_float)
     return df
 
 def nearest_on_or_before(dates: pd.Series, target: date) -> date | None:
     """Return the max(d) where d <= target; dates must be dtype 'date'."""
-    s = pd.Series(sorted(set(dates)))
+    if dates.empty:
+        return None
+    s = pd.Series(sorted(set(d for d in dates if isinstance(d, date))))
     s = s[s <= target]
     return None if s.empty else s.iloc[-1]
 
@@ -100,21 +111,33 @@ def compute_components_for_day(df_day: pd.DataFrame) -> dict:
     # ---- Deposits side ----
     # Total
     dep_total_row = dep[dep["transaction_catg"].str.contains("Total TGA Deposits", na=False)]
-    dep_total = dep_total_row["transaction_today_amt"].sum() if not dep_total_row.empty else (dep["transaction_today_amt"].iloc[-1] if len(dep) else 0.0)
+    if not dep_total_row.empty:
+        dep_total = dep_total_row["transaction_today_amt"].sum()
+    else:
+        dep_total = dep["transaction_today_amt"].iloc[-1] if len(dep) else 0.0
 
     # New Debt (IIIB)
     new_debt_row = dep[dep["transaction_catg"].str.contains("Public Debt Cash Issues", na=False)]
-    new_debt = new_debt_row["transaction_today_amt"].sum() if not new_debt_row.empty else (dep["transaction_today_amt"].iloc[-2] if len(dep) >= 2 else 0.0)
+    if not new_debt_row.empty:
+        new_debt = new_debt_row["transaction_today_amt"].sum()
+    else:
+        new_debt = dep["transaction_today_amt"].iloc[-2] if len(dep) >= 2 else 0.0
 
     # Taxes (residual)
     taxes = dep_total - new_debt
 
     # ---- Withdrawals side ----
     wdr_total_row = wdr[wdr["transaction_catg"].str.contains("Total TGA Withdrawals", na=False)]
-    wdr_total = wdr_total_row["transaction_today_amt"].sum() if not wdr_total_row.empty else (wdr["transaction_today_amt"].iloc[-1] if len(wdr) else 0.0)
+    if not wdr_total_row.empty:
+        wdr_total = wdr_total_row["transaction_today_amt"].sum()
+    else:
+        wdr_total = wdr["transaction_today_amt"].iloc[-1] if len(wdr) else 0.0
 
     redemp_row = wdr[wdr["transaction_catg"].str.contains("Public Debt Cash Redemptions", na=False)]
-    redemp = redemp_row["transaction_today_amt"].sum() if not redemp_row.empty else (wdr["transaction_today_amt"].iloc[-2] if len(wdr) >= 2 else 0.0)
+    if not redemp_row.empty:
+        redemp = redemp_row["transaction_today_amt"].sum()
+    else:
+        redemp = wdr["transaction_today_amt"].iloc[-2] if len(wdr) >= 2 else 0.0
 
     expenditures = wdr_total - redemp
 
@@ -135,7 +158,10 @@ def top_n_detail(df_day: pd.DataFrame, typ: str, n: int, base_total_m: float) ->
 
     sub = sub[["transaction_catg", "transaction_today_amt"]].copy()
     sub = sub.sort_values("transaction_today_amt", ascending=False).head(n)
-    sub["Percentage"] = (sub["transaction_today_amt"] / base_total_m * 100.0) if base_total_m else 0.0
+    if base_total_m:
+        sub["Percentage"] = (sub["transaction_today_amt"] / base_total_m) * 100.0
+    else:
+        sub["Percentage"] = 0.0
     sub.rename(columns={"transaction_catg":"Category", "transaction_today_amt":"Amount (m$)"}, inplace=True)
     return sub.reset_index(drop=True)
 
@@ -144,6 +170,10 @@ def top_n_detail(df_day: pd.DataFrame, typ: str, n: int, base_total_m: float) ->
 
 
 df_all = fetch_latest_window()
+if df_all.empty:
+    st.error("No data returned from Treasury API.")
+    st.stop()
+
 latest_date = df_all["record_date"].max()
 
 c0, c1 = st.columns([1, 3])
@@ -157,7 +187,12 @@ with c0:
         """, unsafe_allow_html=True
     )
 with c1:
-    baseline_label = st.radio("Annual baseline", ("YoY (t − 1 year)", "01.01.2025"), horizontal=True, index=0)
+    baseline_label = st.radio(
+        "Annual baseline",
+        ("YoY (t − 1 year)", "01.01.2025"),
+        horizontal=True,
+        index=0
+    )
 
 if baseline_label.startswith("YoY"):
     target_baseline = latest_date - relativedelta(years=1)
@@ -189,26 +224,45 @@ res_class = "pos" if res_bn >= 0 else "neg"
 res_arrow = "▲" if res_bn >= 0 else "▼"
 res_verb  = "increased" if res_bn >= 0 else "decreased"
 
-from textwrap import dedent
-
-# ... tax_bn, exp_bn, nd_bn, rd_bn, res_bn vs. hesaplandıktan sonra
-
 identity_html = dedent(f"""
 <style>
-  .tga-card {{ border:1px solid #e5e7eb; border-radius:12px; background:#fff; padding:16px 18px; width:100%; }}
-  .tga-grid {{ display:grid; grid-template-columns:1fr auto 1fr auto 1fr auto 1fr; grid-template-rows:auto auto; column-gap:16px; row-gap:6px; align-items:center; }}
+  .tga-card {{
+    border:1px solid #e5e7eb; border-radius:12px; background:#fff;
+    padding:16px 18px; width:100%;
+  }}
+  .tga-grid {{
+    display:grid;
+    grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
+    grid-template-rows: auto auto;
+    column-gap:16px; row-gap:6px; align-items:center;
+  }}
   .tga-lbl {{ color:#6b7280; font-weight:600; grid-row:1; }}
-  .tga-pill {{ grid-row:2; display:inline-block; padding:12px 16px; border-radius:14px; background:#f6f7f9; font-weight:800; font-size:1.35rem; }}
+  .tga-pill {{
+    grid-row:2; display:inline-block; padding:12px 16px;
+    border-radius:14px; background:#f6f7f9; font-weight:800; font-size:1.35rem;
+  }}
   .tga-blue {{ color:#2563eb; }}
   .tga-red  {{ color:#ef4444; }}
-  .tga-op {{ grid-row:2; text-align:center; font-weight:800; font-size:1.6rem; color:#374151; }}
-  .tga-result {{ margin-top:12px; padding-top:10px; border-top:1px dashed #e5e7eb; display:flex; gap:12px; align-items:baseline; flex-wrap:wrap; }}
+  .tga-op {{
+    grid-row:2; text-align:center; font-weight:800; font-size:1.6rem; color:#374151;
+  }}
+
+  .tga-result {{
+    margin-top:12px; padding-top:10px; border-top:1px dashed #e5e7eb;
+    display:flex; gap:12px; align-items:baseline; flex-wrap:wrap;
+  }}
   .tga-result .dt {{ color:#6b7280; }}
   .tga-result .val {{ font-weight:900; font-size:1.5rem; }}
   .tga-result.pos .val {{ color:#10b981; }}
   .tga-result.neg .val {{ color:#ef4444; }}
   .tga-result .exp {{ color:#374151; }}
+
+  @media (max-width: 900px) {{
+    .tga-pill {{ font-size:1.1rem; padding:10px 12px; }}
+    .tga-op   {{ font-size:1.3rem; }}
+  }}
 </style>
+
 <div class="tga-card">
   <div class="tga-grid">
     <div class="tga-lbl" style="grid-column:1;">Taxes</div>
@@ -217,25 +271,24 @@ identity_html = dedent(f"""
     <div class="tga-lbl" style="grid-column:7;">Debt Redemp (IIIB)</div>
 
     <div class="tga-pill tga-blue" style="grid-column:1;">{fmt_bn(tax_bn)}</div>
-    <div class="tga-op" style="grid-column:2;">+</div>
+    <div class="tga-op"              style="grid-column:2;">+</div>
 
     <div class="tga-pill tga-blue" style="grid-column:3;">{fmt_bn(nd_bn)}</div>
-    <div class="tga-op" style="grid-column:4;">−</div>
+    <div class="tga-op"              style="grid-column:4;">−</div>
 
-    <div class="tga-pill tga-red" style="grid-column:5;">{fmt_bn(exp_bn)}</div>
-    <div class="tga-op" style="grid-column:6;">−</div>
+    <div class="tga-pill tga-red"  style="grid-column:5;">{fmt_bn(exp_bn)}</div>
+    <div class="tga-op"              style="grid-column:6;">−</div>
 
-    <div class="tga-pill tga-red" style="grid-column:7;">{fmt_bn(rd_bn)}</div>
+    <div class="tga-pill tga-red"  style="grid-column:7;">{fmt_bn(rd_bn)}</div>
   </div>
 
-  <div class="tga-result {'pos' if res_bn>=0 else 'neg'}">
+  <div class="tga-result {res_class}">
     <div class="dt">Government daily result — {latest_date.strftime('%d.%m.%Y')}</div>
-    <div class="val">{'▲' if res_bn>=0 else '▼'} {fmt_bn(res_bn)}</div>
-    <div class="exp">TGA cash has {'increased' if res_bn>=0 else 'decreased'} by {fmt_bn(abs(res_bn))}.</div>
+    <div class="val">{res_arrow} {fmt_bn(res_bn)}</div>
+    <div class="exp">TGA cash has {res_verb} by {fmt_bn(abs(res_bn))}.</div>
   </div>
 </div>
 """)
-
 st.markdown(identity_html, unsafe_allow_html=True)
 
 st.markdown("---")
@@ -278,23 +331,25 @@ st.markdown("---")
 st.subheader("Daily Top-10 categories (latest day)")
 
 # Taxes detail (Deposits excluding Issues & Total)
-taxes_total_m = latest["taxes"]
-expend_total_m = latest["expenditures"]
+taxes_total_m = latest.get("taxes", 0.0) or 0.0
+expend_total_m = latest.get("expenditures", 0.0) or 0.0
 
 left, right = st.columns(2)
 
 with left:
     st.markdown("**Taxes — top 10 categories (share of Taxes)**")
     taxes_top = top_n_detail(df_latest, typ="Deposits", n=10, base_total_m=taxes_total_m)
-    taxes_top["Amount (m$)"] = taxes_top["Amount (m$)"].map(lambda v: f"{v:,.0f}")
-    taxes_top["Percentage"] = taxes_top["Percentage"].map(lambda v: f"{v:,.1f}%")
+    if not taxes_top.empty:
+        taxes_top["Amount (m$)"] = taxes_top["Amount (m$)"].map(lambda v: f"{v:,.0f}")
+        taxes_top["Percentage"] = taxes_top["Percentage"].map(lambda v: f"{v:,.1f}%")
     st.dataframe(taxes_top, use_container_width=True)
 
 with right:
     st.markdown("**Expenditures — top 10 categories (share of Expenditures)**")
     expend_top = top_n_detail(df_latest, typ="Withdrawals", n=10, base_total_m=expend_total_m)
-    expend_top["Amount (m$)"] = expend_top["Amount (m$)"].map(lambda v: f"{v:,.0f}")
-    expend_top["Percentage"] = expend_top["Percentage"].map(lambda v: f"{v:,.1f}%")
+    if not expend_top.empty:
+        expend_top["Amount (m$)"] = expend_top["Amount (m$)"].map(lambda v: f"{v:,.0f}")
+        expend_top["Percentage"] = expend_top["Percentage"].map(lambda v: f"{v:,.1f}%")
     st.dataframe(expend_top, use_container_width=True)
 
 st.markdown("---")
