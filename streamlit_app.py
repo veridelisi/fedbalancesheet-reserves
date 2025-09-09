@@ -48,7 +48,7 @@ project_card(
 # ————— 2. Proje: Primary Dealer Repo —————
 project_card(
     title="Primary Dealer Repo & Reverse Repo",
-    tagline="NY Fed Primary Dealer Statistics • Latest snapshot, YoY, YTD",
+    tagline="NY Fed Primary Dealer Statistics • Primary Dealer's Net Position",
     description_md=(
         "This dashboard ingests the NY Fed **Primary Dealer timeseries** feed and automatically "
         "pulls the **latest trading date**. It presents a concise snapshot across **Repo** and "
@@ -63,7 +63,7 @@ project_card(
 # ————— 3. Proje: TGA —————
 project_card(
     title="Treasury General Account (TGA)  Cash Position Statement",
-    tagline="Daily Treasury Statement • Latest snapshot • YoY / 2025-01-01 baseline",
+    tagline="Daily Treasury Statement (DTS) Operating Cash Balance • TGA Cash Position ",
     description_md=(
         "A comprehensive financial monitoring tool that tracks U.S. Treasury cash"
         " flows and account balances in real-time"
@@ -76,7 +76,7 @@ project_card(
 # ————— 4. Proje: Public Balance —————
 project_card(
     title="Public Balance Position Statement",
-    tagline="U.S. Treasury • Latest snapshot • YoY / 2025-01-01 baseline",
+    tagline="Daily Treasury Statement (DTS) Deposits and Withdrawals of Operating Cash • TGA Cash Position",
     description_md=(
         "Tracks the **Public Balance** with daily flows and levels, offering quick "
         "TGA Flows (Taxes, Expenditures, New Debt, Debt Redemptions). "
