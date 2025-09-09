@@ -113,49 +113,39 @@ def compute_components_for_day(df_day: pd.DataFrame) -> dict:
         withdrawals_total=wdr_total
     )
 
-def top10_deposits_simple(df_day: pd.DataFrame, taxes_m: float, n: int = 10) -> pd.DataFrame:
-    d = df_day[df_day["transaction_type"] == "Deposits"].copy()
+def top_n_detail(df_day: pd.DataFrame, typ: str, n: int, base_total_m: float) -> pd.DataFrame:
+    """
+    Return top-N rows for Deposits/Withdrawals excluding:
+      - null/blank categories
+      - 'Total TGA Deposits/Withdrawals'
+      - IIIB debt lines (Issues/Redemptions)
+    Adds percentage vs base_total_m.
+    """
+    sub = df_day[df_day["transaction_type"] == typ].copy()
 
-    # son iki satır (Issues + Total) hariç – senin yaptığın gibi
-    if len(d) >= 2:
-        d = d.iloc[:-2]
-    else:
-        d = d.iloc[0:0]
+    # kategori sütunu
+    cat = sub["transaction_catg"]
 
-    # null/boş kategori varsa at
-    d = d[d["transaction_catg"].notna()]
-    d = d[["transaction_catg", "transaction_today_amt"]]
+    # 1) null/boş kategorileri at
+    keep = cat.notna() & (cat.str.strip() != "")
 
-    out = (d.sort_values("transaction_today_amt", ascending=False)
-             .head(n)
-             .rename(columns={"transaction_catg": "Category",
-                              "transaction_today_amt": "Amount (m$)"}))
-    out["Percentage in Taxes"] = (out["Amount (m$)"] / taxes_m * 100.0) if taxes_m else 0.0
-    return out.reset_index(drop=True)
+    # 2) toplam ve IIIB kalemlerini dışla
+    if typ == "Deposits":
+        keep &= ~cat.str.contains(r"(?:Total TGA Deposits|Public Debt Cash Issues)", na=False)
+    else:  # Withdrawals
+        keep &= ~cat.str.contains(r"(?:Total TGA Withdrawals|Public Debt Cash Redemptions)", na=False)
 
-def top10_withdrawals_simple(df_day: pd.DataFrame, expend_m: float, n: int = 10) -> pd.DataFrame:
-    w = df_day[df_day["transaction_type"] == "Withdrawals"].copy()
+    sub = sub[keep]
 
-    # son iki satır (Redemptions + Total) hariç
-    if len(w) >= 2:
-        w = w.iloc[:-2]
-    else:
-        w = w.iloc[0:0]
+    # 3) tabloyu hazırla
+    sub = (sub[["transaction_catg", "transaction_today_amt"]]
+           .sort_values("transaction_today_amt", ascending=False)
+           .head(n)
+           .rename(columns={"transaction_catg": "Category", "transaction_today_amt": "Amount (m$)"}))
 
-    w = w[w["transaction_catg"].notna()]
-    w = w[["transaction_catg", "transaction_today_amt"]]
+    sub["Percentage"] = (sub["Amount (m$)"] / base_total_m * 100.0) if base_total_m else 0.0
 
-    out = (w.sort_values("transaction_today_amt", ascending=False)
-             .head(n)
-             .rename(columns={"transaction_catg": "Category",
-                              "transaction_today_amt": "Amount (m$)"}))
-    out["Percentage in Expenditures"] = (out["Amount (m$)"] / expend_m * 100.0) if expend_m else 0.0
-    return out.reset_index(drop=True)
-
-
-
-
-
+    return sub.reset_index(drop=True)
 
 
 # --------------------- Fetch & compute latest day ----------------------
