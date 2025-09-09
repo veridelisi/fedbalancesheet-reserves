@@ -387,7 +387,7 @@ with st.expander("Methodology"):
 # ------------------------------ Footer --------------------------------
 st.markdown(
     "<div style='text-align:center; opacity:0.9; padding-top:6px;'>"
-    "Engin Yılmaz · Visiting Research Scholar · UMASS Amherst · September 2025"
+    "Engin Yılmaz · September 2025"
     "</div>",
     unsafe_allow_html=True,
 )
