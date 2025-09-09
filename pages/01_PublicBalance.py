@@ -1,7 +1,6 @@
-# ---------------------------------------------------------------
-# TGA Flows (Taxes, Expenditures, New Debt, Debt Redemptions)
-# Latest snapshot + Annual compare (YoY or fixed 01.01.2025)
-# ---------------------------------------------------------------
+# ==============================================================
+# Public Balance / TGA Cash – Daily Treasury Statement dashboard
+# ==============================================================
 
 import requests
 import pandas as pd
@@ -42,20 +41,6 @@ st.title("🏦 Public Balance (Taxes, Expenditures, New Debt, Debt Redemptions)"
 st.caption("Latest snapshot • Annual compare (YoY or fixed 2025-01-01) • Daily Top-10 breakdowns")
 
 
-# ==============================================================
-# Public Balance / TGA Cash – Daily Treasury Statement dashboard
-# ==============================================================
-
-import streamlit as st
-import pandas as pd
-import requests
-from datetime import datetime, date, timedelta
-from dateutil.relativedelta import relativedelta
-import altair as alt
-
-
-st.title("Public Balance Position Statement")
-st.caption("Daily Treasury Statement • Latest snapshot — taxes, expenditures, and debt cash flows")
 # -------------------------- Helpers --------------------------
 
 BASE = "https://api.fiscaldata.treasury.gov/services/api/fiscal_service"
@@ -204,45 +189,26 @@ res_class = "pos" if res_bn >= 0 else "neg"
 res_arrow = "▲" if res_bn >= 0 else "▼"
 res_verb  = "increased" if res_bn >= 0 else "decreased"
 
-identity_html = f"""
+from textwrap import dedent
+
+# ... tax_bn, exp_bn, nd_bn, rd_bn, res_bn vs. hesaplandıktan sonra
+
+identity_html = dedent(f"""
 <style>
-  .tga-card {{
-    border:1px solid #e5e7eb; border-radius:12px; background:#fff;
-    padding:16px 18px; width:100%;
-  }}
-  .tga-grid {{
-    display:grid;
-    grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
-    grid-template-rows: auto auto;
-    column-gap:16px; row-gap:6px; align-items:center;
-  }}
+  .tga-card {{ border:1px solid #e5e7eb; border-radius:12px; background:#fff; padding:16px 18px; width:100%; }}
+  .tga-grid {{ display:grid; grid-template-columns:1fr auto 1fr auto 1fr auto 1fr; grid-template-rows:auto auto; column-gap:16px; row-gap:6px; align-items:center; }}
   .tga-lbl {{ color:#6b7280; font-weight:600; grid-row:1; }}
-  .tga-pill {{
-    grid-row:2; display:inline-block; padding:12px 16px;
-    border-radius:14px; background:#f6f7f9; font-weight:800; font-size:1.35rem;
-  }}
+  .tga-pill {{ grid-row:2; display:inline-block; padding:12px 16px; border-radius:14px; background:#f6f7f9; font-weight:800; font-size:1.35rem; }}
   .tga-blue {{ color:#2563eb; }}
   .tga-red  {{ color:#ef4444; }}
-  .tga-op {{
-    grid-row:2; text-align:center; font-weight:800; font-size:1.6rem; color:#374151;
-  }}
-
-  .tga-result {{
-    margin-top:12px; padding-top:10px; border-top:1px dashed #e5e7eb;
-    display:flex; gap:12px; align-items:baseline; flex-wrap:wrap;
-  }}
+  .tga-op {{ grid-row:2; text-align:center; font-weight:800; font-size:1.6rem; color:#374151; }}
+  .tga-result {{ margin-top:12px; padding-top:10px; border-top:1px dashed #e5e7eb; display:flex; gap:12px; align-items:baseline; flex-wrap:wrap; }}
   .tga-result .dt {{ color:#6b7280; }}
   .tga-result .val {{ font-weight:900; font-size:1.5rem; }}
   .tga-result.pos .val {{ color:#10b981; }}
   .tga-result.neg .val {{ color:#ef4444; }}
   .tga-result .exp {{ color:#374151; }}
-
-  @media (max-width: 900px) {{
-    .tga-pill {{ font-size:1.1rem; padding:10px 12px; }}
-    .tga-op   {{ font-size:1.3rem; }}
-  }}
 </style>
-
 <div class="tga-card">
   <div class="tga-grid">
     <div class="tga-lbl" style="grid-column:1;">Taxes</div>
@@ -251,24 +217,25 @@ identity_html = f"""
     <div class="tga-lbl" style="grid-column:7;">Debt Redemp (IIIB)</div>
 
     <div class="tga-pill tga-blue" style="grid-column:1;">{fmt_bn(tax_bn)}</div>
-    <div class="tga-op"              style="grid-column:2;">+</div>
+    <div class="tga-op" style="grid-column:2;">+</div>
 
     <div class="tga-pill tga-blue" style="grid-column:3;">{fmt_bn(nd_bn)}</div>
-    <div class="tga-op"              style="grid-column:4;">−</div>
+    <div class="tga-op" style="grid-column:4;">−</div>
 
-    <div class="tga-pill tga-red"  style="grid-column:5;">{fmt_bn(exp_bn)}</div>
-    <div class="tga-op"              style="grid-column:6;">−</div>
+    <div class="tga-pill tga-red" style="grid-column:5;">{fmt_bn(exp_bn)}</div>
+    <div class="tga-op" style="grid-column:6;">−</div>
 
-    <div class="tga-pill tga-red"  style="grid-column:7;">{fmt_bn(rd_bn)}</div>
+    <div class="tga-pill tga-red" style="grid-column:7;">{fmt_bn(rd_bn)}</div>
   </div>
 
-  <div class="tga-result {res_class}">
+  <div class="tga-result {'pos' if res_bn>=0 else 'neg'}">
     <div class="dt">Government daily result — {latest_date.strftime('%d.%m.%Y')}</div>
-    <div class="val">{res_arrow} {fmt_bn(res_bn)}</div>
-    <div class="exp">TGA cash has {res_verb} by {fmt_bn(abs(res_bn))}.</div>
+    <div class="val">{'▲' if res_bn>=0 else '▼'} {fmt_bn(res_bn)}</div>
+    <div class="exp">TGA cash has {'increased' if res_bn>=0 else 'decreased'} by {fmt_bn(abs(res_bn))}.</div>
   </div>
 </div>
-"""
+""")
+
 st.markdown(identity_html, unsafe_allow_html=True)
 
 st.markdown("---")
