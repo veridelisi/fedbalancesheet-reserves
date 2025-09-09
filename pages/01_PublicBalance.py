@@ -323,7 +323,7 @@ with c4:
 
 with c5:
     st.markdown("**Daily Result**")
-    st.metric(label=f"{pd.to_datetime(latest_dt).strftime('%d.%m.%Y')}", value=fmt_bn(latest_delta_bn))
+    st.metric( value=fmt_bn(latest_delta_bn))
 
 st.markdown("---")
 
