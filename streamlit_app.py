@@ -75,7 +75,7 @@ project_card(
     tagline="U.S. Treasury • Latest snapshot • YoY / 2025-01-01 baseline",
     description_md=(
         "Tracks the **Public Balance** with daily flows and levels, offering quick "
-        "TGA Flows (Taxes, Expenditures, New Debt, Debt Redemptions) "
+        "TGA Flows (Taxes, Expenditures, New Debt, Debt Redemptions). "
         "Understand Public Balance from daily Taxes, Expenditures, New Debt, Debt Redemptions flows"
     ),
     page_path="pages/01_PublicBalance.py",
