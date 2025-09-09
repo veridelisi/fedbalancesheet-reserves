@@ -317,7 +317,7 @@ def metric_header(col, label, right_text: str = ""):
         unsafe_allow_html=True
     )
 
-c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 1.1])
+c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 1.2])
 
 with c1:
     metric_header(st, "Taxes")
@@ -337,7 +337,7 @@ with c4:
 
 with c5:
     # Tarihi başlıkla aynı satıra al — ek satır yok, kayma olmaz
-    metric_header(st, "Daily Result", right_text=f"{d_latest:%d.%m.%Y}")
+    metric_header(st, "Daily Result")
     st.metric(label="", value=fmt_bn(latest_delta_bn))
 
 st.markdown("---")
