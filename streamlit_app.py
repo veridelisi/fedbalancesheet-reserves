@@ -53,7 +53,7 @@ project_card(
         "This dashboard provides a concise snapshot across Repo and Reverse Repo segments" 
         "(uncleared/cleared bilateral, GCF, tri-party). Users can also view the net market position"
           " of primary dealers, enabling a clearer understanding of their role in short-term funding" 
-          "dynamics."
+          " dynamics."
         
     ),
     page_path="pages/01_Repo.py",
@@ -66,9 +66,8 @@ project_card(
     title="Treasury General Account (TGA)  Cash Position Statement",
     tagline="Daily Treasury Statement (DTS) Operating Cash Balance • TGA Cash Position ",
     description_md=(
-        "A comprehensive financial monitoring tool that tracks U.S. Treasury cash"
-        " flows and account balances in real-time"
-        "Monitor government liquidity, cash management operations, analyze trends and patterns in Treasury cash flows"
+          "This dashboard tracks daily changes in the Treasury General Account (TGA).",
+          "It also presents an annual TGA trend chart for longer-term perspective."
     ),
     page_path="pages/01_TGA.py",
     image_path="assets/thumbs/tga.png",
@@ -79,9 +78,9 @@ project_card(
     title="Public Balance Position Statement",
     tagline="Daily Treasury Statement (DTS) Deposits and Withdrawals of Operating Cash • TGA Cash Position",
     description_md=(
-        "Tracks the **Public Balance** with daily flows and levels, offering quick "
-        "TGA Flows (Taxes, Expenditures, New Debt, Debt Redemptions). "
-        "Understand Public Balance from daily Taxes, Expenditures, New Debt, Debt Redemptions flows"
+    "It decomposes daily inflows and outflows—tax receipts, expenditures, new issuance, and redemptions.",
+    "It monitors government liquidity and cash management operations with clear visuals and trend breakdowns.",
+
     ),
     page_path="pages/01_PublicBalance.py",
     image_path="assets/thumbs/public_balance.png",
