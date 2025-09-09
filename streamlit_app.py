@@ -58,13 +58,12 @@ project_card(
 
 # ————— 3. Proje: TGA —————
 project_card(
-    title="Treasury General Account (TGA) — Deposits, Withdrawals & Closing",
+    title="Treasury General Account (TGA)  Cash Position Statement",
     tagline="Daily Treasury Statement • Latest snapshot • YoY / 2025-01-01 baseline",
     description_md=(
-        "Tracks the **TGA** with the latest record date, showing the identity "
-        "**Opening + Deposits − Withdrawals = Closing**. Includes side-by-side "
-        "charts for latest-day levels and **annual Δ** vs selected baseline (YoY or 01.01.2025), "
-        "plus a baseline compare for **Closing Balance**."
+        "A comprehensive financial monitoring tool that tracks U.S. Treasury cash"
+        " flows and account balances in real-time"
+        "Monitor government liquidity, cash management operations, analyze trends and patterns in Treasury cash flows"
     ),
     page_path="pages/01_TGA.py",
     image_path="assets/thumbs/tga.png",

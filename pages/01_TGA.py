@@ -203,7 +203,7 @@ def closing_line_chart(ts: pd.DataFrame, title: str):
                                    padding={"top":28,"right":8,"left":8,"bottom":8})
 
 # --------------------------- Header -------------------------------
-st.title("🏦 TGA — Deposits, Withdrawals & Closing (computed)")
+st.title("🏦 TGA Cash Position Statement")
 st.caption("Latest snapshot • Baseline (YoY or 2025-01-01) and daily line to the latest date")
 
 # Latest date + baseline seçimi
