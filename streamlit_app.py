@@ -52,7 +52,7 @@ project_card(
     description_md=(
         "This dashboard provides a concise snapshot across Repo and Reverse Repo segments" 
         "(uncleared/cleared bilateral, GCF, tri-party). Users can also view the net market position"
-          "of primary dealers, enabling a clearer understanding of their role in short-term funding" 
+          " of primary dealers, enabling a clearer understanding of their role in short-term funding" 
           "dynamics."
         
     ),
@@ -94,7 +94,7 @@ project_card(
 st.markdown(
     
     "<div style='text-align:center;opacity:0.8'>"
-    "Engin Yılmaz • Visiting Research Scholar • Amherst • September 2025"
+    "Engin Yılmaz • September 2025"
     "</div>",
     unsafe_allow_html=True
 )
