@@ -9,7 +9,7 @@ from dateutil.relativedelta import relativedelta
 
 
 
-st.set_page_config(page_title="TGA — Deposits, Withdrawals & Closing Balance", layout="wide")
+st.set_page_config(page_title="Public Balance: spending, taxation and borrowing", layout="wide")
 
 # --- Gezinme Barı (Yatay Menü, Streamlit-native) ---
 st.markdown("""
