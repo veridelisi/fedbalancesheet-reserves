@@ -1,209 +1,211 @@
 # streamlit_app.py
-# NY Fed Reference Rates Dashboard (EFFR, OBFR, SOFR, BGCR, TGCR)
-# Gerekenler: pip install streamlit pandas requests altair python-dateutil
+# NY Fed Reference Rates (EFFR, OBFR, SOFR, BGCR, TGCR)
+# pip install streamlit pandas requests altair python-dateutil
 
 import io
 import requests
 import pandas as pd
 import altair as alt
 import streamlit as st
-from datetime import datetime, date, timedelta
+from datetime import date, timedelta, datetime
 
 st.set_page_config(page_title="NY Fed Reference Rates", layout="wide")
 
-# -----------------------
-# Yardımcı fonksiyonlar
-# -----------------------
 API_BASE = "https://markets.newyorkfed.org/api/rates"
-
 SPECS = {
-    # unsecured
-    "EFFR": dict(group="unsecured", code="effr"),
-    "OBFR": dict(group="unsecured", code="obfr"),
-    # secured
-    "SOFR": dict(group="secured",   code="sofr"),
-    "BGCR": dict(group="secured",   code="bgcr"),
-    "TGCR": dict(group="secured",   code="tgcr"),
+    "EFFR": {"group": "unsecured", "code": "effr"},
+    "OBFR": {"group": "unsecured", "code": "obfr"},
+    "SOFR": {"group": "secured",   "code": "sofr"},
+    "BGCR": {"group": "secured",   "code": "bgcr"},
+    "TGCR": {"group": "secured",   "code": "tgcr"},
 }
 
-def fetch_rates_csv(rate_name: str, last_n: int = 500) -> pd.DataFrame:
+# -------------------------
+# Download ONLY date + rate
+# -------------------------
+def fetch_rates(rate_name: str, last_n: int = 500) -> pd.DataFrame:
     spec = SPECS[rate_name]
     url = f"{API_BASE}/{spec['group']}/{spec['code']}/last/{last_n}.csv"
     r = requests.get(url, timeout=20)
     r.raise_for_status()
-    df = pd.read_csv(io.StringIO(r.text))
-    
-    # sadece tarih ve rate kolonlarını al
-    if "Effective Date" in df.columns and "Rate (%)" in df.columns:
-        df = df[["Effective Date", "Rate (%)"]].copy()
+    raw = pd.read_csv(io.StringIO(r.text))
+    if "Effective Date" in raw.columns and "Rate (%)" in raw.columns:
+        df = raw[["Effective Date", "Rate (%)"]].copy()
         df.columns = ["date", "rate"]
     else:
-        raise ValueError(f"{rate_name} için beklenen kolonlar bulunamadı: {list(df.columns)}")
-
+        raise ValueError(
+            f"{rate_name} columns not found. Got: {list(raw.columns)}"
+        )
     df["date"] = pd.to_datetime(df["date"]).dt.date
     df["series"] = rate_name
-    df = df.sort_values("date")
-    return df
+    return df.sort_values("date")
 
-
-
-def yoy_change(df: pd.DataFrame) -> float | None:
-    """Son gözlem ile bir yıl önceye en yakın iş günü karşılaştırması (<= 7 gün tolerans)."""
-    if df.empty:
-        return None
+def value_on_yoy(df: pd.DataFrame, window_days: int = 7):
+    """Return the rate on ~365 days earlier (closest within ±window_days)."""
     last_date = df["date"].max()
     target = last_date - timedelta(days=365)
-    # en yakın ama target'tan küçük ya da eşit tarih
-    past = df[df["date"] <= target]
-    if past.empty:
-        return None
-    past_val = past.iloc[-1]["rate"]
-    last_val = df[df["date"] == last_date].iloc[0]["rate"]
-    return last_val - past_val
+    exact = df[df["date"] == target]
+    if not exact.empty:
+        return float(exact.iloc[0]["rate"])
+    tmp = df.copy()
+    tmp["diff"] = tmp["date"].apply(lambda d: abs((d - target).days))
+    closest = tmp.sort_values(["diff", "date"]).iloc[0]
+    if closest["diff"] <= window_days:
+        return float(closest["rate"])
+    past = df[df["date"] < target]
+    return float(past.iloc[-1]["rate"]) if not past.empty else None
 
-def ytd_change(df: pd.DataFrame, ytd_start: date) -> float | None:
-    """Yılbaşı (2025-01-01) veya belirtilen tarihten bugüne fark."""
-    ref = df[df["date"] >= ytd_start]
-    if ref.empty:
-        return None
-    first_val = ref.iloc[0]["rate"]
-    last_val = df.iloc[-1]["rate"]
-    return last_val - first_val
+def value_on_or_after_anchor(df: pd.DataFrame, anchor: date = date(2025, 1, 1)):
+    """Return the rate on 01-01-2025 or the first available day after."""
+    sub = df[df["date"] >= anchor]
+    return float(sub.iloc[0]["rate"]) if not sub.empty else None
 
-def format_bps(x: float | None) -> str:
-    if x is None:
-        return "—"
-    return f"{x:.2f} pp"  # yüzde puan (percentage points)
+st.markdown("### 🏦 NY Fed Reference Rates — EFFR · OBFR · SOFR · BGCR · TGCR")
 
-# -----------------------
-# Veri çekimi
-# -----------------------
-st.markdown("### 🏦 NY Fed Reference Rates Dashboard — EFFR · OBFR · SOFR · BGCR · TGCR")
-
-with st.spinner("Veriler çekiliyor..."):
-    frames = []
-    errors = []
-    for name in SPECS.keys():
+# -------------------------
+# Fetch data
+# -------------------------
+with st.spinner("Fetching rates..."):
+    frames, errors = [], []
+    for k in SPECS.keys():
         try:
-            # 500 gün: YoY ve yıllık grafik için güvenli aralık
-            frames.append(fetch_rates_csv(name, last_n=500))
+            frames.append(fetch_rates(k, last_n=500))
         except Exception as e:
-            errors.append(f"{name}: {e}")
+            errors.append(f"{k}: {e}")
     if errors:
-        st.warning("Bazı seriler çekilemedi:\n\n- " + "\n- ".join(errors))
+        st.warning("Some series failed:\n\n- " + "\n- ".join(errors))
     data = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(columns=["date","rate","series"])
 
 if data.empty:
     st.stop()
 
-# Son gün, YoY, YTD (01.01.2025)
-today_last_dates = data.groupby("series")["date"].max()
-latest_rows = []
-ytd_anchor = date(2025, 1, 1)
-
+# -------------------------
+# Summary table (values)
+# -------------------------
+rows = []
+anchor_2025 = date(2025, 1, 1)
 for s in SPECS.keys():
-    df_s = data[data["series"] == s].sort_values("date")
-    last_date = df_s["date"].max()
-    last_rate = df_s[df_s["date"] == last_date].iloc[0]["rate"]
-    latest_rows.append({
-        "Seri": s,
-        "Son Gün": last_date.strftime("%Y-%m-%d"),
-        "Son Değer (%)": round(last_rate, 4),
-        "YoY (pp)": yoy_change(df_s),
-        "01.01.2025'ten bu yana (pp)": ytd_change(df_s, ytd_anchor),
+    ds = data[data["series"] == s].sort_values("date")
+    last_date = ds["date"].max()
+    last_rate = float(ds.loc[ds["date"] == last_date, "rate"].iloc[0])
+    yoy_val   = value_on_yoy(ds)
+    a2025_val = value_on_or_after_anchor(ds, anchor_2025)
+
+    rows.append({
+        "Series": s,
+        "Last Day": last_date.strftime("%Y-%m-%d"),
+        "Last Rate (%)": round(last_rate, 4),
+        "YoY Value (%)": None if yoy_val is None else round(yoy_val, 4),
+        "01-01-2025 Value (%)": None if a2025_val is None else round(a2025_val, 4),
     })
 
-latest_df = pd.DataFrame(latest_rows)
-latest_df["YoY (pp)"] = latest_df["YoY (pp)"].map(lambda x: None if pd.isna(x) else x)
-latest_df["01.01.2025'ten bu yana (pp)"] = latest_df["01.01.2025'ten bu yana (pp)"].map(lambda x: None if pd.isna(x) else x)
-
-# -----------------------
-# Üst Özet Kutuları
-# -----------------------
-st.markdown("#### 📌 Özet — Son Gün • Yıla Göre (YoY) • 01.01.2025'ten Bu Yana")
+summary_df = pd.DataFrame(rows)
+st.markdown("#### 📌 Summary — Last Day • YoY (value) • 01-01-2025 (value)")
 st.dataframe(
-    latest_df.style.format({
-        "Son Değer (%)": "{:.4f}",
-        "YoY (pp)": lambda v: "—" if v is None else f"{v:.2f}",
-        "01.01.2025'ten bu yana (pp)": lambda v: "—" if v is None else f"{v:.2f}",
+    summary_df.style.format({
+        "Last Rate (%)": "{:.4f}",
+        "YoY Value (%)": lambda v: "—" if v is None else f"{v:.4f}",
+        "01-01-2025 Value (%)": lambda v: "—" if v is None else f"{v:.4f}",
     }),
     use_container_width=True
 )
 
-# -----------------------
-# Görselleştirme Ayarları
-# -----------------------
-st.markdown("### 📈 Grafikler")
-colA, colB = st.columns([1,1])
-
-with colA:
-    st.markdown("**Çizim modu**")
-    draw_mode = st.radio(
-        "Seriler birbirine çok yakın olduğu için farklı modlar sunduk:",
-        options=["Düz oran (%)", "SOFR'a göre yayılım (pp)"],
-        index=0,
-        horizontal=True,
-        label_visibility="collapsed"
-    )
-
-with colB:
-    st.markdown("**Görünüm**")
-    show_points = st.checkbox("Noktaları göster", value=False)
-
-# Grafik verileri
+# -------------------------
+# One chart: Spreads to SOFR (bps)
+# -------------------------
 pivot = data.pivot(index="date", columns="series", values="rate").sort_index()
+if "SOFR" not in pivot.columns:
+    st.info("SOFR not available; cannot build 'SOFR-centered' chart.")
+    st.stop()
 
-if draw_mode == "SOFR'a göre yayılım (pp)":
-    if "SOFR" in pivot.columns:
-        pivot = pivot.apply(lambda col: col - pivot["SOFR"])
-    else:
-        st.info("SOFR bulunamadı, düz oran modu kullanılıyor.")
-        draw_mode = "Düz oran (%)"
+# compute spreads in basis points (other series minus SOFR) * 100
+spreads = pivot.apply(lambda col: (col - pivot["SOFR"]) * 100)
 
-def to_long(df: pd.DataFrame) -> pd.DataFrame:
-    out = df.reset_index().melt(id_vars="date", var_name="series", value_name="value").dropna()
-    out["date"] = pd.to_datetime(out["date"])
-    return out
+# we will plot only EFFR, OBFR, BGCR, TGCR (SOFR is baseline rule at 0)
+plot_cols = [c for c in spreads.columns if c != "SOFR"]
+spread_long = spreads[plot_cols].reset_index().melt(
+    id_vars="date", var_name="series", value_name="bps"
+).dropna()
+spread_long["date"] = pd.to_datetime(spread_long["date"])
 
-# Son 7 gün & Son 365 gün
-last_date_all = pivot.index.max()
-last_7 = pivot[pivot.index >= last_date_all - timedelta(days=7)]
-last_365 = pivot[pivot.index >= last_date_all - timedelta(days=365)]
+# style: EFFR solid, OBFR dashed, others default
+stroke_dash = alt.Condition(
+    alt.datum.series == "OBFR",
+    alt.value([6,3]),  # dashed for OBFR
+    alt.Condition(
+        alt.datum.series == "EFFR",
+        alt.value([1,0]),  # solid for EFFR
+        alt.value([2,2])   # dotted-ish for others
+    )
+)
 
-def make_line_chart(df_long: pd.DataFrame, title: str):
-    tooltip = [
-        alt.Tooltip("date:T", title="Tarih"),
-        alt.Tooltip("series:N", title="Seri"),
-        alt.Tooltip("value:Q", title=("Oran (%)" if draw_mode=="Düz oran (%)" else "Yayılım (pp)"), format=".4f"),
-    ]
-    line = alt.Chart(df_long).mark_line(point=show_points).encode(
-        x=alt.X("date:T", title="Tarih"),
-        y=alt.Y("value:Q", title=("Oran (%)" if draw_mode=="Düz oran (%)" else "Yayılım (pp)")),
-        color=alt.Color("series:N", title="Seri"),
-        tooltip=tooltip
-    ).properties(height=320, title=title)
-    return line
+last_sofr = float(pivot["SOFR"].dropna().iloc[-1])
 
-st.markdown("#### ⏱️ Son 1 Hafta")
-st.altair_chart(make_line_chart(to_long(last_7), "Son 7 Gün"), use_container_width=True)
+st.markdown(f"### 📈 Spreads to SOFR (bps) — **SOFR (last): {last_sofr:.4f}%**")
+base = alt.Chart(spread_long).properties(height=360)
 
-st.markdown("#### 📅 Son 1 Yıl")
-st.altair_chart(make_line_chart(to_long(last_365), "Son 365 Gün"), use_container_width=True)
+lines = base.mark_line().encode(
+    x=alt.X("date:T", title="Date"),
+    y=alt.Y("bps:Q", title="Spread to SOFR (bps)"),
+    color=alt.Color("series:N", title="Series"),
+    strokeDash=stroke_dash,
+    tooltip=[
+        alt.Tooltip("date:T", title="Date"),
+        alt.Tooltip("series:N", title="Series"),
+        alt.Tooltip("bps:Q", title="Spread (bps)", format=".2f"),
+    ],
+)
 
-# -----------------------
-# Dipnot & Kaynak
-# -----------------------
-with st.expander("Kaynak & Notlar"):
+# zero baseline labeled as SOFR
+zero_rule = alt.Chart(pd.DataFrame({"y":[0]})).mark_rule().encode(y="y:Q").properties()
+zero_text = alt.Chart(pd.DataFrame({"y":[0]})).mark_text(
+    align="left", dx=5, dy=-8
+).encode(
+    y="y:Q",
+    text=alt.value("SOFR baseline (0 bps)")
+)
+
+chart = (lines + zero_rule + zero_text)
+st.altair_chart(chart, use_container_width=True)
+
+# -------------------------
+# 7-day and 365-day windows (still in spreads)
+# -------------------------
+last_date_all = spread_long["date"].max()
+last7 = spread_long[spread_long["date"] >= (last_date_all - timedelta(days=7))]
+last365 = spread_long[spread_long["date"] >= (last_date_all - timedelta(days=365))]
+
+st.markdown("#### ⏱️ Last 7 Days — Spreads to SOFR (bps)")
+st.altair_chart(
+    alt.Chart(last7).mark_line().encode(
+        x=alt.X("date:T", title="Date"),
+        y=alt.Y("bps:Q", title="Spread to SOFR (bps)"),
+        color="series:N",
+        strokeDash=stroke_dash,
+        tooltip=["date:T","series:N",alt.Tooltip("bps:Q", title="Spread (bps)", format=".2f")]
+    ).properties(height=300),
+    use_container_width=True
+)
+
+st.markdown("#### 📅 Last 365 Days — Spreads to SOFR (bps)")
+st.altair_chart(
+    alt.Chart(last365).mark_line().encode(
+        x=alt.X("date:T", title="Date"),
+        y=alt.Y("bps:Q", title="Spread to SOFR (bps)"),
+        color="series:N",
+        strokeDash=stroke_dash,
+        tooltip=["date:T","series:N",alt.Tooltip("bps:Q", title="Spread (bps)", format=".2f")]
+    ).properties(height=300),
+    use_container_width=True
+)
+
+with st.expander("Notes"):
     st.markdown(
         """
-- Kaynak: Federal Reserve Bank of New York — Markets Data APIs (Reference Rates: EFFR, OBFR, SOFR, BGCR, TGCR).
-- API örnek uç noktaları:
-  - `.../api/rates/unsecured/effr/last/365.csv`
-  - `.../api/rates/unsecured/obfr/last/365.csv`
-  - `.../api/rates/secured/sofr/last/365.csv`
-  - `.../api/rates/secured/bgcr/last/365.csv`
-  - `.../api/rates/secured/tgcr/last/365.csv`
-- YoY: Son gözlem ile bir yıl önceye en yakın iş günü karşılaştırması.
-- 01.01.2025'ten bu yana: 2025-01-01 (dahil) sonrası ilk gözlem ile son gözlem farkı.
+- Data: Federal Reserve Bank of New York Markets Data API (Reference Rates).
+- Only `Effective Date` and `Rate (%)` are used.
+- Table columns show **values on those dates** (no differences).
+- Charts show **spreads to SOFR in basis points** to make tiny gaps visible.
+- Line styles: **EFFR solid**, **OBFR dashed**, others default.
         """
     )
