@@ -127,17 +127,16 @@ spread_long = spreads[plot_cols].reset_index().melt(
     id_vars="date", var_name="series", value_name="bps"
 ).dropna()
 spread_long["date"] = pd.to_datetime(spread_long["date"])
+# --- ADD: per-series line style to avoid alt.condition issues ---
+style_map = {
+    "EFFR": [1, 0],   # solid
+    "OBFR": [6, 3],   # dashed
+    "BGCR": [2, 2],   # dotted-ish
+    "TGCR": [2, 2],   # dotted-ish
+}
+spread_long["dash"] = spread_long["series"].map(style_map)
 
-# style: EFFR solid, OBFR dashed, others default
-stroke_dash = alt.Condition(
-    alt.datum.series == "OBFR",
-    alt.value([6,3]),  # dashed for OBFR
-    alt.Condition(
-        alt.datum.series == "EFFR",
-        alt.value([1,0]),  # solid for EFFR
-        alt.value([2,2])   # dotted-ish for others
-    )
-)
+
 
 last_sofr = float(pivot["SOFR"].dropna().iloc[-1])
 
@@ -148,7 +147,7 @@ lines = base.mark_line().encode(
     x=alt.X("date:T", title="Date"),
     y=alt.Y("bps:Q", title="Spread to SOFR (bps)"),
     color=alt.Color("series:N", title="Series"),
-    strokeDash=stroke_dash,
+    
     tooltip=[
         alt.Tooltip("date:T", title="Date"),
         alt.Tooltip("series:N", title="Series"),
@@ -181,7 +180,7 @@ st.altair_chart(
         x=alt.X("date:T", title="Date"),
         y=alt.Y("bps:Q", title="Spread to SOFR (bps)"),
         color="series:N",
-        strokeDash=stroke_dash,
+        strokeDash="dash"
         tooltip=["date:T","series:N",alt.Tooltip("bps:Q", title="Spread (bps)", format=".2f")]
     ).properties(height=300),
     use_container_width=True
@@ -193,7 +192,7 @@ st.altair_chart(
         x=alt.X("date:T", title="Date"),
         y=alt.Y("bps:Q", title="Spread to SOFR (bps)"),
         color="series:N",
-        strokeDash=stroke_dash,
+        strokeDash="dash"
         tooltip=["date:T","series:N",alt.Tooltip("bps:Q", title="Spread (bps)", format=".2f")]
     ).properties(height=300),
     use_container_width=True
