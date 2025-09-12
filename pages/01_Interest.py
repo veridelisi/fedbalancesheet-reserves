@@ -28,33 +28,40 @@ SPECS = {
 
 def fetch_rates_csv(rate_name: str, last_n: int = 500) -> pd.DataFrame:
     """
-    NY Fed Markets API: rates/[group]/[ratetype]/last/[N].csv
-    Dönen sütun adları veri setine göre küçük farklar gösterebilir.
-    Bu yüzden esnek kolon tespiti yapıyoruz.
+    NY Fed Markets API'den sadece tarih ve rate sütunlarını çek.
     """
     spec = SPECS[rate_name]
     url = f"{API_BASE}/{spec['group']}/{spec['code']}/last/{last_n}.csv"
     r = requests.get(url, timeout=20)
     r.raise_for_status()
     df = pd.read_csv(io.StringIO(r.text))
-    # Tipik kolonlar: effectiveDate, percentRate, volume, percentile1, percentile25, percentile75, percentile99, targetLow, targetHigh...
-    # Tarih sütunu:
-    date_col = next((c for c in df.columns if c.lower().startswith("effective")), None)
-    if date_col is None:
-        # bazen 'date' olabilir
-        date_col = next((c for c in df.columns if c.lower() == "date"), None)
-    # Oran sütunu:
-    rate_col_candidates = [c for c in df.columns if "percent" in c.lower() and "rate" in c.lower()]
-    rate_col = rate_col_candidates[0] if rate_col_candidates else None
-    if date_col is None or rate_col is None:
-        raise ValueError(f"{rate_name} için beklenen kolonlar bulunamadı. Kolonlar: {list(df.columns)}")
-
+    
+    # Kolon isimlerini normalize et
+    cols = [c.strip().lower() for c in df.columns]
+    df.columns = cols
+    
+    # Beklenen kolonlar
+    if "effective date" in cols:
+        date_col = "effective date"
+    elif "date" in cols:
+        date_col = "date"
+    else:
+        raise ValueError(f"{rate_name}: Tarih kolonu bulunamadı. Kolonlar: {cols}")
+    
+    if "rate (%)" in cols:
+        rate_col = "rate (%)"
+    elif "rate" in cols:
+        rate_col = "rate"
+    else:
+        raise ValueError(f"{rate_name}: Rate kolonu bulunamadı. Kolonlar: {cols}")
+    
     df = df[[date_col, rate_col]].copy()
     df.columns = ["date", "rate"]
     df["date"] = pd.to_datetime(df["date"]).dt.date
     df["series"] = rate_name
     df = df.sort_values("date")
     return df
+
 
 def yoy_change(df: pd.DataFrame) -> float | None:
     """Son gözlem ile bir yıl önceye en yakın iş günü karşılaştırması (<= 7 gün tolerans)."""
