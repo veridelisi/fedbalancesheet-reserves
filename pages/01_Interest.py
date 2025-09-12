@@ -31,7 +31,7 @@ COLOR_MAP = {
 }
 
 # dashed styles (hide legend)
-DASH_MAP = {"EFFR":[1,0], "OBFR":[6,3], "SOFR":[1,0], "BGCR":[2,2], "TGCR":[2,2]}
+DASH_MAP = {"EFFR":[1,0], "OBFR":[6,3], "SOFR":[1,0], "BGCR":[2,2], "TGCR":[2,3]}
 
 # -------------------------
 # Download ONLY date + rate
