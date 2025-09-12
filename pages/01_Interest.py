@@ -27,40 +27,24 @@ SPECS = {
 }
 
 def fetch_rates_csv(rate_name: str, last_n: int = 500) -> pd.DataFrame:
-    """
-    NY Fed Markets API'den sadece tarih ve rate sütunlarını çek.
-    """
     spec = SPECS[rate_name]
     url = f"{API_BASE}/{spec['group']}/{spec['code']}/last/{last_n}.csv"
     r = requests.get(url, timeout=20)
     r.raise_for_status()
     df = pd.read_csv(io.StringIO(r.text))
     
-    # Kolon isimlerini normalize et
-    cols = [c.strip().lower() for c in df.columns]
-    df.columns = cols
-    
-    # Beklenen kolonlar
-    if "effective date" in cols:
-        date_col = "effective date"
-    elif "date" in cols:
-        date_col = "date"
+    # sadece tarih ve rate kolonlarını al
+    if "Effective Date" in df.columns and "Rate (%)" in df.columns:
+        df = df[["Effective Date", "Rate (%)"]].copy()
+        df.columns = ["date", "rate"]
     else:
-        raise ValueError(f"{rate_name}: Tarih kolonu bulunamadı. Kolonlar: {cols}")
-    
-    if "rate (%)" in cols:
-        rate_col = "rate (%)"
-    elif "rate" in cols:
-        rate_col = "rate"
-    else:
-        raise ValueError(f"{rate_name}: Rate kolonu bulunamadı. Kolonlar: {cols}")
-    
-    df = df[[date_col, rate_col]].copy()
-    df.columns = ["date", "rate"]
+        raise ValueError(f"{rate_name} için beklenen kolonlar bulunamadı: {list(df.columns)}")
+
     df["date"] = pd.to_datetime(df["date"]).dt.date
     df["series"] = rate_name
     df = df.sort_values("date")
     return df
+
 
 
 def yoy_change(df: pd.DataFrame) -> float | None:
