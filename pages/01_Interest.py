@@ -21,6 +21,18 @@ SPECS = {
     "TGCR": {"group": "secured",   "code": "tgcr"},
 }
 
+# fixed colors (EFFR black)
+COLOR_MAP = {
+    "EFFR": "#000000",  # black
+    "OBFR": "#D62728",
+    "SOFR": "#1F77B4",
+    "BGCR": "#2CA02C",
+    "TGCR": "#9467BD",
+}
+
+# dashed styles (hide legend)
+DASH_MAP = {"EFFR":[1,0], "OBFR":[6,3], "SOFR":[1,0], "BGCR":[2,2], "TGCR":[2,2]}
+
 # -------------------------
 # Download ONLY date + rate
 # -------------------------
@@ -57,7 +69,7 @@ def value_on_or_after_anchor(df: pd.DataFrame, anchor: date = date(2025, 1, 1)):
     sub = df[df["date"] >= anchor]
     return float(sub.iloc[0]["rate"]) if not sub.empty else None
 
-def dynamic_y_domain(levels_df: pd.DataFrame, pad_pp: float = 0.05):
+def dynamic_y_domain(levels_df: pd.DataFrame, pad_pp: float = 0.04):
     """Return (ymin, ymax) based on selected series; pad in percentage points."""
     if levels_df.empty:
         return None
@@ -65,7 +77,25 @@ def dynamic_y_domain(levels_df: pd.DataFrame, pad_pp: float = 0.05):
     hi = float(levels_df["rate"].max())
     if pd.isna(lo) or pd.isna(hi):
         return None
-    return (lo - pad_pp, hi + pad_pp)
+    if abs(hi - lo) < 0.01:  # çok dar aralık → biraz aç
+        lo -= pad_pp
+        hi += pad_pp
+    else:
+        lo -= pad_pp
+        hi += pad_pp
+    return (lo, hi)
+
+def checkbox_row(default_selected=("EFFR",)):
+    """5 kutucuk yan yana döndürür, seçilen serileri listeler."""
+    series = ["EFFR","OBFR","SOFR","BGCR","TGCR"]
+    cols = st.columns(5)
+    chosen = []
+    for c, s in zip(cols, series):
+        with c:
+            val = st.checkbox(s, value=(s in default_selected), key=f"chk_{s}_{st.session_state.get('chart_scope','')}")
+            if val:
+                chosen.append(s)
+    return chosen
 
 st.markdown("### 🏦 NY Fed Reference Rates — EFFR · OBFR · SOFR · BGCR · TGCR")
 
@@ -105,7 +135,6 @@ for s in SPECS.keys():
         "01-01-2025 Value (%)": None if a2025_val is None else round(a2025_val, 4),
     })
 summary_df = pd.DataFrame(rows)
-
 st.markdown("#### 📌 Summary — Last Day • YoY (value) • 01-01-2025 (value)")
 st.dataframe(
     summary_df.style.format({
@@ -123,38 +152,29 @@ st.dataframe(
 pivot = data.pivot(index="date", columns="series", values="rate").sort_index()
 levels_long = pivot.reset_index().melt(id_vars="date", var_name="series", value_name="rate").dropna()
 levels_long["date"] = pd.to_datetime(levels_long["date"])
+levels_long["dash"] = levels_long["series"].map(DASH_MAP)
 
-# Line styles (legend hidden for dash)
-style_map = {"EFFR":[1,0], "OBFR":[6,3], "SOFR":[1,0], "BGCR":[2,2], "TGCR":[2,2]}
-levels_long["dash"] = levels_long["series"].map(style_map)
-
-all_series = ["EFFR", "OBFR", "SOFR", "BGCR", "TGCR"]
+# Universal color scale (EFFR black)
+COLOR_DOMAIN = ["EFFR","OBFR","SOFR","BGCR","TGCR"]
+COLOR_RANGE  = [COLOR_MAP[s] for s in COLOR_DOMAIN]
 
 # =========================================================
 # CHART 1 — Last 7 Days — Levels (default: only EFFR)
 # =========================================================
 st.markdown("### ⏱️ Last 7 Days — Levels")
+st.session_state["chart_scope"] = "7d"  # unique keys for checkboxes
+sel7 = checkbox_row(default_selected=("EFFR",))
 last_all = levels_long["date"].max()
-mask_7 = levels_long["date"] >= (last_all - timedelta(days=7))
-
-default_sel_7 = ["EFFR"]  # only EFFR by default
-user_sel_7 = st.multiselect(
-    "Select rates to display:",
-    options=all_series,
-    default=default_sel_7,
-    key="sel_levels_7d",
-)
-
-lvl7 = levels_long[mask_7 & levels_long["series"].isin(user_sel_7)]
+lvl7 = levels_long[(levels_long["date"] >= (last_all - timedelta(days=7))) & (levels_long["series"].isin(sel7))]
 domain7 = dynamic_y_domain(lvl7)
 
 chart7 = alt.Chart(lvl7).mark_line().encode(
     x=alt.X("date:T", title="Date"),
     y=alt.Y("rate:Q", title="Rate (%)", scale=alt.Scale(domain=domain7)),
-    color=alt.Color("series:N", title="Series"),
+    color=alt.Color("series:N", title="Series", scale=alt.Scale(domain=COLOR_DOMAIN, range=COLOR_RANGE)),
     strokeDash=alt.StrokeDash("dash", legend=None),
     tooltip=["date:T","series:N",alt.Tooltip("rate:Q", title="Rate (%)", format=".4f")],
-).properties(height=340)
+).properties(height=360)
 
 st.altair_chart(chart7, use_container_width=True)
 
@@ -162,26 +182,18 @@ st.altair_chart(chart7, use_container_width=True)
 # CHART 2 — Since 01-01-2025 — Levels (default: only EFFR)
 # =========================================================
 st.markdown("### 📅 Since 01-01-2025 — Levels")
-mask_ytd = levels_long["date"] >= pd.to_datetime(date(2025,1,1))
-
-default_sel_ytd = ["EFFR"]  # only EFFR by default
-user_sel_ytd = st.multiselect(
-    "Select rates to display:",
-    options=all_series,
-    default=default_sel_ytd,
-    key="sel_levels_ytd",
-)
-
-lvl_ytd = levels_long[mask_ytd & levels_long["series"].isin(user_sel_ytd)]
+st.session_state["chart_scope"] = "ytd"
+selytd = checkbox_row(default_selected=("EFFR",))
+lvl_ytd = levels_long[(levels_long["date"] >= pd.to_datetime(date(2025,1,1))) & (levels_long["series"].isin(selytd))]
 domain_ytd = dynamic_y_domain(lvl_ytd)
 
 chart_ytd = alt.Chart(lvl_ytd).mark_line().encode(
     x=alt.X("date:T", title="Date"),
     y=alt.Y("rate:Q", title="Rate (%)", scale=alt.Scale(domain=domain_ytd)),
-    color=alt.Color("series:N", title="Series"),
+    color=alt.Color("series:N", title="Series", scale=alt.Scale(domain=COLOR_DOMAIN, range=COLOR_RANGE)),
     strokeDash=alt.StrokeDash("dash", legend=None),
     tooltip=["date:T","series:N",alt.Tooltip("rate:Q", title="Rate (%)", format=".4f")],
-).properties(height=340)
+).properties(height=360)
 
 st.altair_chart(chart_ytd, use_container_width=True)
 
@@ -190,8 +202,9 @@ with st.expander("Notes"):
         """
 - Only `Effective Date` and `Rate (%)` are retrieved from the NY Fed API.
 - Summary shows values on those dates.
-- Charts are **levels**; the y-axis is **dynamic** based on the selected series (no zero baseline).
-- Defaults show **only EFFR**; use the checkboxes to add **OBFR, SOFR, BGCR, TGCR**.
-- Line styles: **EFFR solid**, **OBFR dashed**, **SOFR solid**, **BGCR/TGCR dotted** (dash legend hidden).
+- Two charts (levels): **Last 7 Days** and **Since 01-01-2025**.
+- Default selection is **EFFR only**; the 5 inline checkboxes let users add SOFR, OBFR, BGCR, TGCR.
+- Y-axis is dynamic (no zero baseline).
+- Styles: EFFR solid & **black**, OBFR dashed, SOFR solid, BGCR/TGCR dotted; dash legend hidden.
         """
     )
