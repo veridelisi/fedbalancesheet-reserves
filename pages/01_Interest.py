@@ -180,7 +180,7 @@ st.altair_chart(
         x=alt.X("date:T", title="Date"),
         y=alt.Y("bps:Q", title="Spread to SOFR (bps)"),
         color="series:N",
-        strokeDash="dash"
+        strokeDash="dash",
         tooltip=["date:T","series:N",alt.Tooltip("bps:Q", title="Spread (bps)", format=".2f")]
     ).properties(height=300),
     use_container_width=True
@@ -192,7 +192,7 @@ st.altair_chart(
         x=alt.X("date:T", title="Date"),
         y=alt.Y("bps:Q", title="Spread to SOFR (bps)"),
         color="series:N",
-        strokeDash="dash"
+        strokeDash="dash",
         tooltip=["date:T","series:N",alt.Tooltip("bps:Q", title="Spread (bps)", format=".2f")]
     ).properties(height=300),
     use_container_width=True
