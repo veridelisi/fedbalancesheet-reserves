@@ -88,6 +88,18 @@ project_card(
     link_label="➡️ Public Balance dashboard"
 )
 
+# 5) Money Markets Reference Rates
+project_card(
+    title="Money Markets Reference Rates",
+    tagline="NY Fed Reference Rates • EFFR, OBFR, SOFR, BGCR, TGCR",
+    description_md=(
+        "Latest levels and historical charts. 7-day and YTD views with user-selectable series. "
+        "SOFR-centered design for clean comparisons."
+    ),
+    page_path="pages/01_Interest.py",
+    image_path="assets/thumbs/interest.png",
+    link_label="➡️ Reference Rates dashboard"
+)
 
 # project_card("Project 3", "Tagline", "Açıklama...", "pages/03_Another.py", "assets/thumbs/another2.jpg")
 
