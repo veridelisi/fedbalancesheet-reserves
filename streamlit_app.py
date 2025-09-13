@@ -106,7 +106,8 @@ project_card(
 st.markdown(
     
     "<div style='text-align:center;opacity:0.8'>"
-    "Engin Yılmaz • September 2025"
+    "Engin Yılmaz • Amherst • September 2025"
+    
     "</div>",
     unsafe_allow_html=True
 )
