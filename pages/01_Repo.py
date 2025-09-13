@@ -19,7 +19,7 @@ st.markdown("""
 <div style="background:#f8f9fa;padding:10px 0 10px 0;margin-bottom:24px;border-radius:8px;display:flex;gap:32px;justify-content:center;">
 """, unsafe_allow_html=True)
 
-col1, col2, col3, col4, col5 = st.columns([1,1,1,1,1])
+col1, col2, col3, col4, col5, col6 = st.columns([1,1,1,1,1,1])
 with col1:
     st.page_link("streamlit_app.py", label="🏠 Home")
 with col2:
@@ -30,11 +30,11 @@ with col4:
     st.page_link("pages/01_TGA.py", label="🔄 TGA")
 with col5:
     st.page_link("pages/01_PublicBalance.py", label="🔄 Public Balance")
+with col6:
+    st.page_link("pages/01_Interest.py", label="🔄 Reference Rates")
 
 st.markdown("</div>", unsafe_allow_html=True)
 
-st.title("🔄 NY Fed Primary Dealer — Repo & Reverse Repo")
-st.caption("Latest day snapshot (Repo vs Reverse Repo) • Annual change vs selected baseline (YoY t−1y or fixed 2025-01-01)")
 
 # --- Sol menü sakla ---
 st.markdown("""
@@ -43,8 +43,6 @@ st.markdown("""
         section[data-testid="stSidebar"][aria-expanded="true"]{display: none;}
     </style>
     """, unsafe_allow_html=True)
-
-
 
 # ------------------------------ Helpers -------------------------------
 COLOR_REPO = "#2563eb"   # blue
