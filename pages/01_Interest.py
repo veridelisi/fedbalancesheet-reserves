@@ -226,6 +226,139 @@ chart_ytd = alt.Chart(lvl_ytd).mark_line().encode(
 ).properties(height=360)
 
 st.altair_chart(chart_ytd, use_container_width=True)
+# =========================
+# VOLUME CHARTS (Amounts)
+# =========================
+
+# Helpers specific to volume charts (kept local so we don't touch earlier code)
+def _dynamic_y_domain_volume(df_vol: pd.DataFrame, pad_abs: float = 2.0):
+    """
+    Return (ymin, ymax) based on selected series volume (in $ Billions).
+    Adds a small absolute pad so axis doesn't hug lines.
+    """
+    if df_vol.empty:
+        return None
+    lo = float(df_vol["volume"].min())
+    hi = float(df_vol["volume"].max())
+    if pd.isna(lo) or pd.isna(hi):
+        return None
+    if abs(hi - lo) < pad_abs:  # very tight range → open a bit
+        lo -= pad_abs
+        hi += pad_abs
+    else:
+        lo -= pad_abs
+        hi += pad_abs
+    return (lo, hi)
+
+def _fetch_volumes(last_n: int = 500) -> pd.DataFrame:
+    """
+    Fetch only Effective Date + Volume ($Billions) for all series
+    without changing the earlier fetch_rates logic.
+    """
+    frames = []
+    for k, spec in SPECS.items():
+        url = f"{API_BASE}/{spec['group']}/{spec['code']}/last/{last_n}.csv"
+        r = requests.get(url, timeout=20)
+        r.raise_for_status()
+        raw = pd.read_csv(io.StringIO(r.text))
+
+        # Flexible column detection for date and volume
+        # (Typical: 'Effective Date', 'Volume ($Billions)')
+        date_col = None
+        for c in raw.columns:
+            lc = c.lower().strip()
+            if lc.startswith("effective") and "date" in lc:
+                date_col = c
+                break
+        vol_col = None
+        for c in raw.columns:
+            if "volume" in c.lower():
+                vol_col = c
+                break
+
+        if date_col is None or vol_col is None:
+            # If a series has no volume column, skip it gracefully
+            continue
+
+        dfv = raw[[date_col, vol_col]].copy()
+        dfv.columns = ["date", "volume"]
+        dfv["date"] = pd.to_datetime(dfv["date"]).dt.date
+        dfv["series"] = k
+        frames.append(dfv.sort_values("date"))
+
+    if not frames:
+        return pd.DataFrame(columns=["date", "volume", "series"])
+    out = pd.concat(frames, ignore_index=True)
+    return out
+
+# Build long-form volume data (without touching existing 'data' frame)
+with st.spinner("Fetching volumes..."):
+    volumes_long = _fetch_volumes(last_n=500)
+
+# Map styles/colors same as rate charts
+if not volumes_long.empty:
+    volumes_long["date"] = pd.to_datetime(volumes_long["date"])
+    volumes_long["dash"] = volumes_long["series"].map(DASH_MAP)
+else:
+    volumes_long = pd.DataFrame(columns=["date","volume","series","dash"])
+
+# Common color scale
+V_COLOR_DOMAIN = ["EFFR","OBFR","SOFR","BGCR","TGCR"]
+V_COLOR_RANGE  = [COLOR_MAP[s] for s in V_COLOR_DOMAIN]
+
+# ---------------------------------------------------------
+# CHART 3 — Last 7 Days — Levels (Volume Amount)
+# ---------------------------------------------------------
+st.markdown("### ⏱️ Last 7 Days — Levels volume amount")
+st.session_state["chart_scope"] = "vol7d"
+sel_vol_7 = checkbox_row(default_selected=("EFFR",))  # 5 kutucuk, EFFR varsayılan
+if not volumes_long.empty:
+    last_vol_date = volumes_long["date"].max()
+    vol7 = volumes_long[
+        (volumes_long["date"] >= (last_vol_date - timedelta(days=7))) &
+        (volumes_long["series"].isin(sel_vol_7))
+    ]
+else:
+    vol7 = volumes_long
+
+domain_v7 = _dynamic_y_domain_volume(vol7)
+
+chart_vol7 = alt.Chart(vol7).mark_line().encode(
+    x=alt.X("date:T", title="Date"),
+    y=alt.Y("volume:Q", title="Volume ($ Billions)", scale=alt.Scale(domain=domain_v7)),
+    color=alt.Color("series:N", title="Series", scale=alt.Scale(domain=V_COLOR_DOMAIN, range=V_COLOR_RANGE)),
+    strokeDash=alt.StrokeDash("dash", legend=None),
+    tooltip=["date:T","series:N",alt.Tooltip("volume:Q", title="Volume ($B)", format=".2f")],
+).properties(height=360)
+
+st.altair_chart(chart_vol7, use_container_width=True)
+
+# ---------------------------------------------------------
+# CHART 4 — Since 01-01-2025 — Levels (Volume Amount)
+# ---------------------------------------------------------
+st.markdown("### 📅 Since 01-01-2025 — Levels volume amount")
+st.session_state["chart_scope"] = "volytd"
+sel_vol_ytd = checkbox_row(default_selected=("EFFR",))  # 5 kutucuk, EFFR varsayılan
+if not volumes_long.empty:
+    vol_ytd = volumes_long[
+        (volumes_long["date"] >= pd.to_datetime(date(2025,1,1))) &
+        (volumes_long["series"].isin(sel_vol_ytd))
+    ]
+else:
+    vol_ytd = volumes_long
+
+domain_vytd = _dynamic_y_domain_volume(vol_ytd)
+
+chart_volytd = alt.Chart(vol_ytd).mark_line().encode(
+    x=alt.X("date:T", title="Date"),
+    y=alt.Y("volume:Q", title="Volume ($ Billions)", scale=alt.Scale(domain=domain_vytd)),
+    color=alt.Color("series:N", title="Series", scale=alt.Scale(domain=V_COLOR_DOMAIN, range=V_COLOR_RANGE)),
+    strokeDash=alt.StrokeDash("dash", legend=None),
+    tooltip=["date:T","series:N",alt.Tooltip("volume:Q", title="Volume ($B)", format=".2f")],
+).properties(height=360)
+
+st.altair_chart(chart_volytd, use_container_width=True)
+
 
 with st.expander("Notes"):
     st.markdown(
