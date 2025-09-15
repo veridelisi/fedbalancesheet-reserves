@@ -266,7 +266,7 @@ left_top, right_top = st.columns([1.2, 2])
 
 with left_top:
     with st.container(border=True):
-        st.caption("Latest Wednesday")
+        st.caption("Latest Data")
         st.markdown(f"<h5 style='margin:0'>{LATEST.strftime('%b %d, %Y')}</h2>", unsafe_allow_html=True)
 
 with right_top:
