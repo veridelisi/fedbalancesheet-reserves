@@ -257,7 +257,9 @@ def chart_grouped(df_grouped, title):
 # ------------------------------- Data ---------------------------------
 raw = fetch_data()
 sub = filter_target(raw)
-LATEST = latest_date(sub)
+sub["date"] = pd.to_datetime(sub["date"], errors="coerce")
+sub = sub.dropna(subset=["date"]).sort_values("date")
+LATEST = sub["date"].max()
 
 # ------------------------------- Top row ------------------------------
 left_top, right_top = st.columns([1.2, 2])
