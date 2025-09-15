@@ -262,6 +262,13 @@ sub = sub.dropna(subset=["date"]).sort_values("date")
 LATEST = sub["date"].max()
 
 # ------------------------------- Top row ------------------------------
+# ---- manual refresh to bust cache ----
+ref1, ref2 = st.columns([1, 6])
+with ref1:
+    if st.button("↻ Refresh data", use_container_width=True):
+        st.cache_data.clear()
+        st.rerun()
+
 left_top, right_top = st.columns([1.2, 2])
 
 with left_top:
