@@ -121,31 +121,16 @@ def create_bar_chart(df_filtered):
         'amount_billions': 'sum'
     }).reset_index()
     
-    # Create bar chart
+    # Create simple bar chart (only amounts)
     fig = go.Figure()
     
-    # Add bar chart for amounts
+    # Add bar chart for amounts only
     fig.add_trace(go.Bar(
         x=daily_data['operation_date'],
         y=daily_data['amount_billions'],
         name='Accepted Amount ($B)',
         marker_color='lightblue',
-        yaxis='y',
-        hovertemplate='Date: %{x}<br>Amount: $%{y:.2f}B<br>Rate: %{customdata:.3f}%<extra></extra>',
-        customdata=daily_data['weighted_average_rate']
-    ))
-    
-    # Add line for rates on secondary y-axis
-    fig.add_trace(go.Scatter(
-        x=daily_data['operation_date'],
-        y=daily_data['weighted_average_rate'],
-        mode='lines+markers',
-        name='Weighted Avg Rate (%)',
-        line=dict(color='red', width=2),
-        marker=dict(size=6),
-        yaxis='y2',
-        hovertemplate='Date: %{x}<br>Rate: %{y:.3f}%<br>Amount: $%{customdata:.2f}B<extra></extra>',
-        customdata=daily_data['amount_billions']
+        hovertemplate='Date: %{x}<br>Amount: $%{y:.2f}B<extra></extra>'
     ))
     
     # Update layout
@@ -154,26 +139,11 @@ def create_bar_chart(df_filtered):
         xaxis_title='Date',
         yaxis=dict(
             title='Accepted Amount ($ Billions)',
-            side='left',
             range=[0, daily_data['amount_billions'].max() * 1.1]
         ),
-        yaxis2=dict(
-            title='Weighted Average Rate (%)',
-            side='right',
-            overlaying='y',
-            range=[daily_data['weighted_average_rate'].min() * 0.95, 
-                   daily_data['weighted_average_rate'].max() * 1.05]
-        ),
-        hovermode='x unified',
+        hovermode='x',
         height=500,
-        showlegend=True,
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1
-        )
+        showlegend=False
     )
     
     return fig
