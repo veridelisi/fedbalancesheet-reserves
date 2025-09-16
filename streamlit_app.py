@@ -110,7 +110,7 @@ project_card(
         " Quick access to latest operations and history."
     ),
     page_path="pages/01_Desk.py",
-    image_path="assets/thumbs/desk.png",
+    image_path="assets/thumbs/desk1.jpeg",
     link_label="➡️ Desk Operations dashboard"
 )
 
