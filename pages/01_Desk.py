@@ -249,28 +249,7 @@ def main():
         else:
             st.warning("No reverse repo operations found since January 1, 2025")
     
-    # Combined summary if both datasets exist
-    if not repo_df_with_rates.empty and not reverse_repo_df_with_rates.empty:
-        st.divider()
-        st.subheader("📋 Combined Summary (2025)")
-        
-        start_date = datetime(2025, 1, 1)
-        repo_2025 = repo_df_with_rates[repo_df_with_rates['operation_date'] >= start_date]
-        reverse_repo_2025 = reverse_repo_df_with_rates[reverse_repo_df_with_rates['operation_date'] >= start_date]
-        
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("Repo Operations", len(repo_2025))
-        
-        with col2:
-            st.metric("Reverse Repo Operations", len(reverse_repo_2025))
-        
-        with col3:
-            st.metric("Total Repo Amount", f"${repo_2025['amount_billions'].sum():.2f}B" if not repo_2025.empty else "$0B")
-        
-        with col4:
-            st.metric("Total Reverse Repo Amount", f"${reverse_repo_2025['amount_billions'].sum():.2f}B" if not reverse_repo_2025.empty else "$0B")
+
     
     if repo_df_with_rates.empty and reverse_repo_df_with_rates.empty:
         st.error("No data available for either repo or reverse repo operations")
