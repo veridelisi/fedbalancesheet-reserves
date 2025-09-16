@@ -1,151 +1,279 @@
-# pages/Desk_Table.py
-# Bugünden geriye Repo & Reverse Repo günlük accepted tutarları ($B) — TABLO
-# pip install streamlit pandas requests
-# streamlit run pages/Desk_Table.py
-
+import streamlit as st
 import requests
 import pandas as pd
-import streamlit as st
-from datetime import date
+import plotly.express as px
+import plotly.graph_objects as go
+from datetime import datetime, date
+import numpy as np
 
-st.set_page_config(page_title="Repo & RRP — Daily Amounts (Table)", layout="wide")
-st.title("Repo & Reverse Repo — Daily Accepted Amounts ($B)")
+# Page configuration
+st.set_page_config(
+    page_title="Fed Repo Operations Dashboard",
+    page_icon="📊",
+    layout="wide"
+)
 
-API_SEARCH = "https://markets.newyorkfed.org/api/rp/results/search.json"
-
-def _to_float(x):
+@st.cache_data(ttl=3600)  # Cache for 1 hour
+def fetch_fed_repo_data():
+    """
+    Fetch Federal Reserve repo operations data
+    """
+    base_url = "https://markets.newyorkfed.org/api/rp"
+    url = f"{base_url}/repo/all/results/last/2000.json"
+    
     try:
-        return float(x)
-    except Exception:
-        try:
-            return float(str(x).replace(",", ""))
-        except Exception:
-            return None
+        response = requests.get(url)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        st.error(f"Error fetching data: {e}")
+        return None
 
-def _extract_ops(js: dict):
-    if not isinstance(js, dict):
-        return []
-    if "repo" in js and isinstance(js["repo"], dict):
-        ops = js["repo"].get("operations")
-        if isinstance(ops, list):
-            return ops
-    if "operations" in js and isinstance(js["operations"], list):
-        return js["operations"]
-    for v in js.values():
-        if isinstance(v, dict) and isinstance(v.get("operations"), list):
-            return v["operations"]
-    return []
-
-def _accepted_usd(op: dict) -> float:
-    total = 0.0
-    for d in (op.get("details") or []):
-        a = _to_float(d.get("amtAccepted"))
-        if a:
-            total += a
-    if total == 0 and op.get("totalAmtAccepted") is not None:
-        v = _to_float(op.get("totalAmtAccepted"))
-        if v:
-            total += v
-    return total
-
-@st.cache_data(ttl=15*60, show_spinner=False)
-def fetch_ops(operation_type_param: str, start: str, end: str):
+def process_repo_data(data):
     """
-    operation_type_param: 'repo' or 'reverserepo'
-    Sadece search.json; method paramı yok, sayfalama denenir, operationId ile dedupe.
+    Process repo operations data
     """
-    all_ops, seen = [], set()
+    if not data or 'repo' not in data or 'operations' not in data['repo']:
+        return pd.DataFrame()
+    
+    operations = data['repo']['operations']
+    results = []
+    
+    for operation in operations:
+        op_date = datetime.strptime(operation['operationDate'], '%Y-%m-%d')
+        total_accepted = operation['totalAmtAccepted']
+        
+        if total_accepted == 0:
+            continue
+            
+        # Calculate weighted average rate across all security types
+        total_weighted_rate = 0
+        total_amount = 0
+        
+        for detail in operation['details']:
+            if detail['amtAccepted'] > 0 and 'percentWeightedAverageRate' in detail:
+                amount = detail['amtAccepted']
+                rate = detail['percentWeightedAverageRate']
+                total_weighted_rate += rate * amount
+                total_amount += amount
+        
+        # Calculate overall weighted average rate
+        if total_amount > 0:
+            overall_weighted_rate = total_weighted_rate / total_amount
+        else:
+            overall_weighted_rate = None
+            
+        results.append({
+            'operation_date': op_date,
+            'operation_id': operation['operationId'],
+            'term': operation['term'],
+            'total_accepted_amount': total_accepted,
+            'weighted_average_rate': overall_weighted_rate,
+            'amount_billions': total_accepted / 1_000_000_000
+        })
+    
+    df = pd.DataFrame(results)
+    
+    if not df.empty:
+        df = df.sort_values('operation_date', ascending=False)
+        df = df.reset_index(drop=True)
+    
+    return df
 
-    def _pull(params):
-        try:
-            r = requests.get(API_SEARCH, params=params, timeout=30)
-            if r.status_code != 200:
-                return []
-            return _extract_ops(r.json())
-        except Exception:
-            return []
+def create_bar_chart(df_filtered):
+    """
+    Create bar chart for repo operations since 2025-01-01
+    """
+    if df_filtered.empty:
+        return None
+    
+    # Group by date and sum amounts (in case multiple operations per day)
+    daily_data = df_filtered.groupby('operation_date').agg({
+        'weighted_average_rate': 'mean',
+        'amount_billions': 'sum'
+    }).reset_index()
+    
+    # Create bar chart
+    fig = go.Figure()
+    
+    # Add bar chart for amounts
+    fig.add_trace(go.Bar(
+        x=daily_data['operation_date'],
+        y=daily_data['amount_billions'],
+        name='Accepted Amount ($B)',
+        marker_color='lightblue',
+        yaxis='y',
+        hovertemplate='Date: %{x}<br>Amount: $%{y:.2f}B<br>Rate: %{customdata:.3f}%<extra></extra>',
+        customdata=daily_data['weighted_average_rate']
+    ))
+    
+    # Add line for rates on secondary y-axis
+    fig.add_trace(go.Scatter(
+        x=daily_data['operation_date'],
+        y=daily_data['weighted_average_rate'],
+        mode='lines+markers',
+        name='Weighted Avg Rate (%)',
+        line=dict(color='red', width=2),
+        marker=dict(size=6),
+        yaxis='y2',
+        hovertemplate='Date: %{x}<br>Rate: %{y:.3f}%<br>Amount: $%{customdata:.2f}B<extra></extra>',
+        customdata=daily_data['amount_billions']
+    ))
+    
+    # Update layout
+    fig.update_layout(
+        title='Fed Repo Operations Since January 1, 2025',
+        xaxis_title='Date',
+        yaxis=dict(
+            title='Accepted Amount ($ Billions)',
+            side='left',
+            range=[0, daily_data['amount_billions'].max() * 1.1]
+        ),
+        yaxis2=dict(
+            title='Weighted Average Rate (%)',
+            side='right',
+            overlaying='y',
+            range=[daily_data['weighted_average_rate'].min() * 0.95, 
+                   daily_data['weighted_average_rate'].max() * 1.05]
+        ),
+        hovermode='x unified',
+        height=500,
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        )
+    )
+    
+    return fig
 
-    pulled = False
-    for page_key in ("pageNumber", "page"):
-        page = 1
-        while True:
-            params = {
-                "operationType": operation_type_param,
-                "fromDate": start,
-                "toDate": end,
-                page_key: page,
-                "pageSize": 200,
-            }
-            ops = _pull(params)
-            if not ops:
-                break
-            pulled = True
-            for op in ops:
-                oid = op.get("operationId")
-                if oid and oid in seen:
-                    continue
-                if oid:
-                    seen.add(oid)
-                all_ops.append(op)
-            if len(ops) < 200:
-                break
-            page += 1
-        if pulled:
-            break
-
-    if not pulled:
-        params = {"operationType": operation_type_param, "fromDate": start, "toDate": end}
-        ops = _pull(params)
-        for op in ops:
-            oid = op.get("operationId")
-            if oid and oid in seen:
-                continue
-            if oid:
-                seen.add(oid)
-            all_ops.append(op)
-
-    return all_ops
-
-def build_table(from_date: str, to_date: str) -> pd.DataFrame:
-    repo_ops = fetch_ops("repo", from_date, to_date)
-    rrp_ops  = fetch_ops("reverserepo", from_date, to_date)
-
-    def daily(op_list, label):
-        rows = {}
-        for op in op_list:
-            d = pd.to_datetime(op.get("operationDate"), errors="coerce")
-            if pd.isna(d):
-                continue
-            usd = _accepted_usd(op)
-            if usd <= 0:
-                continue
-            k = d.date()
-            rows[k] = rows.get(k, 0.0) + usd
-        if not rows:
-            return pd.DataFrame(columns=["date", label])
-        return pd.DataFrame(
-            [{"date": k, label: v/1e9} for k, v in rows.items()]
+# Main Streamlit App
+def main():
+    st.title("🏛️ Federal Reserve Repo Operations Dashboard")
+    
+    # Fetch data
+    with st.spinner("Fetching latest Fed repo data..."):
+        data = fetch_fed_repo_data()
+    
+    if data is None:
+        st.error("Failed to fetch data from NY Fed API")
+        return
+    
+    # Process data
+    df = process_repo_data(data)
+    
+    if df.empty:
+        st.error("No repo operations data available")
+        return
+    
+    # Filter for operations with rates
+    df_with_rates = df[df['weighted_average_rate'].notna()].copy()
+    
+    if df_with_rates.empty:
+        st.error("No repo operations with rates found")
+        return
+    
+    # 1. Latest operation info (first row)
+    st.header("📈 Latest Repo Operation")
+    
+    latest_operation = df_with_rates.iloc[0]
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric(
+            label="Operation Date",
+            value=latest_operation['operation_date'].strftime("%Y-%m-%d")
+        )
+    
+    with col2:
+        st.metric(
+            label="Weighted Average Rate",
+            value=f"{latest_operation['weighted_average_rate']:.3f}%"
+        )
+    
+    with col3:
+        st.metric(
+            label="Accepted Amount",
+            value=f"${latest_operation['amount_billions']:.2f}B"
+        )
+    
+    with col4:
+        st.metric(
+            label="Term",
+            value=latest_operation['term']
+        )
+    
+    st.divider()
+    
+    # 2. Chart since 2025-01-01 (second row)
+    st.header("📊 Repo Operations Since January 1, 2025")
+    
+    # Filter data from 2025-01-01
+    start_date = datetime(2025, 1, 1)
+    df_2025 = df_with_rates[df_with_rates['operation_date'] >= start_date].copy()
+    
+    if df_2025.empty:
+        st.warning("No repo operations found since January 1, 2025")
+    else:
+        # Create and display chart
+        fig = create_bar_chart(df_2025)
+        
+        if fig:
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Summary statistics for 2025
+            st.subheader("📋 2025 Summary Statistics")
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric(
+                    label="Total Operations",
+                    value=len(df_2025)
+                )
+            
+            with col2:
+                st.metric(
+                    label="Average Rate",
+                    value=f"{df_2025['weighted_average_rate'].mean():.3f}%"
+                )
+            
+            with col3:
+                st.metric(
+                    label="Total Amount",
+                    value=f"${df_2025['amount_billions'].sum():.2f}B"
+                )
+            
+            with col4:
+                st.metric(
+                    label="Avg Amount/Operation",
+                    value=f"${df_2025['amount_billions'].mean():.2f}B"
+                )
+        else:
+            st.error("Could not create chart")
+    
+    # Optional: Show raw data table
+    with st.expander("📋 View Recent Operations Data"):
+        st.dataframe(
+            df_2025[['operation_date', 'operation_id', 'term', 'weighted_average_rate', 'amount_billions']].head(10),
+            column_config={
+                'operation_date': 'Date',
+                'operation_id': 'Operation ID',
+                'term': 'Term',
+                'weighted_average_rate': st.column_config.NumberColumn(
+                    'Rate (%)',
+                    format='%.3f'
+                ),
+                'amount_billions': st.column_config.NumberColumn(
+                    'Amount ($B)',
+                    format='%.2f'
+                )
+            },
+            hide_index=True
         )
 
-    df_repo = daily(repo_ops, "Repo ($B)")
-    df_rrp  = daily(rrp_ops,  "Reverse Repo ($B)")
-
-    out = pd.merge(df_repo, df_rrp, on="date", how="outer").sort_values("date", ascending=False)
-    out["date"] = out["date"].astype(str)
-    return out
-
-# --- UI: tarih aralığı (default: 2025-01-01 → bugün) ---
-col1, col2 = st.columns(2)
-with col1:
-    start_str = st.text_input("From (YYYY-MM-DD)", "2025-01-01")
-with col2:
-    end_str   = st.text_input("To (YYYY-MM-DD)", date.today().strftime("%Y-%m-%d"))
-
-with st.spinner("Loading..."):
-    table = build_table(start_str, end_str)
-
-st.dataframe(
-    table.rename(columns={"date": "Date"}),
-    use_container_width=True,
-    hide_index=True
-)
+if __name__ == "__main__":
+    main()
