@@ -18,15 +18,43 @@ def fetch_fed_repo_data():
     """
     Fetch Federal Reserve repo operations data
     """
+    # Try multiple approaches to get data
     base_url = "https://markets.newyorkfed.org/api/rp"
-    url = f"{base_url}/repo/all/results/last/2000.json"
     
+    # URLs to try in order of preference
+    urls_to_try = [
+        f"{base_url}/repo/all/results/last/500.json",  # Reduced number
+        f"{base_url}/repo/all/results/last/100.json",  # Even smaller
+        f"{base_url}/repo/all/results/last/50.json",   # Smallest
+    ]
+    
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept': 'application/json',
+        'Accept-Language': 'en-US,en;q=0.9'
+    }
+    
+    for url in urls_to_try:
+        try:
+            st.info(f"Trying: {url}")
+            response = requests.get(url, headers=headers, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+            st.success(f"Successfully fetched data from: {url}")
+            return data
+        except requests.exceptions.RequestException as e:
+            st.warning(f"Failed to fetch from {url}: {e}")
+            continue
+    
+    # If all URLs fail, try a fallback with different structure
     try:
-        response = requests.get(url)
+        fallback_url = f"{base_url}/repo/all/results/last/50"  # Without .json
+        st.info(f"Trying fallback: {fallback_url}")
+        response = requests.get(fallback_url, headers=headers, timeout=30)
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
-        st.error(f"Error fetching data: {e}")
+        st.error(f"All attempts failed. Last error: {e}")
         return None
 
 def process_repo_data(data):
@@ -154,12 +182,41 @@ def create_bar_chart(df_filtered):
 def main():
     st.title("🏛️ Federal Reserve Repo Operations Dashboard")
     
-    # Fetch data
-    with st.spinner("Fetching latest Fed repo data..."):
-        data = fetch_fed_repo_data()
+    # Add option to use sample data if API fails
+    use_sample_data = st.sidebar.checkbox("Use Sample Data (if API fails)")
+    
+    if use_sample_data:
+        st.info("Using sample data from your original JSON file")
+        # You can paste your JSON data here as fallback
+        sample_data = {
+            "repo": {
+                "operations": [
+                    # Sample operations from your original data
+                    {
+                        "operationId": "RP 091625 1",
+                        "operationDate": "2025-09-16",
+                        "term": "Overnight",
+                        "totalAmtAccepted": 1500000000,
+                        "details": [
+                            {
+                                "securityType": "Treasury",
+                                "amtAccepted": 1500000000,
+                                "percentWeightedAverageRate": 4.5
+                            }
+                        ]
+                    }
+                    # Add more sample operations here
+                ]
+            }
+        }
+        data = sample_data
+    else:
+        # Fetch data from API
+        with st.spinner("Fetching latest Fed repo data..."):
+            data = fetch_fed_repo_data()
     
     if data is None:
-        st.error("Failed to fetch data from NY Fed API")
+        st.error("Failed to fetch data from NY Fed API. Try enabling 'Use Sample Data' in the sidebar.")
         return
     
     # Process data
