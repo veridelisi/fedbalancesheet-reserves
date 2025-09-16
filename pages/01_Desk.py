@@ -11,10 +11,11 @@ from datetime import date, timedelta
 
 st.set_page_config(page_title="Desk Ops — Repo & RRP", layout="wide")
 st.title("Desk Operations — Repo & Reverse Repo")
-st.caption("Accepted amounts only • Historical data analysis")
+st.caption("Accepted amounts only • Latest snapshot and data since 01-01-2025")
 
 API_SEARCH = "https://markets.newyorkfed.org/api/rp/results/search.json"
 METHODS = ("treasury", "agency", "mortgagebacked")
+START_DATE = date(2025, 1, 1)  # Fixed start date
 TODAY = date.today()
 COLOR = {"Repo": "#1f77b4", "Reverse Repo": "#d62728"}
 
@@ -55,117 +56,127 @@ def fetch_ops(operation_type_param: str, start: date, end: date):
             "operationType": operation_type_param,
             "method": m,
             "fromDate": start.strftime("%Y-%m-%d"),
-            "toDate":   end.strftime("%Y-%m-%d"),
+            "toDate": end.strftime("%Y-%m-%d"),
         }
         try:
             r = requests.get(API_SEARCH, params=params, timeout=30)
-            if r.status_code != 200: continue
-            ops = _extract_ops(r.json())
-            if ops: all_ops.extend(ops)
-        except Exception:
+            if r.status_code != 200: 
+                st.warning(f"API call failed for {operation_type_param} {m}: {r.status_code}")
+                continue
+            data = r.json()
+            ops = _extract_ops(data)
+            if ops: 
+                all_ops.extend(ops)
+                st.write(f"✓ Fetched {len(ops)} operations for {operation_type_param} {m}")
+        except Exception as e:
+            st.error(f"Error fetching {operation_type_param} {m}: {str(e)}")
             continue
     return all_ops
 
-def latest_cards_df(start_date: date, end_date: date) -> pd.DataFrame:
-    ops = fetch_ops("repo", start_date, end_date) + fetch_ops("reverserepo", start_date, end_date)
-    if not ops: return pd.DataFrame(columns=["date","operationType","amount_bil"])
-    df = pd.json_normalize(ops)
-    df["operationDate"] = pd.to_datetime(df["operationDate"], errors="coerce")
-    last_day = df["operationDate"].max().date()
-
-    sums = {}
-    for op in ops:
-        d = pd.to_datetime(op.get("operationDate"), errors="coerce")
-        if pd.isna(d) or d.date()!=last_day: continue
-        t = op.get("operationType")
-        sums.setdefault(t, 0.0)
-        sums[t] += _accepted_usd(op)
-
-    rows = [{"date": last_day, "operationType": t, "amount_bil": usd/1e9}
-            for t, usd in sums.items() if usd>0]
-    return pd.DataFrame(rows).sort_values("operationType")
-
-def get_historical_series(op_label: str, start_date: date, end_date: date, 
-                         aggregation: str = "daily") -> pd.DataFrame:
-    """
-    Get historical data series with different aggregation options
-    aggregation: 'daily', 'weekly', 'monthly'
-    """
-    op_param = "repo" if op_label=="Repo" else "reverserepo"
-    ops = fetch_ops(op_param, start_date, end_date)
-    daily = {}
+def latest_cards_df() -> pd.DataFrame:
+    """Get the latest day's data"""
+    with st.spinner("Fetching latest data..."):
+        repo_ops = fetch_ops("repo", START_DATE, TODAY)
+        rr_ops = fetch_ops("reverserepo", START_DATE, TODAY)
+        
+    st.write(f"Total repo operations: {len(repo_ops)}")
+    st.write(f"Total reverse repo operations: {len(rr_ops)}")
     
-    for op in ops:
-        if op.get("operationType") != op_label: continue
+    all_ops = repo_ops + rr_ops
+    if not all_ops: 
+        return pd.DataFrame(columns=["date","operationType","amount_bil"])
+    
+    # Find the latest date with operations
+    dates = []
+    for op in all_ops:
         d = pd.to_datetime(op.get("operationDate"), errors="coerce")
-        if pd.isna(d): continue
+        if not pd.isna(d):
+            dates.append(d.date())
+    
+    if not dates:
+        return pd.DataFrame(columns=["date","operationType","amount_bil"])
+        
+    last_day = max(dates)
+    st.write(f"Latest operation date: {last_day}")
+
+    # Sum amounts by operation type for the latest day
+    sums = {}
+    for op in all_ops:
+        d = pd.to_datetime(op.get("operationDate"), errors="coerce")
+        if pd.isna(d) or d.date() != last_day: 
+            continue
+        
+        t = op.get("operationType", "").strip()
+        if not t:
+            continue
+            
+        amount = _accepted_usd(op)
+        if amount > 0:
+            sums.setdefault(t, 0.0)
+            sums[t] += amount
+            st.write(f"Added {amount/1e9:.3f}B for {t} on {d.date()}")
+
+    st.write(f"Latest day sums: {sums}")
+    
+    rows = [{"date": last_day, "operationType": t, "amount_bil": usd/1e9}
+            for t, usd in sums.items()]
+    return pd.DataFrame(rows).sort_values("operationType") if rows else pd.DataFrame(columns=["date","operationType","amount_bil"])
+
+def get_historical_series(op_label: str) -> pd.DataFrame:
+    """Get historical data series from START_DATE to TODAY"""
+    op_param = "repo" if op_label == "Repo" else "reverserepo"
+    
+    with st.spinner(f"Fetching {op_label} historical data..."):
+        ops = fetch_ops(op_param, START_DATE, TODAY)
+    
+    daily = {}
+    for op in ops:
+        # Check operation type matches
+        op_type = op.get("operationType", "").strip()
+        if op_type != op_label:
+            continue
+            
+        d = pd.to_datetime(op.get("operationDate"), errors="coerce")
+        if pd.isna(d): 
+            continue
+            
         dd = d.date()
-        if dd < start_date or dd > end_date: continue
+        if dd < START_DATE or dd > TODAY: 
+            continue
+            
         usd = _accepted_usd(op)
-        if usd <= 0: continue
+        if usd <= 0: 
+            continue
+            
         daily[dd] = daily.get(dd, 0.0) + usd
     
     if not daily:
+        st.warning(f"No {op_label} data found")
         return pd.DataFrame(columns=["date","operationType","amount_bil"])
     
-    # Convert to DataFrame
-    df = pd.DataFrame([{"date": k, "operationType": op_label, "amount_bil": v/1e9}
-                      for k,v in daily.items()])
-    df["date"] = pd.to_datetime(df["date"])
-    df = df.sort_values("date")
-    
-    # Apply aggregation
-    if aggregation == "weekly":
-        df = df.set_index("date").resample("W").agg({
-            "amount_bil": "sum",
-            "operationType": "first"
-        }).reset_index()
-    elif aggregation == "monthly":
-        df = df.set_index("date").resample("M").agg({
-            "amount_bil": "sum", 
-            "operationType": "first"
-        }).reset_index()
-    
-    return df
-
-# Sidebar for date range selection
-st.sidebar.header("Date Range Selection")
-
-# Predefined time periods
-time_periods = {
-    "Last 7 days": (TODAY - timedelta(days=7), TODAY),
-    "Last 30 days": (TODAY - timedelta(days=30), TODAY), 
-    "Last 90 days": (TODAY - timedelta(days=90), TODAY),
-    "YTD 2025": (date(2025, 1, 1), TODAY),
-    "2024": (date(2024, 1, 1), date(2024, 12, 31)),
-    "2023": (date(2023, 1, 1), date(2023, 12, 31)),
-    "Custom": None
-}
-
-selected_period = st.sidebar.selectbox("Select Time Period", list(time_periods.keys()))
-
-if selected_period == "Custom":
-    col1, col2 = st.sidebar.columns(2)
-    with col1:
-        start_date = st.date_input("Start Date", value=TODAY - timedelta(days=90))
-    with col2:
-        end_date = st.date_input("End Date", value=TODAY)
-else:
-    start_date, end_date = time_periods[selected_period]
-
-# Aggregation selection
-aggregation = st.sidebar.selectbox("Data Aggregation", ["daily", "weekly", "monthly"])
+    st.write(f"Found {len(daily)} days of {op_label} data")
+    return (pd.DataFrame([{"date": k, "operationType": op_label, "amount_bil": v/1e9}
+                          for k,v in daily.items()])
+            .sort_values("date"))
 
 # ---------------- Row 1: Latest ----------------
 st.markdown("### Latest data — Accepted Amounts ($B)")
-latest = latest_cards_df(start_date, end_date)
+
+# Add debug toggle
+debug_mode = st.sidebar.checkbox("Debug Mode", value=True)
+
+latest = latest_cards_df()
 c1, c2 = st.columns(2)
 
 def show_card(col, df, label):
     with col:
         with st.container(border=True):
             st.caption(label)
-            row = df[df["operationType"]==label]
+            if df.empty:
+                st.info("No data available.")
+                return
+                
+            row = df[df["operationType"] == label]
             if row.empty:
                 st.info("No amount.")
             else:
@@ -180,28 +191,31 @@ show_card(c2, latest, "Reverse Repo")
 st.divider()
 
 # ---------------- Row 2: Historical Data ----------------
-st.markdown(f"### {selected_period} — Accepted Amounts ($B)")
+st.markdown(f"### Since {START_DATE:%m-%d-%Y} — Accepted Amounts ($B)")
 cl, cr = st.columns([1,1])
 with cl: repo_on = st.checkbox("Repo", value=True)
-with cr: rr_on   = st.checkbox("Reverse Repo", value=False)
+with cr: rr_on = st.checkbox("Reverse Repo", value=False)
 
-# Show progress bar for data loading
-if repo_on or rr_on:
-    with st.spinner("Loading historical data..."):
-        parts = []
-        if repo_on: 
-            parts.append(get_historical_series("Repo", start_date, end_date, aggregation))
-        if rr_on:   
-            parts.append(get_historical_series("Reverse Repo", start_date, end_date, aggregation))
-        
-        ser = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame(columns=["date","operationType","amount_bil"])
+parts = []
+if repo_on: 
+    repo_data = get_historical_series("Repo")
+    if not repo_data.empty:
+        parts.append(repo_data)
 
-    if ser.empty:
-        st.info("No operations found in the selected period.")
-    else:
-        # Summary statistics
-        st.markdown("#### Summary Statistics")
-        summary_cols = st.columns(len(ser["operationType"].unique()) if not ser.empty else 1)
+if rr_on:   
+    rr_data = get_historical_series("Reverse Repo")
+    if not rr_data.empty:
+        parts.append(rr_data)
+
+ser = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame(columns=["date","operationType","amount_bil"])
+
+if ser.empty:
+    st.info("No operations found in the selected period.")
+else:
+    # Summary statistics
+    st.markdown("#### Summary Statistics")
+    if not ser.empty:
+        summary_cols = st.columns(len(ser["operationType"].unique()))
         
         for i, op_type in enumerate(ser["operationType"].unique()):
             op_data = ser[ser["operationType"] == op_type]["amount_bil"]
@@ -209,66 +223,43 @@ if repo_on or rr_on:
                 st.metric(
                     f"{op_type} - Total", 
                     f"${op_data.sum():,.1f}B",
-                    help=f"Average: ${op_data.mean():,.1f}B"
+                    help=f"Average: ${op_data.mean():,.1f}B | Count: {len(op_data)} days"
                 )
-        
-        # Chart
-        color_scale = alt.Scale(domain=list(COLOR.keys()), range=[COLOR[k] for k in COLOR])
-        
-        # Choose chart type based on aggregation
-        if aggregation == "daily" and len(ser) > 50:
-            # Line chart for many daily data points
-            chart = (
-                alt.Chart(ser)
-                .mark_line(point=True, strokeWidth=2)
-                .encode(
-                    x=alt.X("date:T", title="Date"),
-                    y=alt.Y("amount_bil:Q", title="$Billions"),
-                    color=alt.Color("operationType:N", title=None, scale=color_scale),
-                    tooltip=[
-                        alt.Tooltip("date:T", title="Date"),
-                        alt.Tooltip("operationType:N", title="Type"),
-                        alt.Tooltip("amount_bil:Q", title="Amount ($B)", format=",.3f"),
-                    ],
-                )
-            )
-        else:
-            # Bar chart for weekly/monthly or fewer daily points
-            chart = (
-                alt.Chart(ser)
-                .mark_bar(size=8)
-                .encode(
-                    x=alt.X("date:T", title="Date"),
-                    xOffset=alt.XOffset("operationType:N") if len(ser["operationType"].unique()) > 1 else alt.value(0),
-                    y=alt.Y("amount_bil:Q", title="$Billions"),
-                    color=alt.Color("operationType:N", title=None, scale=color_scale),
-                    tooltip=[
-                        alt.Tooltip("date:T", title="Date"),
-                        alt.Tooltip("operationType:N", title="Type"),
-                        alt.Tooltip("amount_bil:Q", title="Amount ($B)", format=",.3f"),
-                    ],
-                )
-            )
-        
-        chart = chart.properties(height=400).configure_axis(grid=False, labelFontSize=12, titleFontSize=12)
-        st.altair_chart(chart, use_container_width=True)
-        
-        # Data download
-        st.markdown("#### Download Data")
-        csv = ser.to_csv(index=False)
-        st.download_button(
-            "Download CSV",
-            csv,
-            f"fed_desk_ops_{start_date}_{end_date}.csv",
-            "text/csv"
+    
+    # Chart
+    color_scale = alt.Scale(domain=list(COLOR.keys()), range=[COLOR[k] for k in COLOR])
+    
+    chart = (
+        alt.Chart(ser)
+        .mark_bar(size=8)
+        .encode(
+            x=alt.X("date:T", title="Date"),
+            xOffset=alt.XOffset("operationType:N") if len(ser["operationType"].unique()) > 1 else alt.value(0),
+            y=alt.Y("amount_bil:Q", title="$Billions"),
+            color=alt.Color("operationType:N", title=None, scale=color_scale),
+            tooltip=[
+                alt.Tooltip("date:T", title="Date"),
+                alt.Tooltip("operationType:N", title="Type"),
+                alt.Tooltip("amount_bil:Q", title="Amount ($B)", format=",.3f"),
+            ],
         )
+        .properties(height=400)
+        .configure_axis(grid=False, labelFontSize=12, titleFontSize=12)
+    )
+    
+    st.altair_chart(chart, use_container_width=True)
+    
+    # Data table for verification
+    if debug_mode:
+        st.markdown("#### Data Table (Debug)")
+        st.dataframe(ser.sort_values("date", ascending=False))
 
 with st.expander("Notes"):
-    st.markdown("""
+    st.markdown(f"""
 - Source: **NY Fed RP results search API** (`/api/rp/results/search.json`).
+- Data period: **{START_DATE:%m-%d-%Y}** to **{TODAY:%m-%d-%Y}**.
 - We query **treasury, agency, mortgage-backed** per side and aggregate by day.
 - Only **accepted amounts** are shown (converted to **$ billions**). 
-- Historical data can be viewed with different time periods and aggregations.
-- Data is cached for 15 minutes to improve performance.
-- Use the sidebar to select different time periods and aggregation levels.
+- Bars are **grouped** when both sides are selected.
+- Latest cards show the most recent day with operations.
 """)
