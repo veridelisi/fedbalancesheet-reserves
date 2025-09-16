@@ -1,8 +1,7 @@
 # desk_ops.py
-# NY Fed Desk Operations — Repo & Reverse Repo (amounts only)
-# pip install streamlit pandas requests altair
-# streamlit run desk_ops.py
-
+# NY Fed Desk Operations — Repo & Reverse Repo (ACCEPTED AMOUNTS ONLY)
+# Row 1: Latest snapshot ($B)
+# Row 2: YTD grouped bars (since 01-01-2025)
 import requests
 import pandas as pd
 import altair as alt
@@ -14,22 +13,28 @@ st.title("Desk Operations — Repo & Reverse Repo")
 st.caption("Accepted amounts only • Latest snapshot and YTD bars (since 01-01-2025)")
 
 API_SEARCH = "https://markets.newyorkfed.org/api/rp/results/search.json"
-METHODS = ("treasury", "agency", "mortgagebacked")
 YTD_START = date(2025, 1, 1)
 TODAY = date.today()
-COLOR = {"Repo": "#1f77b4", "Reverse Repo": "#d62728"}
+COLORS = {"Repo": "#1f77b4", "Reverse Repo": "#d62728"}
 
+# ---------- utils ----------
 def _to_float(x):
-    try: return float(x)
+    try:
+        return float(x)
     except Exception:
-        try: return float(str(x).replace(",", ""))
-        except Exception: return None
+        try:
+            return float(str(x).replace(",", ""))
+        except Exception:
+            return None
 
 def _extract_ops(js: dict):
-    if not isinstance(js, dict): return []
+    """Alınan JSON içinden operations listesini bul (çeşitli şemalara dayanıklı)."""
+    if not isinstance(js, dict):
+        return []
     if "repo" in js and isinstance(js["repo"], dict):
         ops = js["repo"].get("operations")
-        if isinstance(ops, list): return ops
+        if isinstance(ops, list):
+            return ops
     if "operations" in js and isinstance(js["operations"], list):
         return js["operations"]
     for v in js.values():
@@ -38,39 +43,118 @@ def _extract_ops(js: dict):
     return []
 
 def _accepted_usd(op: dict) -> float:
+    """details[].amtAccepted toplamı; yoksa top-level totalAmtAccepted (USD)."""
     total = 0.0
     for d in (op.get("details") or []):
         a = _to_float(d.get("amtAccepted"))
-        if a: total += a
+        if a:
+            total += a
     if total == 0 and op.get("totalAmtAccepted") is not None:
         v = _to_float(op.get("totalAmtAccepted"))
-        if v: total += v
+        if v:
+            total += v
     return total
 
-@st.cache_data(ttl=15*60, show_spinner=False)
+# ---------- data fetch (NO method loop, WITH pagination & dedupe) ----------
+@st.cache_data(ttl=15 * 60, show_spinner=False)
 def fetch_ops(operation_type_param: str, start: date, end: date):
-    """operation_type_param: 'repo' or 'reverserepo'"""
+    """
+    operation_type_param: 'repo' or 'reverserepo'
+    search.json için method KULLANMIYORUZ (yoksa duplicate).
+    Bazı ortamlarda sayfalama var -> birkaç param varyantını dene.
+    """
     all_ops = []
-    for m in METHODS:
-        params = {
-            "operationType": operation_type_param,
-            "method": m,
-            "fromDate": start.strftime("%Y-%m-%d"),
-            "toDate":   end.strftime("%Y-%m-%d"),
-            # !!! don't send 'status' here; it narrows results unexpectedly
-        }
+    seen_ids = set()
+
+    def _pull(params):
         try:
             r = requests.get(API_SEARCH, params=params, timeout=30)
-            if r.status_code != 200: continue
-            ops = _extract_ops(r.json())
-            if ops: all_ops.extend(ops)
+            if r.status_code != 200:
+                return []
+            return _extract_ops(r.json())
         except Exception:
-            continue
+            return []
+
+    # 1) sayfalı dene: pageNumber/page + pageSize
+    pulled_any = False
+    for page_key in ("pageNumber", "page"):
+        page = 1
+        while True:
+            params = {
+                "operationType": operation_type_param,
+                "fromDate": start.strftime("%Y-%m-%d"),
+                "toDate": end.strftime("%Y-%m-%d"),
+                page_key: page,
+                "pageSize": 200,
+            }
+            ops = _pull(params)
+            if not ops:
+                break
+            pulled_any = True
+            for op in ops:
+                oid = op.get("operationId")
+                if oid and oid in seen_ids:
+                    continue
+                if oid:
+                    seen_ids.add(oid)
+                all_ops.append(op)
+            if len(ops) < 200:
+                break
+            page += 1
+        if pulled_any:
+            break
+
+    # 2) fallback: tek sayfa (pagination yoksa)
+    if not pulled_any:
+        params = {
+            "operationType": operation_type_param,
+            "fromDate": start.strftime("%Y-%m-%d"),
+            "toDate": end.strftime("%Y-%m-%d"),
+        }
+        ops = _pull(params)
+        for op in ops:
+            oid = op.get("operationId")
+            if oid and oid in seen_ids:
+                continue
+            if oid:
+                seen_ids.add(oid)
+            all_ops.append(op)
+
     return all_ops
+
+def build_daily_series(op_label: str) -> pd.DataFrame:
+    """01-01-2025'ten bugüne günlük accepted ($B)."""
+    op_param = "repo" if op_label == "Repo" else "reverserepo"
+    ops = fetch_ops(op_param, YTD_START, TODAY)
+
+    daily = {}
+    for op in ops:
+        if op.get("operationType") != op_label:
+            continue
+        d = pd.to_datetime(op.get("operationDate"), errors="coerce")
+        if pd.isna(d):
+            continue
+        dd = d.date()
+        if dd < YTD_START or dd > TODAY:
+            continue
+        usd = _accepted_usd(op)
+        if usd <= 0:
+            continue
+        daily[dd] = daily.get(dd, 0.0) + usd
+
+    if not daily:
+        return pd.DataFrame(columns=["date", "operationType", "amount_bil"])
+
+    return (
+        pd.DataFrame(
+            [{"date": k, "operationType": op_label, "amount_bil": v / 1e9} for k, v in daily.items()]
+        ).sort_values("date")
+    )
 
 def latest_cards_df() -> pd.DataFrame:
     ops = fetch_ops("repo", YTD_START, TODAY) + fetch_ops("reverserepo", YTD_START, TODAY)
-    if not ops: return pd.DataFrame(columns=["date","operationType","amount_bil"])
+    if not ops:
+        return pd.DataFrame(columns=["date", "operationType", "amount_bil"])
     df = pd.json_normalize(ops)
     df["operationDate"] = pd.to_datetime(df["operationDate"], errors="coerce")
     last_day = df["operationDate"].max().date()
@@ -78,44 +162,25 @@ def latest_cards_df() -> pd.DataFrame:
     sums = {}
     for op in ops:
         d = pd.to_datetime(op.get("operationDate"), errors="coerce")
-        if pd.isna(d) or d.date()!=last_day: continue
-        t = op.get("operationType")
+        if pd.isna(d) or d.date() != last_day:
+            continue
+        t = op.get("operationType")  # 'Repo' / 'Reverse Repo'
         sums.setdefault(t, 0.0)
         sums[t] += _accepted_usd(op)
 
-    rows = [{"date": last_day, "operationType": t, "amount_bil": usd/1e9}
-            for t, usd in sums.items() if usd>0]
+    rows = [{"date": last_day, "operationType": t, "amount_bil": usd / 1e9} for t, usd in sums.items() if usd > 0]
     return pd.DataFrame(rows).sort_values("operationType")
 
-def ytd_series(op_label: str) -> pd.DataFrame:
-    op_param = "repo" if op_label=="Repo" else "reverserepo"
-    ops = fetch_ops(op_param, YTD_START, TODAY)
-    daily = {}
-    for op in ops:
-        if op.get("operationType") != op_label: continue
-        d = pd.to_datetime(op.get("operationDate"), errors="coerce")
-        if pd.isna(d): continue
-        dd = d.date()
-        if dd < YTD_START or dd > TODAY: continue
-        usd = _accepted_usd(op)
-        if usd <= 0: continue
-        daily[dd] = daily.get(dd, 0.0) + usd
-    if not daily:
-        return pd.DataFrame(columns=["date","operationType","amount_bil"])
-    return (pd.DataFrame([{"date": k, "operationType": op_label, "amount_bil": v/1e9}
-                          for k,v in daily.items()])
-            .sort_values("date"))
-
-# ---------------- Row 1: Latest ----------------
+# ---------- Row 1: Latest ----------
 st.markdown("### Latest data — Accepted Amounts ($B)")
 latest = latest_cards_df()
-c1, c2 = st.columns(2)
+lc1, lc2 = st.columns(2)
 
-def show_card(col, df, label):
+def _card(col, df, label):
     with col:
         with st.container(border=True):
             st.caption(label)
-            row = df[df["operationType"]==label]
+            row = df[df["operationType"] == label]
             if row.empty:
                 st.info("No amount.")
             else:
@@ -124,33 +189,36 @@ def show_card(col, df, label):
                 st.markdown(f"**{d:%b %d, %Y}**")
                 st.metric("Amount ($B)", f"{v:,.3f}")
 
-show_card(c1, latest, "Repo")
-show_card(c2, latest, "Reverse Repo")
+_card(lc1, latest, "Repo")
+_card(lc2, latest, "Reverse Repo")
 
 st.divider()
 
-# ---------------- Row 2: YTD grouped bars ----------------
+# ---------- Row 2: YTD grouped bars ----------
 st.markdown("### Since 01-01-2025 — Accepted Amounts ($B)")
-cl, cr = st.columns([1,1])
-with cl: repo_on = st.checkbox("Repo", value=True)
-with cr: rr_on   = st.checkbox("Reverse Repo", value=False)
+cb1, cb2 = st.columns(2)
+with cb1:
+    repo_on = st.checkbox("Repo", value=True)
+with cb2:
+    rr_on = st.checkbox("Reverse Repo", value=False)
 
 parts = []
-if repo_on: parts.append(ytd_series("Repo"))
-if rr_on:   parts.append(ytd_series("Reverse Repo"))
-ser = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame(columns=["date","operationType","amount_bil"])
+if repo_on:
+    parts.append(build_daily_series("Repo"))
+if rr_on:
+    parts.append(build_daily_series("Reverse Repo"))
+series = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame(columns=["date","operationType","amount_bil"])
 
-if ser.empty:
+if series.empty:
     st.info("No operations found in the selected period.")
 else:
-    color_scale = alt.Scale(domain=list(COLOR.keys()), range=[COLOR[k] for k in COLOR])
-    # GROUPED bars (side-by-side): use xOffset by series key
+    color_scale = alt.Scale(domain=list(COLORS.keys()), range=[COLORS[k] for k in COLORS])
     chart = (
-        alt.Chart(ser)
+        alt.Chart(series)
         .mark_bar(size=8)
         .encode(
             x=alt.X("date:T", title=None),
-            xOffset=alt.XOffset("operationType:N"),
+            xOffset=alt.XOffset("operationType:N"),   # grouped (side-by-side)
             y=alt.Y("amount_bil:Q", title="$Billions"),
             color=alt.Color("operationType:N", title=None, scale=color_scale),
             tooltip=[
@@ -165,9 +233,13 @@ else:
     st.altair_chart(chart, use_container_width=True)
 
 with st.expander("Notes"):
-    st.markdown("""
-- Source: **NY Fed RP results search API** (`/api/rp/results/search.json`).
-- We query **treasury, agency, mortgage-backed** per side and aggregate by day.
-- Only **accepted amounts** are shown (converted to **$ billions**). 
+    st.markdown(
+        """
+- We use **/api/rp/results/search.json** (no `method` param) to avoid duplicates.
+- Results are **de-duplicated by operationId** and aggregated by day.
+- Pagination is handled by trying `pageNumber/page` + `pageSize`; if not present, it
+  falls back to a single call.
+- Only **accepted** amounts are shown, converted to **$ billions**.
 - Bars are **grouped** when both sides are selected.
-""")
+"""
+    )
