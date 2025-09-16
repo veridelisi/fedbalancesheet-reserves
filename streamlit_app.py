@@ -101,6 +101,19 @@ project_card(
     link_label="➡️ Reference Rates dashboard"
 )
 
+# 6) Desk Operations
+project_card(
+    title="Desk Operations",
+    tagline="Daily & weekly activities",
+    description_md=(
+        "Snapshot of the Desk’s day-to-day tools and flows — repo & reverse repo operations, "
+        " Quick access to latest operations and history."
+    ),
+    page_path="pages/01_Desk.py",
+    image_path="assets/thumbs/desk.png",
+    link_label="➡️ Desk Operations dashboard"
+)
+
 # project_card("Project 3", "Tagline", "Açıklama...", "pages/03_Another.py", "assets/thumbs/another2.jpg")
 
 st.markdown(
