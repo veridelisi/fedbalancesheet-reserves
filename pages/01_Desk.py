@@ -14,18 +14,17 @@ st.set_page_config(
 )
 
 @st.cache_data(ttl=3600)  # Cache for 1 hour
-def fetch_fed_repo_data():
+def fetch_fed_data(operation_type='repo'):
     """
-    Fetch Federal Reserve repo operations data
+    Fetch Federal Reserve repo/reverse repo operations data
     """
-    # Try multiple approaches to get data
     base_url = "https://markets.newyorkfed.org/api/rp"
     
     # URLs to try in order of preference
     urls_to_try = [
-        f"{base_url}/repo/all/results/last/500.json",  # Reduced number
-        f"{base_url}/repo/all/results/last/100.json",  # Even smaller
-        f"{base_url}/repo/all/results/last/50.json",   # Smallest
+        f"{base_url}/{operation_type}/all/results/last/500.json",
+        f"{base_url}/{operation_type}/all/results/last/100.json",
+        f"{base_url}/{operation_type}/all/results/last/50.json",
     ]
     
     headers = {
@@ -36,35 +35,25 @@ def fetch_fed_repo_data():
     
     for url in urls_to_try:
         try:
-            st.info(f"Trying: {url}")
             response = requests.get(url, headers=headers, timeout=30)
             response.raise_for_status()
             data = response.json()
-            st.success(f"Successfully fetched data from: {url}")
             return data
         except requests.exceptions.RequestException as e:
-            st.warning(f"Failed to fetch from {url}: {e}")
             continue
     
-    # If all URLs fail, try a fallback with different structure
-    try:
-        fallback_url = f"{base_url}/repo/all/results/last/50"  # Without .json
-        st.info(f"Trying fallback: {fallback_url}")
-        response = requests.get(fallback_url, headers=headers, timeout=30)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        st.error(f"All attempts failed. Last error: {e}")
-        return None
+    return None
 
-def process_repo_data(data):
+def process_data(data, operation_type='repo'):
     """
-    Process repo operations data
+    Process repo or reverse repo operations data
     """
-    if not data or 'repo' not in data or 'operations' not in data['repo']:
+    key = 'repo' if operation_type == 'repo' else 'repo'  # Both use 'repo' key in JSON
+    
+    if not data or key not in data or 'operations' not in data[key]:
         return pd.DataFrame()
     
-    operations = data['repo']['operations']
+    operations = data[key]['operations']
     results = []
     
     for operation in operations:
@@ -74,29 +63,42 @@ def process_repo_data(data):
         if total_accepted == 0:
             continue
             
-        # Calculate weighted average rate across all security types
-        total_weighted_rate = 0
-        total_amount = 0
-        
-        for detail in operation['details']:
-            if detail['amtAccepted'] > 0 and 'percentWeightedAverageRate' in detail:
-                amount = detail['amtAccepted']
-                rate = detail['percentWeightedAverageRate']
-                total_weighted_rate += rate * amount
-                total_amount += amount
-        
-        # Calculate overall weighted average rate
-        if total_amount > 0:
-            overall_weighted_rate = total_weighted_rate / total_amount
+        # Handle different rate fields for repo vs reverse repo
+        if operation_type == 'repo':
+            # For regular repo: use percentWeightedAverageRate
+            total_weighted_rate = 0
+            total_amount = 0
+            
+            for detail in operation['details']:
+                if detail['amtAccepted'] > 0 and 'percentWeightedAverageRate' in detail:
+                    amount = detail['amtAccepted']
+                    rate = detail['percentWeightedAverageRate']
+                    total_weighted_rate += rate * amount
+                    total_amount += amount
+            
+            overall_rate = total_weighted_rate / total_amount if total_amount > 0 else None
         else:
-            overall_weighted_rate = None
+            # For reverse repo: use percentAwardRate
+            rates = []
+            amounts = []
+            
+            for detail in operation['details']:
+                if detail['amtAccepted'] > 0 and 'percentAwardRate' in detail:
+                    rates.append(detail['percentAwardRate'])
+                    amounts.append(detail['amtAccepted'])
+            
+            # Calculate weighted average
+            if amounts:
+                overall_rate = sum(r * a for r, a in zip(rates, amounts)) / sum(amounts)
+            else:
+                overall_rate = None
             
         results.append({
             'operation_date': op_date,
             'operation_id': operation['operationId'],
             'term': operation['term'],
             'total_accepted_amount': total_accepted,
-            'weighted_average_rate': overall_weighted_rate,
+            'rate': overall_rate,
             'amount_billions': total_accepted / 1_000_000_000
         })
     
@@ -108,16 +110,16 @@ def process_repo_data(data):
     
     return df
 
-def create_bar_chart(df_filtered):
+def create_bar_chart(df_filtered, title_suffix=""):
     """
-    Create bar chart for repo operations since 2025-01-01
+    Create bar chart for operations since 2025-01-01
     """
     if df_filtered.empty:
         return None
     
     # Group by date and sum amounts (in case multiple operations per day)
     daily_data = df_filtered.groupby('operation_date').agg({
-        'weighted_average_rate': 'mean',
+        'rate': 'mean',
         'amount_billions': 'sum'
     }).reset_index()
     
@@ -125,24 +127,26 @@ def create_bar_chart(df_filtered):
     fig = go.Figure()
     
     # Add bar chart for amounts only
+    color = 'lightcoral' if 'Reverse' in title_suffix else 'lightblue'
+    
     fig.add_trace(go.Bar(
         x=daily_data['operation_date'],
         y=daily_data['amount_billions'],
-        name='Accepted Amount ($B)',
-        marker_color='lightblue',
+        name=f'Accepted Amount ($B){title_suffix}',
+        marker_color=color,
         hovertemplate='Date: %{x}<br>Amount: $%{y:.2f}B<extra></extra>'
     ))
     
     # Update layout
     fig.update_layout(
-        title='Fed Repo Operations Since January 1, 2025',
+        title=f'Fed {title_suffix} Operations Since January 1, 2025',
         xaxis_title='Date',
         yaxis=dict(
             title='Accepted Amount ($ Billions)',
             range=[0, daily_data['amount_billions'].max() * 1.1]
         ),
         hovermode='x',
-        height=500,
+        height=400,
         showlegend=False
     )
     
@@ -150,157 +154,126 @@ def create_bar_chart(df_filtered):
 
 # Main Streamlit App
 def main():
-    st.title("🏛️ Federal Reserve Repo Operations Dashboard")
+    st.title("🏛️ Federal Reserve Operations Dashboard")
     
     # Add option to use sample data if API fails
     use_sample_data = st.sidebar.checkbox("Use Sample Data (if API fails)")
     
+    # Fetch both repo and reverse repo data
+    repo_data = None
+    reverse_repo_data = None
+    
     if use_sample_data:
-        st.info("Using sample data from your original JSON file")
-        # You can paste your JSON data here as fallback
-        sample_data = {
-            "repo": {
-                "operations": [
-                    # Sample operations from your original data
-                    {
-                        "operationId": "RP 091625 1",
-                        "operationDate": "2025-09-16",
-                        "term": "Overnight",
-                        "totalAmtAccepted": 1500000000,
-                        "details": [
-                            {
-                                "securityType": "Treasury",
-                                "amtAccepted": 1500000000,
-                                "percentWeightedAverageRate": 4.5
-                            }
-                        ]
-                    }
-                    # Add more sample operations here
-                ]
-            }
-        }
-        data = sample_data
+        st.info("Using sample data")
+        # Sample data would go here
+        repo_data = {"repo": {"operations": []}}
+        reverse_repo_data = {"repo": {"operations": []}}
     else:
-        # Fetch data from API
-        with st.spinner("Fetching latest Fed repo data..."):
-            data = fetch_fed_repo_data()
+        with st.spinner("Fetching Fed operations data..."):
+            repo_data = fetch_fed_data('repo')
+            reverse_repo_data = fetch_fed_data('reverserepo')
     
-    if data is None:
-        st.error("Failed to fetch data from NY Fed API. Try enabling 'Use Sample Data' in the sidebar.")
-        return
-    
-    # Process data
-    df = process_repo_data(data)
-    
-    if df.empty:
-        st.error("No repo operations data available")
-        return
+    # Process both datasets
+    repo_df = process_data(repo_data, 'repo') if repo_data else pd.DataFrame()
+    reverse_repo_df = process_data(reverse_repo_data, 'reverserepo') if reverse_repo_data else pd.DataFrame()
     
     # Filter for operations with rates
-    df_with_rates = df[df['weighted_average_rate'].notna()].copy()
+    repo_df_with_rates = repo_df[repo_df['rate'].notna()].copy() if not repo_df.empty else pd.DataFrame()
+    reverse_repo_df_with_rates = reverse_repo_df[reverse_repo_df['rate'].notna()].copy() if not reverse_repo_df.empty else pd.DataFrame()
     
-    if df_with_rates.empty:
-        st.error("No repo operations with rates found")
-        return
-    
-    # 1. Latest operation info (first row)
-    st.header("📈 Latest Repo Operation")
-    
-    latest_operation = df_with_rates.iloc[0]
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.metric(
-            label="Operation Date",
-            value=latest_operation['operation_date'].strftime("%Y-%m-%d")
-        )
-    
-    with col2:
-        st.metric(
-            label="Weighted Average Rate",
-            value=f"{latest_operation['weighted_average_rate']:.3f}%"
-        )
-    
-    with col3:
-        st.metric(
-            label="Accepted Amount",
-            value=f"${latest_operation['amount_billions']:.2f}B"
-        )
-    
-    with col4:
-        st.metric(
-            label="Term",
-            value=latest_operation['term']
-        )
+    # === REPO SECTION ===
+    if not repo_df_with_rates.empty:
+        st.header("📈 Latest Repo Operation")
+        
+        latest_repo = repo_df_with_rates.iloc[0]
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Operation Date", latest_repo['operation_date'].strftime("%Y-%m-%d"))
+        
+        with col2:
+            st.metric("Weighted Average Rate", f"{latest_repo['rate']:.3f}%")
+        
+        with col3:
+            st.metric("Accepted Amount", f"${latest_repo['amount_billions']:.2f}B")
+        
+        with col4:
+            st.metric("Term", latest_repo['term'])
+        
+        # Repo chart since 2025-01-01
+        st.subheader("📊 Repo Operations Since January 1, 2025")
+        
+        start_date = datetime(2025, 1, 1)
+        repo_2025 = repo_df_with_rates[repo_df_with_rates['operation_date'] >= start_date].copy()
+        
+        if not repo_2025.empty:
+            fig_repo = create_bar_chart(repo_2025, "Repo")
+            if fig_repo:
+                st.plotly_chart(fig_repo, use_container_width=True)
+        else:
+            st.warning("No repo operations found since January 1, 2025")
     
     st.divider()
     
-    # 2. Chart since 2025-01-01 (second row)
-    st.header("📊 Repo Operations Since January 1, 2025")
-    
-    # Filter data from 2025-01-01
-    start_date = datetime(2025, 1, 1)
-    df_2025 = df_with_rates[df_with_rates['operation_date'] >= start_date].copy()
-    
-    if df_2025.empty:
-        st.warning("No repo operations found since January 1, 2025")
-    else:
-        # Create and display chart
-        fig = create_bar_chart(df_2025)
+    # === REVERSE REPO SECTION ===
+    if not reverse_repo_df_with_rates.empty:
+        st.header("📉 Latest Reverse Repo Operation")
         
-        if fig:
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Summary statistics for 2025
-            st.subheader("📋 2025 Summary Statistics")
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                st.metric(
-                    label="Total Operations",
-                    value=len(df_2025)
-                )
-            
-            with col2:
-                st.metric(
-                    label="Average Rate",
-                    value=f"{df_2025['weighted_average_rate'].mean():.3f}%"
-                )
-            
-            with col3:
-                st.metric(
-                    label="Total Amount",
-                    value=f"${df_2025['amount_billions'].sum():.2f}B"
-                )
-            
-            with col4:
-                st.metric(
-                    label="Avg Amount/Operation",
-                    value=f"${df_2025['amount_billions'].mean():.2f}B"
-                )
+        latest_reverse_repo = reverse_repo_df_with_rates.iloc[0]
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Operation Date", latest_reverse_repo['operation_date'].strftime("%Y-%m-%d"))
+        
+        with col2:
+            st.metric("Award Rate", f"{latest_reverse_repo['rate']:.3f}%")
+        
+        with col3:
+            st.metric("Accepted Amount", f"${latest_reverse_repo['amount_billions']:.2f}B")
+        
+        with col4:
+            st.metric("Term", latest_reverse_repo['term'])
+        
+        # Reverse Repo chart since 2025-01-01
+        st.subheader("📊 Reverse Repo Operations Since January 1, 2025")
+        
+        start_date = datetime(2025, 1, 1)
+        reverse_repo_2025 = reverse_repo_df_with_rates[reverse_repo_df_with_rates['operation_date'] >= start_date].copy()
+        
+        if not reverse_repo_2025.empty:
+            fig_reverse_repo = create_bar_chart(reverse_repo_2025, "Reverse Repo")
+            if fig_reverse_repo:
+                st.plotly_chart(fig_reverse_repo, use_container_width=True)
         else:
-            st.error("Could not create chart")
+            st.warning("No reverse repo operations found since January 1, 2025")
     
-    # Optional: Show raw data table
-    with st.expander("📋 View Recent Operations Data"):
-        st.dataframe(
-            df_2025[['operation_date', 'operation_id', 'term', 'weighted_average_rate', 'amount_billions']].head(10),
-            column_config={
-                'operation_date': 'Date',
-                'operation_id': 'Operation ID',
-                'term': 'Term',
-                'weighted_average_rate': st.column_config.NumberColumn(
-                    'Rate (%)',
-                    format='%.3f'
-                ),
-                'amount_billions': st.column_config.NumberColumn(
-                    'Amount ($B)',
-                    format='%.2f'
-                )
-            },
-            hide_index=True
-        )
+    # Combined summary if both datasets exist
+    if not repo_df_with_rates.empty and not reverse_repo_df_with_rates.empty:
+        st.divider()
+        st.subheader("📋 Combined Summary (2025)")
+        
+        start_date = datetime(2025, 1, 1)
+        repo_2025 = repo_df_with_rates[repo_df_with_rates['operation_date'] >= start_date]
+        reverse_repo_2025 = reverse_repo_df_with_rates[reverse_repo_df_with_rates['operation_date'] >= start_date]
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Repo Operations", len(repo_2025))
+        
+        with col2:
+            st.metric("Reverse Repo Operations", len(reverse_repo_2025))
+        
+        with col3:
+            st.metric("Total Repo Amount", f"${repo_2025['amount_billions'].sum():.2f}B" if not repo_2025.empty else "$0B")
+        
+        with col4:
+            st.metric("Total Reverse Repo Amount", f"${reverse_repo_2025['amount_billions'].sum():.2f}B" if not reverse_repo_2025.empty else "$0B")
+    
+    if repo_df_with_rates.empty and reverse_repo_df_with_rates.empty:
+        st.error("No data available for either repo or reverse repo operations")
 
 if __name__ == "__main__":
     main()
