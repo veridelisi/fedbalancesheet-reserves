@@ -7,6 +7,8 @@ import altair as alt
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
+
+
 st.set_page_config(page_title="TGA — Deposits, Withdrawals & Closing Balance", layout="wide")
 
 # --- Gezinme Barı (Yatay Menü, Streamlit-native) ---
@@ -31,6 +33,7 @@ with col7:
     st.page_link("pages/01_Desk.py", label="🔄 Desk")
 
 st.markdown("</div>", unsafe_allow_html=True)
+
 
 # --- Sol menü sakla ---
 st.markdown("""
@@ -62,36 +65,6 @@ COLUMN_PREFS = {
     WDRW : ["today_amt", "open_today_bal"],    # Withdrawals
 }
 NUM_CANDIDATES = {"open_today_bal", "close_today_bal", "today_amt"}
-
-# --------------------------- Kullanıcı Dostu İyileştirmeler -------------------------------
-st.title("🏦 U.S. Treasury General Account (TGA) Dashboard")
-st.markdown("""
-The Treasury General Account (TGA) is the primary operating account of the U.S. government. 
-This dashboard shows daily cash flow activities including deposits, withdrawals, and balance changes.
-""")
-
-# Tarih aralığı seçimi
-try:
-    _latest = latest_record_date()
-    t_latest = pd.to_datetime(_latest).date()
-    
-    col1, col2, col3 = st.columns([1, 1, 2])
-    with col1:
-        start_date = st.date_input(
-            "Start Date", 
-            value=t_latest - relativedelta(months=3),
-            max_value=t_latest
-        )
-    with col2:
-        end_date = st.date_input(
-            "End Date", 
-            value=t_latest,
-            max_value=t_latest
-        )
-        
-except Exception as e:
-    st.error(f"Failed to fetch latest record date: {e}")
-    st.stop()
 
 # --------------------------- Helpers -------------------------------
 def _to_float(x):
@@ -215,29 +188,38 @@ def vbar(df, yfield, ytitle, colors, title=""):
     return (bars + labels).properties(title=(title or ""), height=260,
                                       padding={"top":28,"right":8,"left":8,"bottom":8})
 
-def interactive_line_chart(ts: pd.DataFrame, title: str):
+def closing_line_chart(ts: pd.DataFrame, title: str):
     """
     ts: DataFrame with columns ['date','closing_bn'] ; daily index doldurulmuş olmalı.
-    Interaktif özellikler eklenmiş grafik.
     """
     if ts.empty:
         return alt.Chart(pd.DataFrame({"date":[], "closing_bn":[]})).mark_line()
 
-    return alt.Chart(ts).mark_line(color=COLOR_LINE, strokeWidth=2).encode(
-        x=alt.X("date:T", title="Date", axis=alt.Axis(format="%b %Y")),
-        y=alt.Y("closing_bn:Q", title="Billions of $", axis=alt.Axis(format=",.1f")),
-        tooltip=[alt.Tooltip("date:T", title="Date", format="%B %d, %Y"),
-                 alt.Tooltip("closing_bn:Q", format=",.1f", title="Closing Balance")]
-    ).properties(
-        title=title,
-        height=400
-    ).interactive()
+    base = alt.Chart(ts).encode(
+        x=alt.X("date:T", axis=alt.Axis(title=None)),
+        y=alt.Y("closing_bn:Q", axis=alt.Axis(title="Billions of $", format=",.1f")),
+        tooltip=[alt.Tooltip("date:T", title="Date"),
+                 alt.Tooltip("closing_bn:Q", format=",.1f", title="Closing (bn)")]
+    )
+    line = base.mark_line(color=COLOR_LINE, strokeWidth=2)
+    pts  = base.mark_point(color=COLOR_LINE, filled=True, size=20)
+    return (line + pts).properties(title=title, height=320,
+                                   padding={"top":28,"right":8,"left":8,"bottom":8})
 
-# --------------------------- Latest Values Section -------------------------------
-st.header("Latest Daily Snapshot")
+# --------------------------- Header -------------------------------
+st.title("🏦 TGA Cash Position Statement")
+st.caption("Latest snapshot • Baseline (YoY or 2025-01-01) and daily line to the latest date")
 
-# Latest date display
-c1, c2 = st.columns([1, 3])
+# Latest date + baseline seçimi
+try:
+    _latest = latest_record_date()
+except Exception as e:
+    st.error(f"Failed to fetch latest record date: {e}")
+    st.stop()
+
+t_latest = pd.to_datetime(_latest).date()
+
+c1, c2 = st.columns([1,3])
 with c1:
     st.markdown(
         f"""
@@ -248,8 +230,21 @@ with c1:
         """,
         unsafe_allow_html=True
     )
+with c2:
+    baseline_label = st.radio(
+        "Baseline",
+        ("YoY (t - 1 year)", "01.01.2025"),
+        index=0, horizontal=True
+    )
 
-# Fetch latest values
+if baseline_label.startswith("YoY"):
+    t_base = (t_latest - relativedelta(years=1))
+    base_tag = "YoY"
+else:
+    t_base = date(2025,1,1)
+    base_tag = "2025-01-01"
+
+# --------------------------- Fetch latest values ------------------
 open_latest  = get_value_on_or_before(t_latest.isoformat(), OPEN)
 depo_latest  = get_value_on_or_before(t_latest.isoformat(), DEPO)
 wdrw_latest  = get_value_on_or_before(t_latest.isoformat(), WDRW)
@@ -257,9 +252,11 @@ wdrw_latest  = get_value_on_or_before(t_latest.isoformat(), WDRW)
 # Closing = Opening + Deposits − Withdrawals  (billions)
 closing_latest_bn = (bn(open_latest) or 0) + (bn(depo_latest) or 0) - (bn(wdrw_latest) or 0)
 
-# --------------------------- Identity Visualization ------------------------
+# --------------------------- Identity line ------------------------
+
 from textwrap import dedent
 
+# --------------------------- Identity line ------------------------
 with st.container(border=True):
     # değerleri hesapla (bn = millions -> billions)
     open_bn  = bn(open_latest)
@@ -297,7 +294,7 @@ with st.container(border=True):
       }}
     </style>
 
-    <div class="id-title">Daily Cash Flow Identity</div>
+    
     <div class="id-grid">
       <!-- 1. satır: etiketler -->
       <div class="lbl" style="grid-column:1;">Opening</div>
@@ -321,6 +318,7 @@ with st.container(border=True):
 
     st.markdown(html, unsafe_allow_html=True)
 
+
 # --------------------------- Row 1: Dikey bar (latest) ------------
 st.subheader("Latest Day — Deposits & Withdrawals (bn)")
 df_lvl = pd.DataFrame({
@@ -330,16 +328,16 @@ df_lvl = pd.DataFrame({
 st.altair_chart(vbar(df_lvl, "value", "Billions of $", [COLOR_DEP, COLOR_WDR]),
                 use_container_width=True, theme=None)
 
-# --------------------------- Time Series Analysis ------------------
-st.header("Historical Trends")
+# --------------------------- Closing line: baseline -> latest -----
+st.subheader(f"TGA Closing Balance — from {t_base.strftime('%Y-%m-%d')} to {t_latest.strftime('%Y-%m-%d')} (computed)")
 
 # Aralıktaki serileri çek
-open_df = fetch_series(OPEN, start_date.isoformat(), end_date.isoformat())
-dep_df  = fetch_series(DEPO, start_date.isoformat(), end_date.isoformat())
-wdw_df  = fetch_series(WDRW, start_date.isoformat(), end_date.isoformat())
+open_df = fetch_series(OPEN, t_base.isoformat(), t_latest.isoformat())
+dep_df  = fetch_series(DEPO, t_base.isoformat(), t_latest.isoformat())
+wdw_df  = fetch_series(WDRW, t_base.isoformat(), t_latest.isoformat())
 
 # Full daily index (tüm günleri eksene koy)
-full_dates = pd.DataFrame({"record_date": pd.date_range(start_date, end_date, freq="D")})
+full_dates = pd.DataFrame({"record_date": pd.date_range(t_base, t_latest, freq="D")})
 
 ts = full_dates.merge(open_df.rename(columns={"value_M":"open_M"}),  on="record_date", how="left")\
                .merge(dep_df.rename(columns={"value_M":"depo_M"}),   on="record_date", how="left")\
@@ -351,25 +349,23 @@ ts["closing_bn"] = (ts["open_M"]/1000.0) + (ts["depo_M"]/1000.0) - (ts["wdrw_M"]
 # Görselleştirme için sütun adlarını düzelt
 ts_plot = ts.rename(columns={"record_date":"date"})[["date","closing_bn"]]
 
-st.subheader(f"TGA Closing Balance — {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
 st.altair_chart(
-    interactive_line_chart(ts_plot, title="Closing Balance Over Time"),
+    closing_line_chart(ts_plot, title=f"Baseline: {base_tag}"),
     use_container_width=True,
     theme=None
 )
 
 # --------------------------- Methodology --------------------------
-with st.expander("Methodology & Data Source"):
-    st.markdown(
-    """
-    - **Closing is computed**: **Opening + Deposits − Withdrawals** (not fetched from the API).
-    - **Data Source**: U.S. Treasury Fiscal Data — *Daily Treasury Statement* (`operating_cash_balance`).
-    - All values are in billions of U.S. dollars.
-    - The TGA is the primary operating account of the U.S. government, maintained at the Federal Reserve Bank of New York.
-    - Deposits represent funds flowing into the TGA, primarily from tax receipts and debt issuances.
-    - Withdrawals represent funds flowing out of the TGA, primarily for government expenditures.
-    """
-    )
+st.markdown("### Methodology")
+st.markdown(
+"""
+- **Closing is computed**: **Opening + Deposits − Withdrawals** (not fetched from the API).
+- Baseline selection: **YoY (t − 1 year)** (default) or **2025-01-01**.
+- **Line chart**: daily values are plotted from the selected baseline date to the latest date; all days are shown on the axis.
+- Source: U.S. Treasury Fiscal Data — *Daily Treasury Statement* (`operating_cash_balance`).
+
+"""
+)
 
 # --------------------------- Footer -------------------------------
 st.markdown(
