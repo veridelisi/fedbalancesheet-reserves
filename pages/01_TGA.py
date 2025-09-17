@@ -240,10 +240,11 @@ def create_line_chart(ts, title):
         ]
     )
     
-    line = base.mark_line(color=COLOR_LINE, strokeWidth=2)
-    points = base.mark_point(color=COLOR_LINE, filled=True, size=40)
+    bars = base.mark_bar(color=COLOR_LINE, width=2)
+
+
     
-    return (line + points).properties(
+    return bars.properties(
         title=title, 
         height=400,
         width=800
