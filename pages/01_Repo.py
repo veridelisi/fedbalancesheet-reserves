@@ -361,90 +361,74 @@ with col4_r:
 
 st.divider()
 
-# =========================== Net (Repo − RR) • Historical Δ ===========================
-# Kullanıcı seçimi: baseline_choice ("YoY (t - 1 year)" veya "01.01.2025")
+# ==================== Net (Repo − Reverse Repo) • Daily Series ====================
 with st.container(border=True):
-    st.subheader("Net (Repo − Reverse Repo) — Historical change vs baseline")
+    st.subheader("Net (Repo − Reverse Repo) — Daily series")
 
-    # -- Günlük net seri (bn $): net = repo - reverse repo
-    # sub: (date, series, value_mn)
+    # 1) Sadece PDSORA/PDSIRRA'ları al ve 'side' kolonu oluştur
+    tmp = sub[sub["series"].str.startswith(("PDSORA", "PDSIRRA"))].copy()
+    tmp["side"] = np.where(tmp["series"].str.startswith("PDSORA"), "repo", "rr")
+
+    # 2) Günlük toplamlar (M$) → pivot
     daily = (
-        sub.assign(is_repo=sub["series"].str.startswith("PDSORA"),
-                   is_rr=sub["series"].str.startswith("PDSIRRA"))
-           .groupby("date", as_index=False)
-           .agg(repo_M=("value_mn", lambda s: s[sub.loc[s.index, "is_repo"]].sum()),
-                rr_M=("value_mn",   lambda s: s[sub.loc[s.index, "is_rr"]].sum()))
+        tmp.pivot_table(index="date", columns="side", values="value_mn", aggfunc="sum", fill_value=0)
+           .reset_index()
+           .sort_values("date")
     )
-    daily["net_bn"] = (daily["repo_M"] - daily["rr_M"]) / 1000.0
-    daily = daily.sort_values("date").reset_index(drop=True)
+    # 3) Net (bn $)
+    daily["net_bn"] = (daily.get("repo", 0) - daily.get("rr", 0)) / 1000.0
 
-    # --- Yardımcı: YoY için merge_asof ile t-365'e göre eşle
-    def yoy_delta(df):
-        base = df[["date", "net_bn"]].rename(columns={"date": "ref_date", "net_bn": "base_net"})
-        # Her tarih için "anchor = date - 365 gün"; anchor'a en yakın önceki iş günü ref_date bulunur
-        tmp = pd.merge_asof(
-            df.assign(anchor=df["date"] - pd.Timedelta(days=365)).sort_values("anchor"),
-            base.sort_values("ref_date"),
-            left_on="anchor",
-            right_on="ref_date",
-            direction="backward"
-        )
-        tmp = tmp.dropna(subset=["base_net"]).copy()
-        tmp["delta_bn"] = tmp["net_bn"] - tmp["base_net"]
-        return tmp[["date", "delta_bn"]]
-
-    # --- 01.01.2025 bazlı sabit referans: tüm tarihler için (net(t) - net(t0))
-    def fixed_baseline_delta(df, baseline_ts=pd.Timestamp("2025-01-01")):
-        # veri gününe göre en yakın/öncesi baseline günü
-        base_day = nearest_on_or_before(sub, baseline_ts)
-        if base_day is None:
-            return pd.DataFrame(columns=["date", "delta_bn"])
-        base_net = df.loc[df["date"] == base_day, "net_bn"]
-        base_net = base_net.iloc[0] if not base_net.empty else 0.0
-        out = df.copy()
-        out["delta_bn"] = out["net_bn"] - base_net
-        # referans gününden önceki günleri istersen kırpmak için:
-        out = out[out["date"] >= base_day].copy()
-        return out[["date", "delta_bn"]]
-
+    # 4) Aralık seçimi (YoY veya 01.01.2025 → Latest)
     if baseline_choice.startswith("YoY"):
-        series = yoy_delta(daily)
-        title  = "YoY Δ net (Repo − RR) — t vs t-1y"
+        start_day = nearest_on_or_before(sub, LATEST - timedelta(days=365))
+        title = "Daily Net (Repo − RR) — last ~1 year"
     else:
-        series = fixed_baseline_delta(daily, pd.Timestamp("2025-01-01"))
-        title  = "Δ net (Repo − RR) — vs 01.01.2025 baseline"
+        start_day = nearest_on_or_before(sub, pd.Timestamp("2025-01-01"))
+        title = "Daily Net (Repo − RR) — since 01.01.2025"
 
-    # Pozitif mavi, negatif kırmızı için imza kolonu
-    series["Sign"] = np.where(series["delta_bn"] >= 0, "Positive", "Negative")
+    if start_day is None:
+        st.info("No valid start date found for the selected range.")
+    else:
+        series = daily[daily["date"] >= start_day].copy()
+        series["Sign"] = np.where(series["net_bn"] >= 0, "Positive", "Negative")
 
-    # Altair çizimi
-    color_scale = alt.Scale(domain=["Positive", "Negative"], range=[COLOR_REPO, COLOR_RR])
+        # 5) Altair: pozitif = mavi, negatif = kırmızı; iki ayrı layer ile çiz
+        color_scale = alt.Scale(domain=["Positive", "Negative"], range=[COLOR_REPO, COLOR_RR])
 
-    base = alt.Chart(series).encode(
-        x=alt.X("date:T", title=None),
-        y=alt.Y("delta_bn:Q", title="Δ (Billions of dollars)", axis=alt.Axis(format=",.1f")),
-        tooltip=[alt.Tooltip("date:T", title="Date"),
-                 alt.Tooltip("delta_bn:Q", title="Δ (bn $)", format=",.1f")]
-    )
+        base = alt.Chart(series).encode(
+            x=alt.X("date:T", title=None),
+            y=alt.Y("net_bn:Q", title="Billions of dollars", axis=alt.Axis(format=",.1f")),
+            tooltip=[
+                alt.Tooltip("date:T", title="Date"),
+                alt.Tooltip("net_bn:Q", title="Net (bn $)", format=",.1f")
+            ],
+        )
 
-    # Çizgi + nokta (nokta rengi işarete göre)
-    line = base.mark_line(strokeWidth=2, opacity=0.9, interpolate="monotone").encode(
-        color=alt.Color("Sign:N", scale=color_scale, legend=None)
-    )
-    points = base.mark_point(size=35, filled=True).encode(
-        color=alt.Color("Sign:N", scale=color_scale, legend=None)
-    )
+        zero = alt.Chart(pd.DataFrame({"y": [0]})).mark_rule(strokeDash=[4, 4]).encode(y="y:Q")
 
-    # Sıfır çizgisi
-    zero = alt.Chart(pd.DataFrame({"y": [0]})).mark_rule(strokeDash=[4,4]).encode(y="y:Q")
+        pos_line = base.transform_filter(alt.datum.Sign == "Positive")\
+                       .mark_line(strokeWidth=2)\
+                       .encode(color=alt.value(COLOR_REPO))
 
-    chart = (zero + line + points).properties(
-        title=alt.TitleParams(text=title, anchor="start", dy=12),
-        height=320,
-        padding={"top": 28, "right": 8, "left": 8, "bottom": 8},
-    ).configure_title(fontSize=16, fontWeight="bold")
+        neg_line = base.transform_filter(alt.datum.Sign == "Negative")\
+                       .mark_line(strokeWidth=2)\
+                       .encode(color=alt.value(COLOR_RR))
 
-    st.altair_chart(chart, use_container_width=True)
+        pos_pts = base.transform_filter(alt.datum.Sign == "Positive")\
+                      .mark_point(size=25, filled=True)\
+                      .encode(color=alt.value(COLOR_REPO))
+
+        neg_pts = base.transform_filter(alt.datum.Sign == "Negative")\
+                      .mark_point(size=25, filled=True)\
+                      .encode(color=alt.value(COLOR_RR))
+
+        chart = (zero + pos_line + neg_line + pos_pts + neg_pts).properties(
+            title=alt.TitleParams(text=title, anchor="start", dy=12),
+            height=320,
+            padding={"top": 28, "right": 8, "left": 8, "bottom": 8},
+        ).configure_title(fontSize=16, fontWeight="bold")
+
+        st.altair_chart(chart, use_container_width=True)
 
 
 
