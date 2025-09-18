@@ -10,6 +10,8 @@ import requests
 from io import StringIO
 from datetime import datetime, timedelta
 import altair as alt
+import datetime as dt
+
 # ---------------------------- Page config -----------------------------
 API_URL = "https://markets.newyorkfed.org/api/pd/get/all/timeseries.csv"
 st.set_page_config(page_title="NY Fed Primary Dealer • Repo Dashboard", layout="wide")
@@ -360,8 +362,12 @@ with col4_r:
 st.divider()
 
 # ============================== Net Impact ==========================
+# ============================== Net Impact ==========================
 with st.container(border=True):
-    # Latest day (convert $M -> $B)
+    import datetime as dt
+    import pandas as pd
+
+    # --- Günlük net (convert $M -> $B)
     repo_M_latest = side_total_M(sub, LATEST, "PDSORA")
     rr_M_latest   = side_total_M(sub, LATEST, "PDSIRRA")
     daily_net_B   = (repo_M_latest - rr_M_latest) / 1000.0
@@ -369,37 +375,46 @@ with st.container(border=True):
     st.markdown("### Net = repo − reverse repo")
     st.markdown(f"**Daily Net (billions of $):** `{daily_net_B:,.1f}`")  # e.g., 689.5
 
-   # ---- YTD Net (Jan 1 -> LATEST) ----
-    year_start = date(LATEST.year, 1, 1)
-days_ytd = pd.date_range(year_start, LATEST, freq="D").date  # tatiller/weekend olsa da side_total_M 0 döner
+    # --- LATEST'i date tipine normalize et
+    LATEST_d = LATEST.date() if hasattr(LATEST, "date") else LATEST
 
-repo_ytd_M = sum(side_total_M(sub, d, "PDSORA") for d in days_ytd)
-rr_ytd_M   = sum(side_total_M(sub, d, "PDSIRRA") for d in days_ytd)
-ytd_net_B  = (repo_ytd_M - rr_ytd_M) / 1000.0
+    # ---- YTD Net (Jan 1 -> LATEST)
+    year_start = dt.date(LATEST_d.year, 1, 1)
+    days_ytd = pd.date_range(year_start, LATEST_d, freq="D")
 
-st.markdown(f"**YTD Net (billions of $):** `{ytd_net_B:,.1f}`")
+    repo_ytd_M = sum(side_total_M(sub, d.date(), "PDSORA") for d in days_ytd)
+    rr_ytd_M   = sum(side_total_M(sub, d.date(), "PDSIRRA") for d in days_ytd)
+    ytd_net_B  = (repo_ytd_M - rr_ytd_M) / 1000.0
 
-# ---- Previous calendar year (full-year) ----
-prev_year  = LATEST.year - 1
-prev_start = date(prev_year, 1, 1)
-prev_end   = date(prev_year, 12, 31)
-days_prev  = pd.date_range(prev_start, prev_end, freq="D").date
+    st.markdown(f"**YTD Net (billions of $):** `{ytd_net_B:,.1f}`")
 
-repo_prev_M = sum(side_total_M(sub, d, "PDSORA") for d in days_prev)
-rr_prev_M   = sum(side_total_M(sub, d, "PDSIRRA") for d in days_prev)
-prev_year_net_B = (repo_prev_M - rr_prev_M) / 1000.0
+    # ---- Previous calendar year (full-year)
+    prev_year  = LATEST_d.year - 1
+    prev_start = dt.date(prev_year, 1, 1)
+    prev_end   = dt.date(prev_year, 12, 31)
+    days_prev  = pd.date_range(prev_start, prev_end, freq="D")
 
-st.markdown(f"**{prev_year} Net (billions of $):** `{prev_year_net_B:,.1f}`")
+    repo_prev_M = sum(side_total_M(sub, d.date(), "PDSORA") for d in days_prev)
+    rr_prev_M   = sum(side_total_M(sub, d.date(), "PDSIRRA") for d in days_prev)
+    prev_year_net_B = (repo_prev_M - rr_prev_M) / 1000.0
 
-# (Opsiyonel) Geçen yılın aynı YTD penceresine göre fark
-same_ytd_prev_end = date(prev_year, LATEST.month, LATEST.day)
-days_same_prev = pd.date_range(date(prev_year,1,1), same_ytd_prev_end, freq="D").date
-repo_prev_ytd_M = sum(side_total_M(sub, d, "PDSORA") for d in days_same_prev)
-rr_prev_ytd_M   = sum(side_total_M(sub, d, "PDSIRRA") for d in days_same_prev)
-prev_ytd_net_B  = (repo_prev_ytd_M - rr_prev_ytd_M) / 1000.0
+    st.markdown(f"**{prev_year} Net (billions of $):** `{prev_year_net_B:,.1f}`")
 
-st.markdown(f"**Δ vs last year's YTD:** `{(ytd_net_B - prev_ytd_net_B):,.1f} B`")
-st.markdown("---")
+    # ---- Δ vs last year's YTD (aynı tarih aralığı)
+    same_ytd_prev_end = dt.date(prev_year, LATEST_d.month, LATEST_d.day)
+    days_same_prev = pd.date_range(dt.date(prev_year, 1, 1), same_ytd_prev_end, freq="D")
+
+    repo_prev_ytd_M = sum(side_total_M(sub, d.date(), "PDSORA") for d in days_same_prev)
+    rr_prev_ytd_M   = sum(side_total_M(sub, d.date(), "PDSIRRA") for d in days_same_prev)
+    prev_ytd_net_B  = (repo_prev_ytd_M - rr_prev_ytd_M) / 1000.0
+
+    delta_vs_prev_ytd_B = ytd_net_B - prev_ytd_net_B
+    sign = "▲" if delta_vs_prev_ytd_B >= 0 else "▼"
+    st.markdown(f"**Δ vs last year's YTD:** `{sign} {abs(delta_vs_prev_ytd_B):,.1f} B`")
+
+
+
+
 
 
 
