@@ -369,7 +369,37 @@ with st.container(border=True):
     st.markdown("### Net = repo − reverse repo")
     st.markdown(f"**Daily Net (billions of $):** `{daily_net_B:,.1f}`")  # e.g., 689.5
 
-   
+   # ---- YTD Net (Jan 1 -> LATEST) ----
+    year_start = date(LATEST.year, 1, 1)
+days_ytd = pd.date_range(year_start, LATEST, freq="D").date  # tatiller/weekend olsa da side_total_M 0 döner
+
+repo_ytd_M = sum(side_total_M(sub, d, "PDSORA") for d in days_ytd)
+rr_ytd_M   = sum(side_total_M(sub, d, "PDSIRRA") for d in days_ytd)
+ytd_net_B  = (repo_ytd_M - rr_ytd_M) / 1000.0
+
+st.markdown(f"**YTD Net (billions of $):** `{ytd_net_B:,.1f}`")
+
+# ---- Previous calendar year (full-year) ----
+prev_year  = LATEST.year - 1
+prev_start = date(prev_year, 1, 1)
+prev_end   = date(prev_year, 12, 31)
+days_prev  = pd.date_range(prev_start, prev_end, freq="D").date
+
+repo_prev_M = sum(side_total_M(sub, d, "PDSORA") for d in days_prev)
+rr_prev_M   = sum(side_total_M(sub, d, "PDSIRRA") for d in days_prev)
+prev_year_net_B = (repo_prev_M - rr_prev_M) / 1000.0
+
+st.markdown(f"**{prev_year} Net (billions of $):** `{prev_year_net_B:,.1f}`")
+
+# (Opsiyonel) Geçen yılın aynı YTD penceresine göre fark
+same_ytd_prev_end = date(prev_year, LATEST.month, LATEST.day)
+days_same_prev = pd.date_range(date(prev_year,1,1), same_ytd_prev_end, freq="D").date
+repo_prev_ytd_M = sum(side_total_M(sub, d, "PDSORA") for d in days_same_prev)
+rr_prev_ytd_M   = sum(side_total_M(sub, d, "PDSIRRA") for d in days_same_prev)
+prev_ytd_net_B  = (repo_prev_ytd_M - rr_prev_ytd_M) / 1000.0
+
+st.markdown(f"**Δ vs last year's YTD:** `{(ytd_net_B - prev_ytd_net_B):,.1f} B`")
+st.markdown("---")
 
 
 
