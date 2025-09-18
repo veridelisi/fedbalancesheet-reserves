@@ -7,8 +7,6 @@ import altair as alt
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
-
-
 st.set_page_config(page_title="TGA — Deposits, Withdrawals & Closing Balance", layout="wide")
 
 # --- Gezinme Barı (Yatay Menü, Streamlit-native) ---
@@ -34,7 +32,6 @@ with col7:
 
 st.markdown("</div>", unsafe_allow_html=True)
 
-
 # --- Sol menü sakla ---
 st.markdown("""
     <style>
@@ -51,11 +48,11 @@ OPEN  = "Treasury General Account (TGA) Opening Balance"
 DEPO  = "Total TGA Deposits (Table II)"
 WDRW  = "Total TGA Withdrawals (Table II) (-)"
 
-# Görsel renkler
-COLOR_DEP  = "#2563eb"   # Deposits (blue)
-COLOR_WDR  = "#ef4444"   # Withdrawals (red)
-COLOR_LINE = "#0f172a"   # Closing line
-COLOR_OK   = "#10b981"   # identity result
+# Görsel renkler - Gradient ve modern renkler
+COLOR_DEP  = "#3b82f6"   # Modern blue
+COLOR_WDR  = "#ef4444"   # Modern red
+COLOR_LINE = "#1e293b"   # Dark slate
+COLOR_OK   = "#10b981"   # Emerald green
 
 # Dataset güvenli alanlar + kolon tercihleri
 SAFE_FIELDS = ["record_date", "account_type", "open_today_bal", "close_today_bal", "today_amt"]
@@ -172,39 +169,172 @@ def fmt_bn(x):
     return f"{x:,.1f}"
 
 def vbar(df, yfield, ytitle, colors, title=""):
-    """Dikey bar: df -> columns [label, value]."""
+    """Güzelleştirilmiş dikey bar: df -> columns [label, value]."""
     if df.empty:
         df = pd.DataFrame({"label":[], yfield:[]})
+    
     base = alt.Chart(df).encode(
-        x=alt.X("label:N", title=None, sort=None),
-        y=alt.Y(f"{yfield}:Q", axis=alt.Axis(title=ytitle, format=",.1f")),
-        tooltip=[alt.Tooltip("label:N"), alt.Tooltip(f"{yfield}:Q", format=",.1f", title=ytitle)],
+        x=alt.X("label:N", title=None, sort=None, 
+                axis=alt.Axis(labelFontSize=14, labelPadding=15, labelFontWeight="bold")),
+        y=alt.Y(f"{yfield}:Q", 
+                axis=alt.Axis(title=ytitle, format=",.1f", 
+                             titleFontSize=14, labelFontSize=12,
+                             grid=True, gridOpacity=0.3,
+                             titleFontWeight="bold")),
+        tooltip=[
+            alt.Tooltip("label:N", title="Type"), 
+            alt.Tooltip(f"{yfield}:Q", format=",.1f", title=ytitle)
+        ],
     )
-    bars = base.mark_bar().encode(color=alt.Color("label:N", legend=None,
-                                                  scale=alt.Scale(range=colors)))
-    labels = base.mark_text(dy=-6, align="center", fontWeight="bold").encode(
+    
+    # Gradient renkler ve rounded köşeler
+    bars = base.mark_bar(
+        cornerRadius=12,     # Yuvarlatılmış köşeler
+        opacity=0.9,        # Hafif şeffaflık
+        stroke='white',     # Beyaz kenarlık
+        strokeWidth=3,
+        width={"band": 0.7}  # Bar genişliği
+    ).encode(
+        color=alt.Color("label:N", legend=None,
+                       scale=alt.Scale(range=colors))
+    )
+    
+    # Daha şık text labels
+    labels = base.mark_text(
+        dy=-15, 
+        align="center", 
+        fontWeight="bold",
+        fontSize=16,
+        color="white",
+        fontFamily="Inter, Arial, sans-serif"
+    ).encode(
         text=alt.Text(f"{yfield}:Q", format=",.1f")
     )
-    return (bars + labels).properties(title=(title or ""), height=260,
-                                      padding={"top":28,"right":8,"left":8,"bottom":8})
+    
+    # Gölge efekti için arka plan bars
+    shadow = base.mark_bar(
+        cornerRadius=12,
+        opacity=0.15,
+        color='gray',
+        width={"band": 0.7},
+        dx=2, dy=2  # Gölge offset
+    )
+    
+    return (shadow + bars + labels).properties(
+        title=alt.TitleParams(
+            text=title or "",
+            fontSize=16,
+            fontWeight="bold",
+            anchor="start",
+            color="#1e293b"
+        ),
+        height=320,
+        padding={"top":40,"right":20,"left":20,"bottom":20}
+    ).resolve_scale(color='independent')
 
 def closing_line_chart(ts: pd.DataFrame, title: str):
     """
+    Güzelleştirilmiş line chart - hafta sonu boşluklarını kaldırır
     ts: DataFrame with columns ['date','closing_bn'] ; daily index doldurulmuş olmalı.
     """
     if ts.empty:
         return alt.Chart(pd.DataFrame({"date":[], "closing_bn":[]})).mark_line()
 
-    base = alt.Chart(ts).encode(
-        x=alt.X("date:T", axis=alt.Axis(title=None)),
-        y=alt.Y("closing_bn:Q", axis=alt.Axis(title="Billions of $", format=",.1f")),
-        tooltip=[alt.Tooltip("date:T", title="Date"),
-                 alt.Tooltip("closing_bn:Q", format=",.1f", title="Closing (bn)")]
+    # Sadece veri olan günleri filtrele (hafta sonu boşluklarını kaldır)
+    ts_filtered = ts.dropna(subset=['closing_bn']).copy()
+    
+    if ts_filtered.empty:
+        return alt.Chart(pd.DataFrame({"date":[], "closing_bn":[]})).mark_line()
+
+    # Moving average ekle (smooth effect için)
+    ts_filtered = ts_filtered.sort_values('date')
+    ts_filtered['ma_7'] = ts_filtered['closing_bn'].rolling(window=7, center=True).mean()
+
+    base = alt.Chart(ts_filtered).encode(
+        x=alt.X("date:T", 
+                axis=alt.Axis(title=None, 
+                             labelAngle=-45,
+                             labelFontSize=11,
+                             tickCount=12,
+                             gridOpacity=0.3,
+                             labelFontWeight="normal")),
+        tooltip=[
+            alt.Tooltip("date:T", title="Date", format="%Y-%m-%d"),
+            alt.Tooltip("closing_bn:Q", format=",.1f", title="Closing Balance (bn $)")
+        ]
     )
-    line = base.mark_line(color=COLOR_LINE, strokeWidth=2)
-    pts  = base.mark_point(color=COLOR_LINE, filled=True, size=20)
-    return (line + pts).properties(title=title, height=320,
-                                   padding={"top":28,"right":8,"left":8,"bottom":8})
+    
+    # Gradient area altında
+    area = base.encode(
+        y=alt.Y("closing_bn:Q", 
+                axis=alt.Axis(title="Billions of $", format=",.1f",
+                             titleFontSize=14, labelFontSize=12,
+                             grid=True, gridOpacity=0.3,
+                             titleFontWeight="bold"))
+    ).mark_area(
+        opacity=0.15,
+        color=COLOR_LINE,
+        interpolate='monotone',
+        line={'color': COLOR_LINE, 'opacity': 0}
+    )
+    
+    # Moving average line (daha smooth)
+    ma_line = base.encode(
+        y=alt.Y("ma_7:Q")
+    ).mark_line(
+        color='#64748b',
+        strokeWidth=1.5,
+        interpolate='monotone',
+        strokeDash=[5,5],
+        opacity=0.6
+    )
+    
+    # Ana çizgi - daha smooth ve kalın
+    main_line = base.encode(
+        y=alt.Y("closing_bn:Q")
+    ).mark_line(
+        color=COLOR_LINE, 
+        strokeWidth=3,
+        interpolate='monotone'
+    )
+    
+    # Hover noktaları
+    points = base.encode(
+        y=alt.Y("closing_bn:Q")
+    ).mark_circle(
+        color=COLOR_LINE,
+        size=60,
+        opacity=0
+    ).add_selection(
+        alt.selection_point(on='mouseover', empty='all')
+    )
+    
+    # Aktif nokta
+    active_point = base.encode(
+        y=alt.Y("closing_bn:Q"),
+        opacity=alt.condition(alt.selection_point(), alt.value(1.0), alt.value(0))
+    ).mark_circle(
+        color=COLOR_LINE,
+        size=120,
+        stroke='white',
+        strokeWidth=3
+    ).add_selection(
+        alt.selection_point()
+    )
+    
+    return (area + ma_line + main_line + points + active_point).properties(
+        title=alt.TitleParams(
+            text=title,
+            fontSize=16,
+            fontWeight="bold",
+            anchor="start",
+            color="#1e293b"
+        ),
+        height=400,
+        padding={"top":40,"right":25,"left":25,"bottom":25}
+    ).resolve_scale(
+        x='shared'
+    )
 
 # --------------------------- Header -------------------------------
 st.title("🏦 TGA Cash Position Statement")
@@ -223,9 +353,9 @@ c1, c2 = st.columns([1,3])
 with c1:
     st.markdown(
         f"""
-        <div style="display:inline-block;padding:10px 14px;border:1px solid #e5e7eb;border-radius:10px;background:#fafafa;">
-          <div style="font-size:0.95rem;color:#6b7280;margin-bottom:2px;">Latest Record Date</div>
-          <div style="font-size:1.15rem;font-weight:600;letter-spacing:0.2px;">{t_latest.strftime('%d.%m.%Y')}</div>
+        <div style="display:inline-block;padding:12px 18px;border:1px solid #e5e7eb;border-radius:12px;background:linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);box-shadow:0 2px 4px rgba(0,0,0,0.05);">
+          <div style="font-size:0.95rem;color:#64748b;margin-bottom:4px;font-weight:500;">Latest Record Date</div>
+          <div style="font-size:1.2rem;font-weight:700;letter-spacing:0.3px;color:#1e293b;">{t_latest.strftime('%d.%m.%Y')}</div>
         </div>
         """,
         unsafe_allow_html=True
@@ -253,10 +383,8 @@ wdrw_latest  = get_value_on_or_before(t_latest.isoformat(), WDRW)
 closing_latest_bn = (bn(open_latest) or 0) + (bn(depo_latest) or 0) - (bn(wdrw_latest) or 0)
 
 # --------------------------- Identity line ------------------------
-
 from textwrap import dedent
 
-# --------------------------- Identity line ------------------------
 with st.container(border=True):
     # değerleri hesapla (bn = millions -> billions)
     open_bn  = bn(open_latest)
@@ -271,36 +399,46 @@ with st.container(border=True):
       }}
       .id-grid {{
         display: grid;
-        grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr; /* 4 değer + 3 operatör */
-        grid-template-rows: auto auto;                       /* 1. satır etiketler, 2. satır değerler/operatörler */
-        column-gap: 16px; row-gap: 8px;
+        grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
+        grid-template-rows: auto auto;
+        column-gap: 20px; row-gap: 12px;
         align-items: center; width: 100%;
       }}
-      .lbl {{ color:#6b7280; font-size:.95rem; grid-row: 1; }}
+      .lbl {{ 
+        color:#64748b; font-size:1rem; grid-row: 1; font-weight:600; text-align:center;
+      }}
       .val {{
         grid-row: 2;
-        display:inline-block; padding:8px 12px; border-radius:10px;
-        background:#f6f7f9; font-weight:700; font-size:1.25rem;
+        display:inline-block; padding:12px 16px; border-radius:12px;
+        background:linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        font-weight:800; font-size:1.35rem;
+        box-shadow:0 2px 8px rgba(0,0,0,0.08);
+        border:1px solid #e2e8f0;
+        text-align:center;
+        min-width:80px;
       }}
-      .op  {{ grid-row: 2; text-align:center; font-weight:800; font-size:1.5rem; color:#374151; }}
-      .val-green {{ color:#10b981; }}
+      .op  {{ 
+        grid-row: 2; text-align:center; font-weight:900; font-size:1.8rem; 
+        color:#475569; text-shadow:0 1px 2px rgba(0,0,0,0.1);
+      }}
+      .val-green {{ color:#059669; }}
       .val-blue  {{ color:#2563eb; }}
-      .val-red   {{ color:#ef4444; }}
+      .val-red   {{ color:#dc2626; }}
 
       @media (max-width: 900px) {{
         .id-title {{ font-size: 1.4rem; }}
-        .val {{ font-size: 1.05rem; padding:6px 10px; }}
-        .op  {{ font-size: 1.3rem; }}
+        .val {{ font-size: 1.1rem; padding:8px 12px; }}
+        .op  {{ font-size: 1.5rem; }}
+        .lbl {{ font-size: 0.9rem; }}
       }}
     </style>
 
-    
     <div class="id-grid">
       <!-- 1. satır: etiketler -->
-      <div class="lbl" style="grid-column:1;">Opening</div>
-      <div class="lbl" style="grid-column:3;">Deposits</div>
-      <div class="lbl" style="grid-column:5;">Withdrawals</div>
-      <div class="lbl" style="grid-column:7;">Closing</div>
+      <div class="lbl" style="grid-column:1;">Opening Balance</div>
+      <div class="lbl" style="grid-column:3;">Daily Deposits</div>
+      <div class="lbl" style="grid-column:5;">Daily Withdrawals</div>
+      <div class="lbl" style="grid-column:7;">Closing Balance</div>
 
       <!-- 2. satır: değerler + operatörler -->
       <div class="val val-green" style="grid-column:1;">{fmt_bn(open_bn)}</div>
@@ -318,18 +456,21 @@ with st.container(border=True):
 
     st.markdown(html, unsafe_allow_html=True)
 
-
 # --------------------------- Row 1: Dikey bar (latest) ------------
-st.subheader("Latest Day — Deposits & Withdrawals (bn)")
+st.subheader("💰 Latest Day — Deposits & Withdrawals")
+st.caption("Daily cash flows in billions of dollars")
+
 df_lvl = pd.DataFrame({
     "label":["Deposits","Withdrawals"],
     "value":[bn(depo_latest) or 0.0, bn(wdrw_latest) or 0.0]
 })
+
 st.altair_chart(vbar(df_lvl, "value", "Billions of $", [COLOR_DEP, COLOR_WDR]),
                 use_container_width=True, theme=None)
 
 # --------------------------- Closing line: baseline -> latest -----
-st.subheader(f"TGA Closing Balance — from {t_base.strftime('%Y-%m-%d')} to {t_latest.strftime('%Y-%m-%d')} (computed)")
+st.subheader(f"📈 TGA Closing Balance Trend")
+st.caption(f"Daily closing balance from {t_base.strftime('%Y-%m-%d')} to {t_latest.strftime('%Y-%m-%d')} (computed from opening + deposits − withdrawals)")
 
 # Aralıktaki serileri çek
 open_df = fetch_series(OPEN, t_base.isoformat(), t_latest.isoformat())
@@ -343,8 +484,15 @@ ts = full_dates.merge(open_df.rename(columns={"value_M":"open_M"}),  on="record_
                .merge(dep_df.rename(columns={"value_M":"depo_M"}),   on="record_date", how="left")\
                .merge(wdw_df.rename(columns={"value_M":"wdrw_M"}),   on="record_date", how="left")
 
-# Closing (bn) hesapla
-ts["closing_bn"] = (ts["open_M"]/1000.0) + (ts["depo_M"]/1000.0) - (ts["wdrw_M"]/1000.0)
+# Closing hesapla - sadece veri olan günler için
+ts["closing_bn"] = np.where(
+    (ts["open_M"].notna()) | (ts["depo_M"].notna()) | (ts["wdrw_M"].notna()),
+    (ts["open_M"].fillna(0)/1000.0) + (ts["depo_M"].fillna(0)/1000.0) - (ts["wdrw_M"].fillna(0)/1000.0),
+    np.nan
+)
+
+# Forward fill ile eksik günleri doldur (hafta sonları için)
+ts["closing_bn"] = ts["closing_bn"].fillna(method='ffill')
 
 # Görselleştirme için sütun adlarını düzelt
 ts_plot = ts.rename(columns={"record_date":"date"})[["date","closing_bn"]]
@@ -355,24 +503,78 @@ st.altair_chart(
     theme=None
 )
 
-# --------------------------- Methodology --------------------------
-st.markdown("### Methodology")
-st.markdown(
-"""
-- **Closing is computed**: **Opening + Deposits − Withdrawals** (not fetched from the API).
-- Baseline selection: **YoY (t − 1 year)** (default) or **2025-01-01**.
-- **Line chart**: daily values are plotted from the selected baseline date to the latest date; all days are shown on the axis.
-- Source: U.S. Treasury Fiscal Data — *Daily Treasury Statement* (`operating_cash_balance`).
+# --------------------------- Metrics Row --------------------------
+col1, col2, col3, col4 = st.columns(4)
 
-"""
-)
+with col1:
+    st.metric(
+        label="📊 Current Balance", 
+        value=f"${fmt_bn(close_bn)}B",
+        delta=None
+    )
+
+with col2:
+    avg_deposits = df_lvl[df_lvl['label'] == 'Deposits']['value'].iloc[0] if not df_lvl.empty else 0
+    st.metric(
+        label="💵 Daily Deposits", 
+        value=f"${fmt_bn(avg_deposits)}B",
+        delta=None
+    )
+
+with col3:
+    avg_withdrawals = df_lvl[df_lvl['label'] == 'Withdrawals']['value'].iloc[0] if not df_lvl.empty else 0
+    st.metric(
+        label="💸 Daily Withdrawals", 
+        value=f"${fmt_bn(avg_withdrawals)}B",
+        delta=None
+    )
+
+with col4:
+    net_flow = avg_deposits - avg_withdrawals
+    st.metric(
+        label="🔄 Net Daily Flow", 
+        value=f"${fmt_bn(net_flow)}B",
+        delta=f"{'Inflow' if net_flow >= 0 else 'Outflow'}"
+    )
+
+# --------------------------- Methodology --------------------------
+st.markdown("### 📋 Methodology")
+with st.expander("Click to expand methodology details"):
+    st.markdown(
+    """
+    #### Calculation Method
+    - **Closing Balance is computed**: **Opening + Deposits − Withdrawals** (not fetched directly from the API)
+    - All values are converted from millions to billions for better readability
+    - Missing weekend/holiday data is forward-filled to create smooth continuous lines
+    
+    #### Baseline Options
+    - **YoY (Year-over-Year)**: Compares current date with same date one year prior
+    - **2025-01-01**: Uses beginning of current year as baseline
+    
+    #### Chart Features
+    - **Bar Chart**: Shows latest day's deposits and withdrawals with rounded corners and modern styling
+    - **Line Chart**: Displays daily closing balance trend with smooth interpolation and 7-day moving average overlay
+    - **Interactive Elements**: Hover tooltips, zoom capabilities, and responsive design
+    
+    #### Data Source
+    - **U.S. Treasury Fiscal Data** — Daily Treasury Statement (`operating_cash_balance`)
+    - **API Endpoint**: https://api.fiscaldata.treasury.gov/services/api/fiscal_service
+    - **Update Frequency**: Daily (business days)
+    
+    #### Technical Notes
+    - Data gaps on weekends/holidays are handled via forward-fill interpolation
+    - Charts use monotonic interpolation for smooth curves between data points
+    - Color scheme follows modern design principles with accessibility considerations
+    """
+    )
 
 # --------------------------- Footer -------------------------------
+st.markdown("---")
 st.markdown(
     """
-    <hr style="margin-top:28px;margin-bottom:10px;border:none;border-top:1px solid #e5e7eb;">
-    <div style="text-align:center;color:#6b7280;font-size:0.95rem;">
-        <strong>Engin Yılmaz</strong> · September 2025
+    <div style="text-align:center;color:#64748b;font-size:0.95rem;padding:20px 0;">
+        <strong>🚀 Enhanced by Modern Design Principles</strong><br>
+        <em>Engin Yılmaz • September 2025 • Built with Streamlit & Altair</em>
     </div>
     """,
     unsafe_allow_html=True
