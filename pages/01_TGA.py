@@ -491,7 +491,7 @@ ts["closing_bn"] = np.where(
 )
 
 # Forward fill ile eksik günleri doldur (hafta sonları için)
-ts["closing_bn"] = ts["closing_bn"].fillna(method='ffill')
+ts["closing_bn"] = ts["closing_bn"].ffill()
 
 # Görselleştirme için sütun adlarını düzelt
 ts_plot = ts.rename(columns={"record_date":"date"})[["date","closing_bn"]]
