@@ -321,7 +321,7 @@ with st.expander("Methodology"):
 - Some fields can be **missing** in certain result buckets; we only weight by rows with valid amounts/rates.
 - **Weekends/holidays** typically show no operations.
 - API responses are **cached for 1 hour** (`@st.cache_data(ttl=3600)`).  
-  İstersen “Use Sample Data” işaretleyerek arayüzü test edebilirsin.
+  
 """)
 
 # --------------------------- Footer -------------------------------
