@@ -289,3 +289,49 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# ------------------------------ Methodology ------------------------------
+with st.expander("Methodology"):
+    st.markdown("""
+**Source:** Federal Reserve Bank of New York – **Primary Dealer Desk Operations** API  
+`https://markets.newyorkfed.org/api/rp/{repo|reverserepo}/all/results/last/{N}.json`
+
+**What’s included:**
+- **Repo** and **Reverse Repo** operations; each operation may have multiple **details** buckets.
+- **Accepted amounts:** `totalAmtAccepted` (USD).
+- **Rates:**
+  - **Repo:** weighted by `percentWeightedAverageRate` over `amtAccepted`.
+  - **Reverse Repo:** weighted by `percentAwardRate` over `amtAccepted`.
+
+**Transformations (this dashboard):**
+- Parse all operations, **drop zero-accepted** ones.
+- Compute **weighted average rate** per operation day.
+- **Group by date** and **sum accepted amounts** (if multiple ops per day).
+- Convert amounts to **billions of dollars** for charts.
+
+**Time window:**
+- Charts labeled “since January 1, 2025” filter on `operation_date >= 2025-01-01`.
+
+**Units:**
+- Amounts: **$ billions** (`B`).
+- Rates: **percent** (`%`), operation-level weighted averages.
+
+**Known caveats:**
+- The Desk may conduct **multiple ops per day**; we aggregate them by date.
+- Some fields can be **missing** in certain result buckets; we only weight by rows with valid amounts/rates.
+- **Weekends/holidays** typically show no operations.
+- API responses are **cached for 1 hour** (`@st.cache_data(ttl=3600)`).  
+  İstersen “Use Sample Data” işaretleyerek arayüzü test edebilirsin.
+""")
+
+# --------------------------- Footer -------------------------------
+st.markdown("---")
+st.markdown(
+    """
+    <div style="text-align:center;color:#64748b;font-size:0.95rem;padding:20px 0;">
+        <a href="https://veridelisi.substack.com/">Veri Delisi</a>🚀 <br>
+        <em>Engin Yılmaz • Amherst • September 2025 </em>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
