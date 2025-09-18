@@ -533,8 +533,8 @@ st.markdown("---")
 st.markdown(
     """
     <div style="text-align:center;color:#64748b;font-size:0.95rem;padding:20px 0;">
-        <strong>🚀 Enhanced by Modern Design Principles</strong><br>
-        <em>Engin Yılmaz • September 2025 • Built with Streamlit & Altair</em>
+        <strong>🚀 https://veridelisi.substack.com/</strong><br>
+        <em>Engin Yılmaz • Amherst • September 2025 </em>
     </div>
     """,
     unsafe_allow_html=True
