@@ -212,9 +212,6 @@ def top10_ytd_deposits(df_ytd: pd.DataFrame, ytd_taxes_m: float, n: int = 10) ->
     
     # Debt ve total kategorilerini çıkar
     d = d[~d["transaction_catg"].str.contains("Total|Public Debt|Debt", na=False, case=False)]
-    # null temizliği
-    d = d[~d["transaction_catg"].str.lower().eq("null")]
-
     
     # Kategori bazında toplam
     agg = d.groupby("transaction_catg")["transaction_today_amt"].sum().reset_index()
@@ -237,9 +234,7 @@ def top10_ytd_withdrawals(df_ytd: pd.DataFrame, ytd_expend_m: float, n: int = 10
     
     # Debt ve total kategorilerini çıkar
     w = w[~w["transaction_catg"].str.contains("Total|Public Debt|Debt|Redemption", na=False, case=False)]
-    # null temizliği
-    w = w[~w["transaction_catg"].str.lower().eq("null")]
-
+    
     # Kategori bazında toplam
     agg = w.groupby("transaction_catg")["transaction_today_amt"].sum().reset_index()
     agg = agg[agg["transaction_today_amt"] > 0]  # Pozitif değerler
@@ -552,27 +547,36 @@ else:
 # ---------------------------- Methodology -------------------------------
 
 st.markdown("### Methodology")
-st.markdown(
-    """
-    **Data Source:** U.S. Treasury – FiscalData `deposits_withdrawals_operating_cash`
-    
-    **Daily Calculations:**
-    - **Taxes** = Total TGA Deposits (Table II) − Public Debt Cash Issues (Table IIIB)
-    - **Expenditures** = Total TGA Withdrawals (Table II) − Public Debt Cash Redemptions (Table IIIB)
-    - **Daily Result** = Taxes + New Debt − Expenditures − Redemptions (billions)
-    
-    **YTD Analysis:**
-    - All values are cumulative from 2025-01-01 to latest available date
-    - Categories are aggregated across all business days in the period
-    - Debt operations chart shows total new issuances vs total redemptions
-    - Net result represents government's overall cash position change for the year
-    
-    **Notes:**
-    - All amounts converted from millions to billions for readability
-    - Top-10 tables exclude total/summary rows and debt-related categories
-    - Business days only (weekends/holidays excluded)
-    """
-)
+with st.expander("Click to expand methodology details"):
+    st.markdown(
+        """
+        **Data Source:** U.S. Treasury – FiscalData `deposits_withdrawals_operating_cash`
+        
+        **Daily Calculations:**
+        - **Taxes** = Total TGA Deposits (Table II) − Public Debt Cash Issues (Table IIIB)
+        - **Expenditures** = Total TGA Withdrawals (Table II) − Public Debt Cash Redemptions (Table IIIB)
+        - **Daily Result** = Taxes + New Debt − Expenditures − Redemptions (billions)
+        
+        **YTD Analysis:**
+        - All values are cumulative from 2025-01-01 to latest available date
+        - Categories are aggregated across all business days in the period
+        - Debt operations chart shows total new issuances vs total redemptions
+        - Net result represents government's overall cash position change for the year
+        
+        **Data Processing:**
+        - All amounts converted from millions to billions for readability
+        - Top-10 tables exclude total/summary rows and debt-related categories
+        - Business days only (weekends/holidays excluded)
+        - Null/empty categories filtered out using string matching
+        - Only positive transaction amounts included in rankings
+        
+        **Categories Excluded from Tables:**
+        - Total TGA Deposits/Withdrawals (summary rows)
+        - Public Debt Cash Issues/Redemptions (handled separately)
+        - Null/empty category names
+        - Zero or negative transaction amounts
+        """
+    )
 
 # --------------------------- Footer -------------------------------
 st.markdown("---")
