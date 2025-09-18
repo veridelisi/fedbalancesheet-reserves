@@ -359,20 +359,28 @@ st.markdown("### 💼 Net Impact on Bank Reserves")
 st.metric("Weekly Net Impact ($M)", f"{net_weekly:+,.0f}")
 st.metric("Annual Net Impact ($M)", f"{net_annual:+,.0f}")
 
-st.markdown("""
-**Methodology**
-- Data source: Federal Reserve H.4.1 Statistical Release (FRED release/tables)
-- Thresholds for display: ±$50M (weekly), ±$100M (annual)
-- 🔵 Positive = increases; 🔴 Negative = decreases
-- Securities = held outright + unamortized premiums + unamortized discounts
-- Annual baseline is **fixed to YoY (t - 1 year)** (not 01.01.2025)
-""")
+# ---------------------------- Methodology -------------------------------
+st.markdown("### Methodology")
+with st.expander("Click to expand methodology details"):
+    st.markdown("""
+    **Data source:** Federal Reserve H.4.1 Statistical Release (FRED release/tables)
+    
+    **Thresholds for display:** ±$50M (weekly), ±$100M (annual)
+    
+    **Legend:** 🔵 Positive = increases; 🔴 Negative = decreases
+    
+    **Securities calculation:** held outright + unamortized premiums + unamortized discounts
+    
+    **Annual baseline:** fixed to YoY (t - 1 year) (not 01.01.2025)
+    """)
 
+# --------------------------- Footer -------------------------------
+st.markdown("---")
 st.markdown(
     """
-    <hr style="margin-top:28px; margin-bottom:10px; border:none; border-top:1px solid #e5e7eb;">
-    <div style="text-align:center; color:#6b7280; font-size:0.95rem;">
-        <strong>Engin Yılmaz</strong> ·  September 2025
+    <div style="text-align:center;color:#64748b;font-size:0.95rem;padding:20px 0;">
+        <a href="https://veridelisi.substack.com/">Veri Delisi</a>🚀 <br>
+        <em>Engin Yılmaz • Amherst • September 2025 </em>
     </div>
     """,
     unsafe_allow_html=True
