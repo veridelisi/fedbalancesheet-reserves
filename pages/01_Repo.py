@@ -393,11 +393,14 @@ with st.expander("Methodology"):
 **Notes:** Minor calendar alignment differences are handled by “nearest on/before” logic to avoid gaps on non-trading days.
 """)
 
-# ------------------------------ Footer --------------------------------
+# --------------------------- Footer -------------------------------
+st.markdown("---")
 st.markdown(
-    "<div style='text-align:center; opacity:0.9; padding-top:6px;'>"
-    "Engin Yılmaz · September 2025"
-    "</div>",
-    unsafe_allow_html=True,
+    """
+    <div style="text-align:center;color:#64748b;font-size:0.95rem;padding:20px 0;">
+        <a href="https://veridelisi.substack.com/">Veri Delisi</a>🚀 <br>
+        <em>Engin Yılmaz • Amherst • September 2025 </em>
+    </div>
+    """,
+    unsafe_allow_html=True
 )
-
