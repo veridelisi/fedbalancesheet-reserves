@@ -212,6 +212,9 @@ def top10_ytd_deposits(df_ytd: pd.DataFrame, ytd_taxes_m: float, n: int = 10) ->
     
     # Debt ve total kategorilerini çıkar
     d = d[~d["transaction_catg"].str.contains("Total|Public Debt|Debt", na=False, case=False)]
+    # null temizliği
+    d = d[~d["transaction_catg"].str.lower().eq("null")]
+
     
     # Kategori bazında toplam
     agg = d.groupby("transaction_catg")["transaction_today_amt"].sum().reset_index()
@@ -234,7 +237,9 @@ def top10_ytd_withdrawals(df_ytd: pd.DataFrame, ytd_expend_m: float, n: int = 10
     
     # Debt ve total kategorilerini çıkar
     w = w[~w["transaction_catg"].str.contains("Total|Public Debt|Debt|Redemption", na=False, case=False)]
-    
+    # null temizliği
+    w = w[~w["transaction_catg"].str.lower().eq("null")]
+
     # Kategori bazında toplam
     agg = w.groupby("transaction_catg")["transaction_today_amt"].sum().reset_index()
     agg = agg[agg["transaction_today_amt"] > 0]  # Pozitif değerler
@@ -577,6 +582,7 @@ with st.expander("Click to expand methodology details"):
         - Zero or negative transaction amounts
         """
     )
+
 
 # --------------------------- Footer -------------------------------
 st.markdown("---")
