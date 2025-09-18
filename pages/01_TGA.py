@@ -245,18 +245,18 @@ def closing_line_chart(ts: pd.DataFrame, title: str):
     if ts_filtered.empty:
         return alt.Chart(pd.DataFrame({"date":[], "closing_bn":[]})).mark_line()
 
-    # Moving average ekle (smooth effect için)
-    ts_filtered = ts_filtered.sort_values('date')
-    ts_filtered['ma_7'] = ts_filtered['closing_bn'].rolling(window=7, center=True).mean()
-
     base = alt.Chart(ts_filtered).encode(
         x=alt.X("date:T", 
                 axis=alt.Axis(title=None, 
                              labelAngle=-45,
                              labelFontSize=11,
                              tickCount=12,
-                             gridOpacity=0.3,
-                             labelFontWeight="normal")),
+                             gridOpacity=0.3)),
+        y=alt.Y("closing_bn:Q", 
+                axis=alt.Axis(title="Billions of $", format=",.1f",
+                             titleFontSize=14, labelFontSize=12,
+                             grid=True, gridOpacity=0.3,
+                             titleFontWeight="bold")),
         tooltip=[
             alt.Tooltip("date:T", title="Date", format="%Y-%m-%d"),
             alt.Tooltip("closing_bn:Q", format=",.1f", title="Closing Balance (bn $)")
@@ -264,64 +264,27 @@ def closing_line_chart(ts: pd.DataFrame, title: str):
     )
     
     # Gradient area altında
-    area = base.encode(
-        y=alt.Y("closing_bn:Q", 
-                axis=alt.Axis(title="Billions of $", format=",.1f",
-                             titleFontSize=14, labelFontSize=12,
-                             grid=True, gridOpacity=0.3,
-                             titleFontWeight="bold"))
-    ).mark_area(
+    area = base.mark_area(
         opacity=0.15,
         color=COLOR_LINE,
-        interpolate='monotone',
-        line={'color': COLOR_LINE, 'opacity': 0}
-    )
-    
-    # Moving average line (daha smooth)
-    ma_line = base.encode(
-        y=alt.Y("ma_7:Q")
-    ).mark_line(
-        color='#64748b',
-        strokeWidth=1.5,
-        interpolate='monotone',
-        strokeDash=[5,5],
-        opacity=0.6
+        interpolate='monotone'
     )
     
     # Ana çizgi - daha smooth ve kalın
-    main_line = base.encode(
-        y=alt.Y("closing_bn:Q")
-    ).mark_line(
+    line = base.mark_line(
         color=COLOR_LINE, 
         strokeWidth=3,
         interpolate='monotone'
     )
     
-    # Hover noktaları
-    points = base.encode(
-        y=alt.Y("closing_bn:Q")
-    ).mark_circle(
+    # Basit noktalar
+    points = base.mark_circle(
         color=COLOR_LINE,
-        size=60,
-        opacity=0
-    ).add_selection(
-        alt.selection_point(on='mouseover', empty='all')
+        size=40,
+        opacity=0.7
     )
     
-    # Aktif nokta
-    active_point = base.encode(
-        y=alt.Y("closing_bn:Q"),
-        opacity=alt.condition(alt.selection_point(), alt.value(1.0), alt.value(0))
-    ).mark_circle(
-        color=COLOR_LINE,
-        size=120,
-        stroke='white',
-        strokeWidth=3
-    ).add_selection(
-        alt.selection_point()
-    )
-    
-    return (area + ma_line + main_line + points + active_point).properties(
+    return (area + line + points).properties(
         title=alt.TitleParams(
             text=title,
             fontSize=16,
@@ -331,8 +294,6 @@ def closing_line_chart(ts: pd.DataFrame, title: str):
         ),
         height=400,
         padding={"top":40,"right":25,"left":25,"bottom":25}
-    ).resolve_scale(
-        x='shared'
     )
 
 # --------------------------- Header -------------------------------
