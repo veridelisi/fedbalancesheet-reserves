@@ -205,8 +205,7 @@ def vbar(df, yfield, ytitle, colors, title=""):
         align="center", 
         fontWeight="bold",
         fontSize=16,
-        color="white",
-        fontFamily="Inter, Arial, sans-serif"
+        color="white"
     ).encode(
         text=alt.Text(f"{yfield}:Q", format=",.1f")
     )
