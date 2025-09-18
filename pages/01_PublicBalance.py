@@ -91,6 +91,43 @@ def fetch_latest_window(page_size: int = 500) -> pd.DataFrame:
     df["transaction_today_amt"] = df["transaction_today_amt"].apply(to_float)
     return df
 
+@st.cache_data(ttl=1800)
+def fetch_ytd_data(start_date: str, end_date: str) -> pd.DataFrame:
+    """Fetch YTD data from start_date to end_date."""
+    # Bu endpoint paginated olabilir, büyük date range için birden fazla call gerekebilir
+    all_data = []
+    page_size = 10000
+    
+    url = f"{BASE}{ENDP}"
+    params = {
+        "filter": f"record_date:gte:{start_date},record_date:lte:{end_date}",
+        "sort": "record_date",
+        "page[size]": page_size
+    }
+    
+    try:
+        r = requests.get(url, params=params, timeout=60)
+        r.raise_for_status()
+        data = r.json().get("data", [])
+        all_data.extend(data)
+    except Exception:
+        return pd.DataFrame()
+    
+    if not all_data:
+        return pd.DataFrame()
+    
+    df = pd.DataFrame(all_data)
+    
+    # normalize
+    for c in ("record_date", "transaction_type", "transaction_catg", "transaction_today_amt"):
+        if c not in df.columns:
+            df[c] = None
+
+    df["record_date"] = pd.to_datetime(df["record_date"], errors="coerce").dt.date
+    df = df.dropna(subset=["record_date"])
+    df["transaction_today_amt"] = df["transaction_today_amt"].apply(to_float)
+    return df
+
 def day_slice(df: pd.DataFrame, d: date) -> pd.DataFrame:
     return df[df["record_date"] == d].copy()
 
@@ -134,7 +171,7 @@ def compute_components_for_day(df_day: pd.DataFrame) -> dict:
         withdrawals_total=wdr_total,
     )
 
-# -- Simple Top-10 (your “drop last two rows” logic; also remove null/total/debt names) --
+# -- Simple Top-10 (your "drop last two rows" logic; also remove null/total/debt names) --
 def top10_deposits_simple(df_day: pd.DataFrame, taxes_m: float, n: int = 10) -> pd.DataFrame:
     d = df_day[df_day["transaction_type"] == "Deposits"].copy()
     if len(d) >= 2:
@@ -160,6 +197,125 @@ def top10_withdrawals_simple(df_day: pd.DataFrame, expend_m: float, n: int = 10)
              .rename(columns={"transaction_catg": "Category", "transaction_today_amt": "Amount (m$)"}))
     out["Percentage in Expenditures"] = (out["Amount (m$)"] / expend_m * 100.0) if expend_m else 0.0
     return out.reset_index(drop=True)
+
+# YTD agregasyon fonksiyonları
+def top10_ytd_deposits(df_ytd: pd.DataFrame, ytd_taxes_m: float, n: int = 10) -> pd.DataFrame:
+    """YTD deposits aggregated by category."""
+    d = df_ytd[df_ytd["transaction_type"] == "Deposits"].copy()
+    d = d[d["transaction_catg"].notna()]
+    d = d[~d["transaction_catg"].str.contains("Total|Public Debt Cash Issues", na=False)]
+    
+    # Kategori bazında toplam
+    agg = d.groupby("transaction_catg")["transaction_today_amt"].sum().reset_index()
+    agg = agg.sort_values("transaction_today_amt", ascending=False).head(n)
+    agg = agg.rename(columns={"transaction_catg": "Category", "transaction_today_amt": "YTD Amount (m$)"})
+    agg["Percentage in YTD Taxes"] = (agg["YTD Amount (m$)"] / ytd_taxes_m * 100.0) if ytd_taxes_m else 0.0
+    return agg.reset_index(drop=True)
+
+def top10_ytd_withdrawals(df_ytd: pd.DataFrame, ytd_expend_m: float, n: int = 10) -> pd.DataFrame:
+    """YTD withdrawals aggregated by category."""
+    w = df_ytd[df_ytd["transaction_type"] == "Withdrawals"].copy()
+    w = w[w["transaction_catg"].notna()]
+    w = w[~w["transaction_catg"].str.contains("Total|Public Debt Cash Redemptions", na=False)]
+    
+    # Kategori bazında toplam
+    agg = w.groupby("transaction_catg")["transaction_today_amt"].sum().reset_index()
+    agg = agg.sort_values("transaction_today_amt", ascending=False).head(n)
+    agg = agg.rename(columns={"transaction_catg": "Category", "transaction_today_amt": "YTD Amount (m$)"})
+    agg["Percentage in YTD Expenditures"] = (agg["YTD Amount (m$)"] / ytd_expend_m * 100.0) if ytd_expend_m else 0.0
+    return agg.reset_index(drop=True)
+
+def compute_ytd_totals(df_ytd: pd.DataFrame) -> dict:
+    """Compute YTD totals for all components."""
+    # Her gün için compute edip topla
+    dates = sorted(df_ytd["record_date"].unique())
+    
+    total_taxes = 0.0
+    total_expenditures = 0.0
+    total_newdebt = 0.0
+    total_redemp = 0.0
+    
+    for d in dates:
+        day_data = day_slice(df_ytd, d)
+        if day_data.empty:
+            continue
+        components = compute_components_for_day(day_data)
+        total_taxes += components.get("taxes", 0.0)
+        total_expenditures += components.get("expenditures", 0.0)
+        total_newdebt += components.get("newdebt", 0.0)
+        total_redemp += components.get("redemp", 0.0)
+    
+    return {
+        "ytd_taxes": total_taxes,
+        "ytd_expenditures": total_expenditures,
+        "ytd_newdebt": total_newdebt,
+        "ytd_redemp": total_redemp
+    }
+
+def debt_bar_chart(new_debt_bn: float, redemp_bn: float, title: str = ""):
+    """Modern bar chart for New Debt vs Redemptions."""
+    df_debt = pd.DataFrame({
+        "Type": ["New Debt", "Redemptions"],
+        "Amount": [new_debt_bn, redemp_bn]
+    })
+    
+    base = alt.Chart(df_debt).encode(
+        x=alt.X("Type:N", title=None, sort=None,
+                axis=alt.Axis(labelFontSize=14, labelPadding=15, labelFontWeight="bold")),
+        y=alt.Y("Amount:Q",
+                axis=alt.Axis(title="Billions of $", format=",.1f",
+                             titleFontSize=14, labelFontSize=12,
+                             grid=True, gridOpacity=0.3,
+                             titleFontWeight="bold")),
+        tooltip=[
+            alt.Tooltip("Type:N", title="Type"),
+            alt.Tooltip("Amount:Q", format=",.1f", title="Amount (bn $)")
+        ]
+    )
+    
+    # Bar colors: New Debt = blue, Redemptions = red
+    bars = base.mark_bar(
+        cornerRadius=12,
+        opacity=0.9,
+        stroke='white',
+        strokeWidth=3,
+        width={"band": 0.7}
+    ).encode(
+        color=alt.Color("Type:N", legend=None,
+                       scale=alt.Scale(range=["#3b82f6", "#ef4444"]))
+    )
+    
+    # Value labels on bars
+    labels = base.mark_text(
+        dy=-15,
+        align="center",
+        fontWeight="bold",
+        fontSize=16,
+        color="white"
+    ).encode(
+        text=alt.Text("Amount:Q", format=",.1f")
+    )
+    
+    # Shadow effect
+    shadow = base.mark_bar(
+        cornerRadius=12,
+        opacity=0.15,
+        color='gray',
+        width={"band": 0.7},
+        dx=2, dy=2
+    )
+    
+    return (shadow + bars + labels).properties(
+        title=alt.TitleParams(
+            text=title or "",
+            fontSize=16,
+            fontWeight="bold",
+            anchor="start",
+            color="#1e293b"
+        ),
+        height=320,
+        padding={"top":40,"right":20,"left":20,"bottom":20}
+    ).resolve_scale(color='independent')
 
 # ------------------------- Fetch & compute (latest only) -------------------------
 
@@ -282,25 +438,120 @@ with right:
         expend_top["Percentage in Expenditures"] = expend_top["Percentage in Expenditures"].round(1).map(lambda v: f"{v:.1f}%")
     st.dataframe(expend_top, use_container_width=True)
 
+# ----------------------- YTD Analysis (2025-01-01 to latest) ----------------------
+
 st.markdown("---")
+st.subheader(f"Year-to-Date Analysis (2025-01-01 to {latest_date.strftime('%Y-%m-%d')})")
+
+# YTD data fetch
+ytd_start = "2025-01-01"
+ytd_end = latest_date.strftime("%Y-%m-%d")
+
+with st.spinner("Fetching YTD data..."):
+    df_ytd = fetch_ytd_data(ytd_start, ytd_end)
+
+if df_ytd.empty:
+    st.warning("No YTD data available.")
+else:
+    # Compute YTD totals
+    ytd_totals = compute_ytd_totals(df_ytd)
+    
+    ytd_taxes_bn = bn(ytd_totals["ytd_taxes"])
+    ytd_expend_bn = bn(ytd_totals["ytd_expenditures"])
+    ytd_newdebt_bn = bn(ytd_totals["ytd_newdebt"])
+    ytd_redemp_bn = bn(ytd_totals["ytd_redemp"])
+    
+    # YTD Top-10 Tables
+    st.markdown("**YTD Top-10 Categories**")
+    
+    left_ytd, right_ytd = st.columns(2)
+    
+    with left_ytd:
+        st.markdown("**YTD Taxes — top 10 categories (cumulative)**")
+        ytd_taxes_top = top10_ytd_deposits(df_ytd, ytd_totals["ytd_taxes"], n=10)
+        if not ytd_taxes_top.empty:
+            ytd_taxes_top["YTD Amount (m$)"] = ytd_taxes_top["YTD Amount (m$)"].map(lambda v: f"{v:,.0f}")
+            ytd_taxes_top["Percentage in YTD Taxes"] = ytd_taxes_top["Percentage in YTD Taxes"].round(1).map(lambda v: f"{v:.1f}%")
+        st.dataframe(ytd_taxes_top, use_container_width=True)
+    
+    with right_ytd:
+        st.markdown("**YTD Expenditures — top 10 categories (cumulative)**")
+        ytd_expend_top = top10_ytd_withdrawals(df_ytd, ytd_totals["ytd_expenditures"], n=10)
+        if not ytd_expend_top.empty:
+            ytd_expend_top["YTD Amount (m$)"] = ytd_expend_top["YTD Amount (m$)"].map(lambda v: f"{v:,.0f}")
+            ytd_expend_top["Percentage in YTD Expenditures"] = ytd_expend_top["Percentage in YTD Expenditures"].round(1).map(lambda v: f"{v:.1f}%")
+        st.dataframe(ytd_expend_top, use_container_width=True)
+    
+    # YTD Debt Chart
+    st.markdown("**YTD Debt Operations**")
+    debt_chart = debt_bar_chart(
+        ytd_newdebt_bn, 
+        ytd_redemp_bn, 
+        title=f"YTD New Debt vs Redemptions ({ytd_start} to {ytd_end})"
+    )
+    st.altair_chart(debt_chart, use_container_width=True, theme=None)
+    
+    # YTD Summary metrics
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric(
+            label="YTD Taxes",
+            value=f"${fmt_bn(ytd_taxes_bn)}B"
+        )
+    
+    with col2:
+        st.metric(
+            label="YTD Expenditures", 
+            value=f"${fmt_bn(ytd_expend_bn)}B"
+        )
+    
+    with col3:
+        st.metric(
+            label="YTD New Debt",
+            value=f"${fmt_bn(ytd_newdebt_bn)}B"
+        )
+    
+    with col4:
+        ytd_net = ytd_taxes_bn + ytd_newdebt_bn - ytd_expend_bn - ytd_redemp_bn
+        st.metric(
+            label="YTD Net Result",
+            value=f"${fmt_bn(ytd_net)}B",
+            delta=f"{'Surplus' if ytd_net >= 0 else 'Deficit'}"
+        )
 
 # ---------------------------- Methodology -------------------------------
 
 st.markdown("### Methodology")
 st.markdown(
     """
-- **Source:** U.S. Treasury – FiscalData `deposits_withdrawals_operating_cash`.
-- **Taxes** = **Total TGA Deposits (Table II) − Public Debt Cash Issues (Table IIIB)**.
-- **Expenditures** = **Total TGA Withdrawals (Table II) − Public Debt Cash Redemptions (Table IIIB)**.
-- **Daily Result** = **Taxes + NewDebt − Expenditures − Redemp** (billions).
-"""
+    **Data Source:** U.S. Treasury – FiscalData `deposits_withdrawals_operating_cash`
+    
+    **Daily Calculations:**
+    - **Taxes** = Total TGA Deposits (Table II) − Public Debt Cash Issues (Table IIIB)
+    - **Expenditures** = Total TGA Withdrawals (Table II) − Public Debt Cash Redemptions (Table IIIB)
+    - **Daily Result** = Taxes + New Debt − Expenditures − Redemptions (billions)
+    
+    **YTD Analysis:**
+    - All values are cumulative from 2025-01-01 to latest available date
+    - Categories are aggregated across all business days in the period
+    - Debt operations chart shows total new issuances vs total redemptions
+    - Net result represents government's overall cash position change for the year
+    
+    **Notes:**
+    - All amounts converted from millions to billions for readability
+    - Top-10 tables exclude total/summary rows and debt-related categories
+    - Business days only (weekends/holidays excluded)
+    """
 )
 
+# --------------------------- Footer -------------------------------
+st.markdown("---")
 st.markdown(
     """
-    <hr style="margin-top:20px;margin-bottom:8px;border:none;border-top:1px solid #e5e7eb;">
-    <div style="text-align:center;color:#6b7280;font-size:.95rem;">
-        <strong>Engin Yılmaz</strong> · September 2025
+    <div style="text-align:center;color:#64748b;font-size:0.95rem;padding:20px 0;">
+        <a href="https://veridelisi.substack.com/">Veri Delisi</a>🚀 <br>
+        <em>Engin Yılmaz • Amherst • September 2025 </em>
     </div>
     """,
     unsafe_allow_html=True
