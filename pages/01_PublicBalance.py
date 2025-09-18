@@ -200,26 +200,34 @@ def top10_withdrawals_simple(df_day: pd.DataFrame, expend_m: float, n: int = 10)
 
 # YTD agregasyon fonksiyonları
 def top10_ytd_deposits(df_ytd: pd.DataFrame, ytd_taxes_m: float, n: int = 10) -> pd.DataFrame:
-    """YTD deposits aggregated by category."""
+    """YTD deposits aggregated by category - ONLY tax categories."""
     d = df_ytd[df_ytd["transaction_type"] == "Deposits"].copy()
+    # Null kategorileri ve debt-related kategorileri filtrele
     d = d[d["transaction_catg"].notna()]
-    d = d[~d["transaction_catg"].str.contains("Total|Public Debt Cash Issues", na=False)]
+    d = d[d["transaction_catg"] != ""]
+    d = d[d["transaction_catg"].str.strip() != ""]
+    d = d[~d["transaction_catg"].str.contains("Total|Public Debt Cash Issues", na=False, case=False)]
     
     # Kategori bazında toplam
     agg = d.groupby("transaction_catg")["transaction_today_amt"].sum().reset_index()
+    agg = agg[agg["transaction_today_amt"] > 0]  # Pozitif değerler
     agg = agg.sort_values("transaction_today_amt", ascending=False).head(n)
     agg = agg.rename(columns={"transaction_catg": "Category", "transaction_today_amt": "YTD Amount (m$)"})
     agg["Percentage in YTD Taxes"] = (agg["YTD Amount (m$)"] / ytd_taxes_m * 100.0) if ytd_taxes_m else 0.0
     return agg.reset_index(drop=True)
 
 def top10_ytd_withdrawals(df_ytd: pd.DataFrame, ytd_expend_m: float, n: int = 10) -> pd.DataFrame:
-    """YTD withdrawals aggregated by category."""
+    """YTD withdrawals aggregated by category - ONLY expenditure categories."""
     w = df_ytd[df_ytd["transaction_type"] == "Withdrawals"].copy()
+    # Null kategorileri ve debt-related kategorileri filtrele
     w = w[w["transaction_catg"].notna()]
-    w = w[~w["transaction_catg"].str.contains("Total|Public Debt Cash Redemptions", na=False)]
+    w = w[w["transaction_catg"] != ""]
+    w = w[w["transaction_catg"].str.strip() != ""]
+    w = w[~w["transaction_catg"].str.contains("Total|Public Debt Cash Redemptions", na=False, case=False)]
     
     # Kategori bazında toplam
     agg = w.groupby("transaction_catg")["transaction_today_amt"].sum().reset_index()
+    agg = agg[agg["transaction_today_amt"] > 0]  # Pozitif değerler
     agg = agg.sort_values("transaction_today_amt", ascending=False).head(n)
     agg = agg.rename(columns={"transaction_catg": "Category", "transaction_today_amt": "YTD Amount (m$)"})
     agg["Percentage in YTD Expenditures"] = (agg["YTD Amount (m$)"] / ytd_expend_m * 100.0) if ytd_expend_m else 0.0
@@ -491,8 +499,8 @@ else:
     )
     st.altair_chart(debt_chart, use_container_width=True, theme=None)
     
-    # YTD Summary metrics
-    col1, col2, col3, col4 = st.columns(4)
+    # YTD Summary metrics - 5 cards: 4 components + net result
+    col1, col2, col3, col4, col5 = st.columns(5)
     
     with col1:
         st.metric(
@@ -513,6 +521,12 @@ else:
         )
     
     with col4:
+        st.metric(
+            label="YTD Redemptions",
+            value=f"${fmt_bn(ytd_redemp_bn)}B"
+        )
+    
+    with col5:
         ytd_net = ytd_taxes_bn + ytd_newdebt_bn - ytd_expend_bn - ytd_redemp_bn
         st.metric(
             label="YTD Net Result",
