@@ -361,60 +361,90 @@ with col4_r:
 
 st.divider()
 
-# ============================== Net Impact ==========================
-# ============================== Net Impact ==========================
+# =========================== Net (Repo − RR) • Historical Δ ===========================
+# Kullanıcı seçimi: baseline_choice ("YoY (t - 1 year)" veya "01.01.2025")
 with st.container(border=True):
-    import datetime as dt
-    import pandas as pd
+    st.subheader("Net (Repo − Reverse Repo) — Historical change vs baseline")
 
-    # --- Günlük net (convert $M -> $B)
-    repo_M_latest = side_total_M(sub, LATEST, "PDSORA")
-    rr_M_latest   = side_total_M(sub, LATEST, "PDSIRRA")
-    daily_net_B   = (repo_M_latest - rr_M_latest) / 1000.0
+    # -- Günlük net seri (bn $): net = repo - reverse repo
+    # sub: (date, series, value_mn)
+    daily = (
+        sub.assign(is_repo=sub["series"].str.startswith("PDSORA"),
+                   is_rr=sub["series"].str.startswith("PDSIRRA"))
+           .groupby("date", as_index=False)
+           .agg(repo_M=("value_mn", lambda s: s[sub.loc[s.index, "is_repo"]].sum()),
+                rr_M=("value_mn",   lambda s: s[sub.loc[s.index, "is_rr"]].sum()))
+    )
+    daily["net_bn"] = (daily["repo_M"] - daily["rr_M"]) / 1000.0
+    daily = daily.sort_values("date").reset_index(drop=True)
 
-    st.markdown("### Net = repo − reverse repo")
-    st.markdown(f"**Daily Net (billions of $):** `{daily_net_B:,.1f}`")  # e.g., 689.5
+    # --- Yardımcı: YoY için merge_asof ile t-365'e göre eşle
+    def yoy_delta(df):
+        base = df[["date", "net_bn"]].rename(columns={"date": "ref_date", "net_bn": "base_net"})
+        # Her tarih için "anchor = date - 365 gün"; anchor'a en yakın önceki iş günü ref_date bulunur
+        tmp = pd.merge_asof(
+            df.assign(anchor=df["date"] - pd.Timedelta(days=365)).sort_values("anchor"),
+            base.sort_values("ref_date"),
+            left_on="anchor",
+            right_on="ref_date",
+            direction="backward"
+        )
+        tmp = tmp.dropna(subset=["base_net"]).copy()
+        tmp["delta_bn"] = tmp["net_bn"] - tmp["base_net"]
+        return tmp[["date", "delta_bn"]]
 
-    # --- LATEST'i date tipine normalize et
-    LATEST_d = LATEST.date() if hasattr(LATEST, "date") else LATEST
+    # --- 01.01.2025 bazlı sabit referans: tüm tarihler için (net(t) - net(t0))
+    def fixed_baseline_delta(df, baseline_ts=pd.Timestamp("2025-01-01")):
+        # veri gününe göre en yakın/öncesi baseline günü
+        base_day = nearest_on_or_before(sub, baseline_ts)
+        if base_day is None:
+            return pd.DataFrame(columns=["date", "delta_bn"])
+        base_net = df.loc[df["date"] == base_day, "net_bn"]
+        base_net = base_net.iloc[0] if not base_net.empty else 0.0
+        out = df.copy()
+        out["delta_bn"] = out["net_bn"] - base_net
+        # referans gününden önceki günleri istersen kırpmak için:
+        out = out[out["date"] >= base_day].copy()
+        return out[["date", "delta_bn"]]
 
-    # ---- YTD Net (Jan 1 -> LATEST)
-    year_start = dt.date(LATEST_d.year, 1, 1)
-    days_ytd = pd.date_range(year_start, LATEST_d, freq="D")
+    if baseline_choice.startswith("YoY"):
+        series = yoy_delta(daily)
+        title  = "YoY Δ net (Repo − RR) — t vs t-1y"
+    else:
+        series = fixed_baseline_delta(daily, pd.Timestamp("2025-01-01"))
+        title  = "Δ net (Repo − RR) — vs 01.01.2025 baseline"
 
-    repo_ytd_M = sum(side_total_M(sub, d.date(), "PDSORA") for d in days_ytd)
-    rr_ytd_M   = sum(side_total_M(sub, d.date(), "PDSIRRA") for d in days_ytd)
-    ytd_net_B  = (repo_ytd_M - rr_ytd_M) / 1000.0
+    # Pozitif mavi, negatif kırmızı için imza kolonu
+    series["Sign"] = np.where(series["delta_bn"] >= 0, "Positive", "Negative")
 
-    st.markdown(f"**YTD Net (billions of $):** `{ytd_net_B:,.1f}`")
+    # Altair çizimi
+    color_scale = alt.Scale(domain=["Positive", "Negative"], range=[COLOR_REPO, COLOR_RR])
 
-    # ---- Previous calendar year (full-year)
-    prev_year  = LATEST_d.year - 1
-    prev_start = dt.date(prev_year, 1, 1)
-    prev_end   = dt.date(prev_year, 12, 31)
-    days_prev  = pd.date_range(prev_start, prev_end, freq="D")
+    base = alt.Chart(series).encode(
+        x=alt.X("date:T", title=None),
+        y=alt.Y("delta_bn:Q", title="Δ (Billions of dollars)", axis=alt.Axis(format=",.1f")),
+        tooltip=[alt.Tooltip("date:T", title="Date"),
+                 alt.Tooltip("delta_bn:Q", title="Δ (bn $)", format=",.1f")]
+    )
 
-    repo_prev_M = sum(side_total_M(sub, d.date(), "PDSORA") for d in days_prev)
-    rr_prev_M   = sum(side_total_M(sub, d.date(), "PDSIRRA") for d in days_prev)
-    prev_year_net_B = (repo_prev_M - rr_prev_M) / 1000.0
+    # Çizgi + nokta (nokta rengi işarete göre)
+    line = base.mark_line(strokeWidth=2, opacity=0.9, interpolate="monotone").encode(
+        color=alt.Color("Sign:N", scale=color_scale, legend=None)
+    )
+    points = base.mark_point(size=35, filled=True).encode(
+        color=alt.Color("Sign:N", scale=color_scale, legend=None)
+    )
 
-    st.markdown(f"**{prev_year} Net (billions of $):** `{prev_year_net_B:,.1f}`")
+    # Sıfır çizgisi
+    zero = alt.Chart(pd.DataFrame({"y": [0]})).mark_rule(strokeDash=[4,4]).encode(y="y:Q")
 
-    # ---- Δ vs last year's YTD (aynı tarih aralığı)
-    same_ytd_prev_end = dt.date(prev_year, LATEST_d.month, LATEST_d.day)
-    days_same_prev = pd.date_range(dt.date(prev_year, 1, 1), same_ytd_prev_end, freq="D")
+    chart = (zero + line + points).properties(
+        title=alt.TitleParams(text=title, anchor="start", dy=12),
+        height=320,
+        padding={"top": 28, "right": 8, "left": 8, "bottom": 8},
+    ).configure_title(fontSize=16, fontWeight="bold")
 
-    repo_prev_ytd_M = sum(side_total_M(sub, d.date(), "PDSORA") for d in days_same_prev)
-    rr_prev_ytd_M   = sum(side_total_M(sub, d.date(), "PDSIRRA") for d in days_same_prev)
-    prev_ytd_net_B  = (repo_prev_ytd_M - rr_prev_ytd_M) / 1000.0
-
-    delta_vs_prev_ytd_B = ytd_net_B - prev_ytd_net_B
-    sign = "▲" if delta_vs_prev_ytd_B >= 0 else "▼"
-    st.markdown(f"**Δ vs last year's YTD:** `{sign} {abs(delta_vs_prev_ytd_B):,.1f} B`")
-
-
-
-
+    st.altair_chart(chart, use_container_width=True)
 
 
 
