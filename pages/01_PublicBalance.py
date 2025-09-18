@@ -202,11 +202,16 @@ def top10_withdrawals_simple(df_day: pd.DataFrame, expend_m: float, n: int = 10)
 def top10_ytd_deposits(df_ytd: pd.DataFrame, ytd_taxes_m: float, n: int = 10) -> pd.DataFrame:
     """YTD deposits aggregated by category - ONLY tax categories."""
     d = df_ytd[df_ytd["transaction_type"] == "Deposits"].copy()
-    # Null kategorileri ve debt-related kategorileri filtrele
-    d = d[d["transaction_catg"].notna()]
-    d = d[d["transaction_catg"] != ""]
+    
+    # Temiz kategori filtreleme
+    d["transaction_catg"] = d["transaction_catg"].astype(str)
+    d = d.dropna(subset=["transaction_catg"])
     d = d[d["transaction_catg"].str.strip() != ""]
-    d = d[~d["transaction_catg"].str.contains("Total|Public Debt Cash Issues", na=False, case=False)]
+    d = d[d["transaction_catg"] != "nan"]
+    d = d[d["transaction_catg"] != "None"]
+    
+    # Debt ve total kategorilerini çıkar
+    d = d[~d["transaction_catg"].str.contains("Total|Public Debt|Debt", na=False, case=False)]
     
     # Kategori bazında toplam
     agg = d.groupby("transaction_catg")["transaction_today_amt"].sum().reset_index()
@@ -219,11 +224,16 @@ def top10_ytd_deposits(df_ytd: pd.DataFrame, ytd_taxes_m: float, n: int = 10) ->
 def top10_ytd_withdrawals(df_ytd: pd.DataFrame, ytd_expend_m: float, n: int = 10) -> pd.DataFrame:
     """YTD withdrawals aggregated by category - ONLY expenditure categories."""
     w = df_ytd[df_ytd["transaction_type"] == "Withdrawals"].copy()
-    # Null kategorileri ve debt-related kategorileri filtrele
-    w = w[w["transaction_catg"].notna()]
-    w = w[w["transaction_catg"] != ""]
+    
+    # Temiz kategori filtreleme
+    w["transaction_catg"] = w["transaction_catg"].astype(str)
+    w = w.dropna(subset=["transaction_catg"])
     w = w[w["transaction_catg"].str.strip() != ""]
-    w = w[~w["transaction_catg"].str.contains("Total|Public Debt Cash Redemptions", na=False, case=False)]
+    w = w[w["transaction_catg"] != "nan"]
+    w = w[w["transaction_catg"] != "None"]
+    
+    # Debt ve total kategorilerini çıkar
+    w = w[~w["transaction_catg"].str.contains("Total|Public Debt|Debt|Redemption", na=False, case=False)]
     
     # Kategori bazında toplam
     agg = w.groupby("transaction_catg")["transaction_today_amt"].sum().reset_index()
