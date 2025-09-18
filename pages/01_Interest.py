@@ -361,8 +361,8 @@ chart_volytd = alt.Chart(vol_ytd).mark_line().encode(
 
 st.altair_chart(chart_volytd, use_container_width=True)
 
-
-with st.expander("Notes"):
+# ------------------------------ Methodology ---------------------------
+with st.expander("Methodology"):
     st.markdown(
         """
 - Only `Effective Date` and `Rate (%)` are retrieved from the NY Fed API.
@@ -373,3 +373,15 @@ with st.expander("Notes"):
 - Styles: EFFR solid & **black**, OBFR dashed, SOFR solid, BGCR/TGCR dotted; dash legend hidden.
         """
     )
+
+# --------------------------- Footer -------------------------------
+st.markdown("---")
+st.markdown(
+    """
+    <div style="text-align:center;color:#64748b;font-size:0.95rem;padding:20px 0;">
+        <a href="https://veridelisi.substack.com/">Veri Delisi</a>🚀 <br>
+        <em>Engin Yılmaz • Amherst • September 2025 </em>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
