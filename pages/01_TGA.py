@@ -533,7 +533,7 @@ st.markdown("---")
 st.markdown(
     """
     <div style="text-align:center;color:#64748b;font-size:0.95rem;padding:20px 0;">
-        <strong>🚀 https://veridelisi.substack.com/</strong><br>
+        <a href="https://veridelisi.substack.com/">Veri Delisi</a><strong>🚀 https://veridelisi.substack.com/</strong><br>
         <em>Engin Yılmaz • Amherst • September 2025 </em>
     </div>
     """,
