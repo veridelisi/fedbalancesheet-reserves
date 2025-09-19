@@ -37,6 +37,7 @@ with col6:
 with col7:
     st.page_link("pages/01_Desk.py", label="🔄 Desk")
 
+
 st.markdown("</div>", unsafe_allow_html=True)
 
 
