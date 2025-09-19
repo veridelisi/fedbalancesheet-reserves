@@ -114,6 +114,21 @@ project_card(
     link_label="➡️ Desk Operations dashboard"
 )
 
+# 7) Eurodollar Market
+project_card(
+    title="Eurodollar Market",
+    tagline="BIS GLI • USD-only (Loans + IDS)",
+    description_md=(
+        "Eurodollar Market Evolution (2000–latest): **Total Credit**, **Debt Securities**, **Loans** "
+        "+ **YoY** görünümleri. Kriz gölgeleme (2007–09, 2020, **Fed Tightening** 2022-06→), "
+        "ve **Methodology** sekmesinde BIS GLI’nin USD kapsamı özeti."
+    ),
+    page_path="pages/01_Eurodollar.py",
+    image_path="assets/thumbs/bis.png",  # yoksa 'assets/thumbs/bis.png' kullan
+    link_label="➡️ Eurodollar dashboard"
+)
+
+
 # project_card("Project 3", "Tagline", "Açıklama...", "pages/03_Another.py", "assets/thumbs/another2.jpg")
 
 # --------------------------- Footer -------------------------------
