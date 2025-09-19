@@ -249,12 +249,12 @@ def comparison():
         height=620,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0)
     )
-    # Sadece 2k ve 5k etiket
     fig.update_yaxes(tickformat="~s",
                      tickvals=[2000, 5000],
-                     ticktext=[f"{int(v/1000)}k" for v in [2000,5000]],
+                     ticktext=[f"{int(v/1000)}k" for v in [2000, 5000]],
                      showexponent="none")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key="comparison_chart")
+
 
 
 
@@ -273,5 +273,5 @@ with tab4:
     comparison()
 
 
-    comparison()
+   
 
