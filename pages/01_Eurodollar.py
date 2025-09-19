@@ -12,7 +12,7 @@ st.title("Eurodollar Market Evolution — 2000..latest")
 st.sidebar.header("Veri Kaynağı")
 uploaded = st.sidebar.file_uploader("CSV veya Excel (.csv, .xlsx) yükleyin", type=["csv","xlsx"])
 
-default_path = Path("0analysis.xlsx")
+default_path = Path("assets/thumbs/0analysis.xlsx")
 
 @st.cache_data(show_spinner=False)
 def load_data(file, filename_hint=None):
