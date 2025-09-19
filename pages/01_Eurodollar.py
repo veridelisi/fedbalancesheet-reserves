@@ -267,6 +267,36 @@ with tab3:
 with tab4:
     comparison()
 
+# --------------------------- Methodology --------------------------
+st.markdown("### 📋 Methodology")
+with st.expander("Click to expand methodology details"):
+    st.markdown(
+    """
+    **Global liquidity (BIS)**: The BIS uses the term “global liquidity” to refer to the ease of financing in global financial markets.  
+BIS global liquidity indicators (GLIs) track **credit to non-bank borrowers**, covering both **bank loans** and **international debt securities (IDS)** issuance.  
+The main focus is on **foreign-currency credit** (USD, EUR, JPY) to **non-residents** (borrowers outside the respective currency areas).
 
+**This app**  
+• *AllCredit* ≈ Loans + DebtSecurities (BIS logic)  
+• Units: input “million USD” → we divide by 1,000 to display **USD billions**  
+• YoY: quarterly series, **4-quarter** pct change  
+• Shading: 2007–09 crisis, 2020 COVID, and **Fed Tightening** (from 2022-06)
+
+**Source / **: [BIS – Global Liquidity Indicators (GLI)](https://data.bis.org/topics/GLI)
+          
+    """
+    )
+
+# --------------------------- Footer -------------------------------
+st.markdown("---")
+st.markdown(
+    """
+    <div style="text-align:center;color:#64748b;font-size:0.95rem;padding:20px 0;">
+        <a href="https://veridelisi.substack.com/">Veri Delisi</a>🚀 <br>
+        <em>Engin Yılmaz • Amherst • September 2025 </em>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
    
 
