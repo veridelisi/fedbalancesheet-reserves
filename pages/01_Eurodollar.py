@@ -10,8 +10,18 @@ st.set_page_config(page_title="Eurodollar Market Evolution — 2000-2025", layou
 
 # --- Gezinme Barı (Yatay Menü, Streamlit-native) ---
 st.markdown("""
-<div style="background:#f8f9fa;padding:10px 0 10px 0;margin-bottom:24px;border-radius:8px;display:flex;gap:32px;justify-content:center;">
+    <style>
+        /* Menü üstündeki boşluğu kaldır */
+        div[data-testid="stHorizontalBlock"] {
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+        }
+        div.block-container {
+            padding-top: 0rem;
+        }
+    </style>
 """, unsafe_allow_html=True)
+
 
 col1, col2, col3, col4, col5, col6, col7, col8 = st.columns([1,1,1,1,1,1,1,1])
 with col1:
