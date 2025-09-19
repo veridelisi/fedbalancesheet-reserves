@@ -256,44 +256,11 @@ def comparison():
                      showexponent="none")
     st.plotly_chart(fig, use_container_width=True)
 
-def yoy_debt_vs_loans():
-    yoy = df.copy()
-    yoy["YoY_Debt"]  = yoy["DebtSecurities"].pct_change(4) * 100
-    yoy["YoY_Loans"] = yoy["Loans"].pct_change(4) * 100
-
-    # Renkleri nokta bazında (+ yeşil / - kırmızı)
-    colors_debt  = np.where(yoy["YoY_Debt"]  >= 0, "green", "red")
-    colors_loans = np.where(yoy["YoY_Loans"] >= 0, "green", "red")
-
-    fig = go.Figure()
-    fig.add_trace(go.Bar(
-        x=yoy["Time"], y=yoy["YoY_Debt"],
-        name="Debt Securities YoY (%)",
-        marker_color=colors_debt, opacity=0.85
-    ))
-    fig.add_trace(go.Bar(
-        x=yoy["Time"], y=yoy["YoY_Loans"],
-        name="Loans YoY (%)",
-        marker_color=colors_loans, opacity=0.60
-    ))
-
-    fig.add_hline(y=0, line_dash="dash", line_color="black", opacity=0.5)
-
-    fig.update_layout(
-        barmode="overlay",  # üst üste; istersen "group" yap
-        title=dict(text=title_range("YoY — Debt Securities vs Loans (Single Chart)"), x=0.5),
-        xaxis_title="Time Period",
-        yaxis_title="YoY (%)",
-        height=520,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0)
-    )
-    st.plotly_chart(fig, use_container_width=True)
-    st.caption("🔎 İpucu: Legend’e tıklayarak serileri aç/kapat edebilirsin.")
 
 
 # ---------- Layout ----------
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "Total Credit", "Debt Securities", "Loans", "Comparison", "YoY — Debt vs Loans"
+tab1, tab2, tab3, tab4 = st.tabs([
+    "Total Credit", "Debt Securities", "Loans", "Comparison"
 ])
 
 with tab1:
@@ -304,10 +271,7 @@ with tab3:
     loans()
 with tab4:
     comparison()
-with tab5:
-    yoy_debt_vs_loans()
+
 
     comparison()
 
-# küçük özet
-st.caption(f"Veri aralığı: {df['Time'].min().date()} → {df['Time'].max().date()} • Satır: {len(df)} • Kolonlar: {', '.join(df.columns)}")
