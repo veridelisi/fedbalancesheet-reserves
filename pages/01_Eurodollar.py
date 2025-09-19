@@ -269,23 +269,44 @@ with tab4:
 
 # --------------------------- Methodology --------------------------
 st.markdown("### 📋 Methodology")
-with st.expander("Click to expand methodology details"):
+
+with st.expander("🔎 Click to expand methodology details", expanded=False):
     st.markdown(
-    """
-    **Global liquidity (BIS)**: The BIS uses the term “global liquidity” to refer to the ease of financing in global financial markets.  
-BIS global liquidity indicators (GLIs) track **credit to non-bank borrowers**, covering both **bank loans** and **international debt securities (IDS)** issuance.  
-The main focus is on **foreign-currency credit** (USD, EUR, JPY) to **non-residents** (borrowers outside the respective currency areas).
+        """
+#### 🌐 What does *global liquidity* mean (BIS)?
+- **Definition:** “the ease of financing in global financial markets”.
+- **GLIs track credit to non-bank borrowers** via:
+  - 🏦 **Bank loans**
+  - 🧾 **International debt securities (IDS)**
+- **Focus currencies:** 💵 USD • 💶 EUR • 💴 JPY  
+- **Residence rule:** borrowers are **non-residents** of the respective currency area.
 
-**This app**  
-• *AllCredit* ≈ Loans + DebtSecurities (BIS logic)  
-• Units: input “million USD” → we divide by 1,000 to display **USD billions**  
-• YoY: quarterly series, **4-quarter** pct change  
-• Shading: 2007–09 crisis, 2020 COVID, and **Fed Tightening** (from 2022-06)
+#### 🎯 Scope used **in this analysis**
+- ✅ **USD-only**: We analyze **USD-denominated foreign-currency credit / liabilities** of **non-bank borrowers** *(GLI-USD)*.
+  - ➖ **Excluded here:** EUR- and JPY-denominated credit.
+- 🔗 **Aggregation logic (BIS GLI):**
+  - **AllCredit ≈ Loans + DebtSecurities**
+    - 🏦 **Loans** = bank lending
+    - 🧾 **DebtSecurities** = IDS issuance
 
-**Source / **: [BIS – Global Liquidity Indicators (GLI)](https://data.bis.org/topics/GLI)
-          
-    """
+#### 🧪 Data handling in the app
+- 📏 **Units & scaling**
+  - Input: *million USD* → divide by **1,000** → display **USD billions**.
+- ⏱️ **Frequency & change metrics**
+  - Data frequency: **quarterly**
+  - **YoY** = **4-quarter** percent change (same quarter last year).
+- 🎨 **Visual conventions**
+  - 📈 **Green** = positive YoY, 📉 **Red** = negative YoY
+  - 🟧 Shading:
+    - 2007–09 **Financial Crisis**
+    - 2020 **COVID-19**
+    - **Fed Tightening** from **2022-06** to latest
+
+#### 🔗 Source
+- [BIS — Global Liquidity Indicators (GLI)](https://data.bis.org/topics/GLI)
+        """
     )
+
 
 # --------------------------- Footer -------------------------------
 st.markdown("---")
