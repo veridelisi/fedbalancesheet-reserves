@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 
 st.set_page_config(page_title="Eurodollar Market Evolution — 2000-2025", layout="wide")
 
-st.title("Eurodollar Market Evolution — 2000-2025")
+
 
 # --- Gezinme Barı (Yatay Menü, Streamlit-native) ---
 st.markdown("""
@@ -46,6 +46,7 @@ st.markdown("""
 
 # ---------- File input ----------
 st.sidebar.header("Veri Kaynağı")
+st.title("Eurodollar Market Evolution — 2000-2025")
 uploaded = st.sidebar.file_uploader("CSV veya Excel (.csv, .xlsx) yükleyin", type=["csv","xlsx"])
 
 default_path = Path("assets/thumbs/0analysis.xlsx")
