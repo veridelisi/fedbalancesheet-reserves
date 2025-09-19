@@ -171,7 +171,7 @@ def debt_securities():
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=df["Time"], y=df["DebtSecurities"],
-        mode="lines", name="Debt Securities", line=dict(width=3), color="#60A5FA"
+        mode="lines", name="Debt Securities", line=dict(width=3), 
     ))
     add_shading(fig)
     fig.update_layout(
