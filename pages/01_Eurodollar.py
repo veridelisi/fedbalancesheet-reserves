@@ -28,8 +28,6 @@ with cols[6]:
 with cols[7]:
     st.page_link("pages/01_Eurodollar.py", label="💡 Eurodollar")
 
-
-
 # --- Sol menü sakla ---
 st.markdown("""
     <style>
