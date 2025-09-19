@@ -14,23 +14,26 @@ st.markdown("""
 <div style="background:#f8f9fa;padding:10px 0 10px 0;margin-bottom:24px;border-radius:8px;display:flex;gap:32px;justify-content:center;">
 """, unsafe_allow_html=True)
 
-col1, col2, col3, col4, col5, col6, col7 = st.columns([1,1,1,1,1,1,1])
+col1, col2, col3, col4, col5, col6, col7, col8 = st.columns([1,1,1,1,1,1,1,1])
 with col1:
     st.page_link("streamlit_app.py", label="🏠 Home")
 with col2:
-    st.page_link("pages/01_Reserves.py", label="📊 Reserves")
+    st.page_link("pages/01_Reserves.py", label="🌍 Reserves")
 with col3:
-    st.page_link("pages/01_Repo.py", label="🔄 Repo")
+    st.page_link("pages/01_Repo.py", label="♻️ Repo")
 with col4:
-    st.page_link("pages/01_TGA.py", label="🔄 TGA")
+    st.page_link("pages/01_TGA.py", label="🌐 TGA")
 with col5:
-    st.page_link("pages/01_PublicBalance.py", label="🔄 Public Balance")
+    st.page_link("pages/01_PublicBalance.py", label="💹 Public Balance")
 with col6:
-    st.page_link("pages/01_Interest.py", label="🔄 Reference Rates")
+    st.page_link("pages/01_Interest.py", label="✈️ Reference Rates")
 with col7:
-    st.page_link("pages/01_Desk.py", label="🔄 Desk")
+    st.page_link("pages/01_Desk.py", label="📡 Desk")
+with col8:
+    st.page_link("pages/01_Eurodollar.py", label="💡 Eurodollar")    
 
 st.markdown("</div>", unsafe_allow_html=True)
+
 
 # --- Sol menü sakla ---
 st.markdown("""
@@ -39,6 +42,8 @@ st.markdown("""
         section[data-testid="stSidebar"][aria-expanded="true"]{display: none;}
     </style>
     """, unsafe_allow_html=True)
+
+
 
 # --------------------------- Constants -----------------------------
 BASE = "https://api.fiscaldata.treasury.gov/services/api/fiscal_service"
