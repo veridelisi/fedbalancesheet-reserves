@@ -133,10 +133,6 @@ def title_range(prefix):
 
 # ---------- Charts ----------
 
-# --- Palette (put near imports) ---
-
-DEBT_COLOR = "#60A5FA"  # light blue  (Debt Securities)
-LOAN_COLOR = "#EF4444"  # red        (Loans)
 
 def total_credit():
     fig = go.Figure()
@@ -175,8 +171,7 @@ def debt_securities():
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=df["Time"], y=df["DebtSecurities"],
-        mode="lines", name="Debt Securities", line=dict(width=3),
-        line=dict(width=3, color=DEBT_COLOR) 
+        mode="lines", name="Debt Securities", line=dict(width=3)
     ))
     add_shading(fig)
     fig.update_layout(
@@ -209,8 +204,7 @@ def loans():
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=df["Time"], y=df["Loans"],
-        mode="lines", name="Loans", line=dict(width=3),
-        line=dict(width=3, color=LOAN_COLOR)
+        mode="lines", name="Loans", line=dict(width=3)
     ))
     add_shading(fig)
     fig.update_layout(
