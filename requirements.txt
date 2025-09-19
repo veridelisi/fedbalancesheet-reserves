@@ -6,5 +6,6 @@ matplotlib
 plotnine
 plotly>=5.15.0
 numpy
+openpyxl
 
 
