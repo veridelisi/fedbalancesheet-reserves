@@ -8,40 +8,26 @@ st.set_page_config(page_title="Eurodollar Market Evolution — 2000-2025", layou
 
 
 
-# --- Gezinme Barı (Yatay Menü, Streamlit-native) ---
-st.markdown("""
-    <style>
-        /* Menü üstündeki boşluğu kaldır */
-        div[data-testid="stHorizontalBlock"] {
-            margin-top: 0 !important;
-            padding-top: 0 !important;
-        }
-        div.block-container {
-            padding-top: 0rem;
-        }
-    </style>
-""", unsafe_allow_html=True)
+# --- Gezinme Barı (Yatay Menü, saf Streamlit) ---
+cols = st.columns(8)
 
-
-col1, col2, col3, col4, col5, col6, col7, col8 = st.columns([1,1,1,1,1,1,1,1])
-with col1:
+with cols[0]:
     st.page_link("streamlit_app.py", label="🏠 Home")
-with col2:
+with cols[1]:
     st.page_link("pages/01_Reserves.py", label="🌍 Reserves")
-with col3:
+with cols[2]:
     st.page_link("pages/01_Repo.py", label="♻️ Repo")
-with col4:
+with cols[3]:
     st.page_link("pages/01_TGA.py", label="🌐 TGA")
-with col5:
+with cols[4]:
     st.page_link("pages/01_PublicBalance.py", label="💹 Public Balance")
-with col6:
+with cols[5]:
     st.page_link("pages/01_Interest.py", label="✈️ Reference Rates")
-with col7:
+with cols[6]:
     st.page_link("pages/01_Desk.py", label="📡 Desk")
-with col8:
-    st.page_link("pages/01_Eurodollar.py", label="💡 Eurodollar")    
+with cols[7]:
+    st.page_link("pages/01_Eurodollar.py", label="💡 Eurodollar")
 
-st.markdown("</div>", unsafe_allow_html=True)
 
 
 # --- Sol menü sakla ---
