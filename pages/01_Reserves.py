@@ -46,6 +46,152 @@ st.markdown("""
 def badge(text, bg="#E5E7EB", fg="#111827", br="#D1D5DB"):
     return f'<span class="vd-badge" style="background:{bg};color:{fg};border-color:{br};">{text}</span>'
 
+# --- Styling extras for enhanced tables ---
+st.markdown("""
+<style>
+  .assets-table {background:linear-gradient(135deg,#f8fafc 0%,#e2e8f0 100%);border-radius:12px;padding:16px;border:1px solid #cbd5e1;margin:16px 0;}
+  .liabilities-table {background:linear-gradient(135deg,#fef2f2 0%,#fee2e2 100%);border-radius:12px;padding:16px;border:1px solid #fca5a5;margin:16px 0;}
+  .table-header,.liab-table-header{font-weight:600;font-size:1.1rem;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .liab-table-header{color:#7f1d1d}
+  .summary-card{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;padding:20px;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,.1);margin:8px 0;position:relative;overflow:hidden}
+  .summary-card::before{content:'';position:absolute;inset:0;background:rgba(255,255,255,.1);backdrop-filter:blur(10px);z-index:0}
+  .card-content{position:relative;z-index:1}.card-title{font-size:.9rem;opacity:.9;margin-bottom:8px}
+  .card-value{font-size:1.8rem;font-weight:700;margin-bottom:4px}.card-subtitle{font-size:.8rem;opacity:.8}
+  .positive{background:linear-gradient(135deg,#10b981 0%,#059669 100%)}
+  .negative{background:linear-gradient(135deg,#ef4444 0%,#dc2626 100%)}
+  .neutral{background:linear-gradient(135deg,#6b7280 0%,#4b5563 100%)}
+</style>
+""", unsafe_allow_html=True)
+
+# ---------- Enhanced table helpers ----------
+def format_millions(value):
+    if pd.isna(value) or value == 0: return "—"
+    abs_val = abs(value)
+    s = f"${abs_val/1000:.1f}B" if abs_val >= 1000 else f"${abs_val:,.0f}M"
+    return f"+{s}" if value > 0 else f"-{s}"
+
+def get_significance_badge(value):
+    v = abs(value) if not pd.isna(value) else 0
+    return "🔥 Major" if v >= 5000 else "⚡ High" if v >= 1000 else "📈 Medium" if v >= 500 else "💭 Low"
+
+def create_enhanced_assets_table(df_assets):
+    if df_assets.empty:
+        st.info("No significant asset changes to display"); return
+    display_df = df_assets.copy()
+    display_df = display_df.sort_values('weekly', key=abs, ascending=False)
+
+    st.markdown('<div class="assets-table"><div class="table-header">📊 Assets Changes</div>', unsafe_allow_html=True)
+    c1,c2,c3 = st.columns([2,1,1])
+    with c1:
+        sort_by = st.selectbox("Sort by:", ["Weekly Impact","Annual Impact","Asset Name"], key="assets_sort")
+    with c2:
+        show_threshold = st.selectbox("Show items ≥", ["All","500M+","1B+","5B+"], key="assets_threshold")
+    with c3:
+        view_mode = st.radio("View:", ["Compact","Detailed"], key="assets_view", horizontal=True)
+
+    df = display_df.copy()
+    if show_threshold != "All":
+        thr = {"500M+":500, "1B+":1000, "5B+":5000}[show_threshold]
+        df = df[(df['weekly'].abs()>=thr) | (df['annual'].abs()>=thr)]
+    if sort_by == "Weekly Impact":
+        df = df.sort_values('weekly', key=abs, ascending=False)
+    elif sort_by == "Annual Impact":
+        df = df.sort_values('annual', key=abs, ascending=False)
+    else:
+        df = df.sort_values('name')
+
+    rows=[]
+    for _,r in df.iterrows():
+        if view_mode=="Compact":
+            rows.append({"Asset": (r['name'][:30]+"...") if len(r['name'])>30 else r['name'],
+                         "Weekly": format_millions(r['weekly']),
+                         "Annual": format_millions(r['annual'])})
+        else:
+            rows.append({"Asset Factor": r['name'],
+                         "Weekly Change": format_millions(r['weekly']),
+                         "Weekly Impact": get_significance_badge(r['weekly']),
+                         "Annual Change": format_millions(r['annual']),
+                         "Annual Impact": get_significance_badge(r['annual'])})
+    if rows:
+        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True,
+                     height=min(400, len(rows)*35+100))
+        st.markdown(f"**Summary:** {len(df)} items • Weekly total: {format_millions(df['weekly'].sum())} • Annual total: {format_millions(df['annual'].sum())}")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+def create_enhanced_liabilities_table(df_liab):
+    if df_liab.empty:
+        st.info("No significant liability changes to display"); return
+    display_df = df_liab.copy()
+    display_df = display_df.sort_values('weekly_impact', key=abs, ascending=False)
+
+    st.markdown('<div class="liabilities-table"><div class="liab-table-header">🏦 Liabilities Reserve Impact</div>', unsafe_allow_html=True)
+    c1,c2,c3 = st.columns([2,1,1])
+    with c1:
+        sort_by = st.selectbox("Sort by:", ["Weekly Impact","Annual Impact","Liability Name"], key="liab_sort")
+    with c2:
+        show_threshold = st.selectbox("Show items ≥", ["All","500M+","1B+","5B+"], key="liab_threshold")
+    with c3:
+        view_mode = st.radio("View:", ["Compact","Detailed"], key="liab_view", horizontal=True)
+
+    df = display_df.copy()
+    if show_threshold != "All":
+        thr = {"500M+":500, "1B+":1000, "5B+":5000}[show_threshold]
+        df = df[(df['weekly_impact'].abs()>=thr) | (df['annual_impact'].abs()>=thr)]
+    if sort_by == "Weekly Impact":
+        df = df.sort_values('weekly_impact', key=abs, ascending=False)
+    elif sort_by == "Annual Impact":
+        df = df.sort_values('annual_impact', key=abs, ascending=False)
+    else:
+        df = df.sort_values('name')
+
+    rows=[]
+    for _,r in df.iterrows():
+        if view_mode=="Compact":
+            rows.append({"Liability": (r['name'][:30]+"...") if len(r['name'])>30 else r['name'],
+                         "Weekly Impact": format_millions(r['weekly_impact']),
+                         "Annual Impact": format_millions(r['annual_impact'])})
+        else:
+            wd = "📈" if r['weekly_change']>0 else "📉" if r['weekly_change']<0 else "➡️"
+            ad = "📈" if r['annual_change']>0 else "📉" if r['annual_change']<0 else "➡️"
+            rows.append({"Liability Factor": r['name'],
+                         "Weekly Change": f"{wd} {format_millions(r['weekly_change'])}",
+                         "Weekly Reserve Impact": format_millions(r['weekly_impact']),
+                         "Weekly Significance": get_significance_badge(r['weekly_impact']),
+                         "Annual Change": f"{ad} {format_millions(r['annual_change'])}",
+                         "Annual Reserve Impact": format_millions(r['annual_impact']),
+                         "Annual Significance": get_significance_badge(r['annual_impact'])})
+    if rows:
+        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True,
+                     height=min(400, len(rows)*35+100))
+        st.markdown(f"**Summary:** {len(df)} items • Weekly impact: {format_millions(df['weekly_impact'].sum())} • Annual impact: {format_millions(df['annual_impact'].sum())}")
+        if len(df)>0:
+            dom = df.loc[df['weekly_impact'].abs().idxmax(), 'name']
+            st.caption(f"💡 Biggest weekly impact: {dom}")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+def create_smart_summary_cards(assets_weekly, assets_annual, liab_weekly, liab_annual, net_weekly, net_annual):
+    cls_w = "positive" if net_weekly>0 else "negative" if net_weekly<0 else "neutral"
+    cls_a = "positive" if net_annual>0 else "negative" if net_annual<0 else "neutral"
+    emoji_w = "💰" if net_weekly>0 else "📉" if net_weekly<0 else "➖"
+    emoji_a = "🚀" if net_annual>0 else "⚠️" if net_annual<0 else "➖"
+    text_w = "Reserves increasing" if net_weekly>0 else "Reserves decreasing" if net_weekly<0 else "No net change"
+    text_a = "Long-term growth" if net_annual>0 else "Long-term decline" if net_annual<0 else "Stable trend"
+
+    st.markdown("### 💼 Smart Reserve Impact Summary")
+    c1,c2 = st.columns(2)
+    with c1:
+        st.markdown(f"""<div class="summary-card {cls_w}"><div class="card-content">
+        <div class="card-title">{emoji_w} Weekly Net Impact</div>
+        <div class="card-value">{format_millions(net_weekly)}</div>
+        <div class="card-subtitle">{text_w}</div></div></div>""", unsafe_allow_html=True)
+    with c2:
+        st.markdown(f"""<div class="summary-card {cls_a}"><div class="card-content">
+        <div class="card-title">{emoji_a} Annual Net Impact</div>
+        <div class="card-value">{format_millions(net_annual)}</div>
+        <div class="card-subtitle">{text_a}</div></div></div>""", unsafe_allow_html=True)
+
+
+
 # --- Secrets/env loader ---
 def get_secret(keys, default=None, cast=None):
     if isinstance(keys, str):
@@ -300,26 +446,20 @@ with row2_right:
         "Reserve impact (billions of dollars)"
     )
 
-# ---------- Tables & Net ----------
+# ---------- Enhanced Tables & Net ----------
 st.markdown("---")
-st.subheader("Detailed breakdown (millions)")
+st.subheader("📊 Smart Reserve Analysis")
 
-if not df_assets.empty:
-    st.write("**Assets**")
-    sdata = df_assets.rename(columns={"name":"Asset Factor", "weekly":"Weekly ($M)", "annual":"Annual ($M)"})
-    st.dataframe(sdata.reset_index(drop=True), use_container_width=True)
+# (Sunum eşleşmesi için; tabloda iki taraf aynı sayıda satır)
+n_table = min(len(df_assets), len(df_liab))
+assets_tbl = df_assets.loc[df_assets[['weekly','annual']].abs().max(axis=1).nlargest(n_table).index] if not df_assets.empty else df_assets
+liab_tbl   = df_liab.loc[df_liab[['weekly_impact','annual_impact']].abs().max(axis=1).nlargest(n_table).index] if not df_liab.empty else df_liab
 
-if not df_liab.empty:
-    st.write("**Liabilities** (impact on reserves shown as negative for increases)")
-    tdata = df_liab.rename(columns={
-        "name":"Liability Factor",
-        "weekly_change":"Weekly Change ($M)",
-        "annual_change":"Annual Change ($M)",
-        "weekly_impact":"Weekly Reserve Impact ($M)",
-        "annual_impact":"Annual Reserve Impact ($M)",
-    })
-    st.dataframe(tdata.reset_index(drop=True), use_container_width=True)
+# Geliştirilmiş tablolar
+create_enhanced_assets_table(assets_tbl)
+create_enhanced_liabilities_table(liab_tbl)
 
+# Net etkiler (aynı hesap)
 assets_weekly = float(df_assets["weekly"].sum()) if not df_assets.empty else 0.0
 assets_annual = float(df_assets["annual"].sum()) if not df_assets.empty else 0.0
 liab_weekly   = float(df_liab["weekly_impact"].sum()) if not df_liab.empty else 0.0
@@ -327,24 +467,13 @@ liab_annual   = float(df_liab["annual_impact"].sum()) if not df_liab.empty else 
 net_weekly = assets_weekly + liab_weekly
 net_annual = assets_annual + liab_annual
 
-st.markdown("### 💼 Net Impact on Bank Reserves")
-st.metric("Weekly Net Impact ($M)", f"{net_weekly:+,.0f}")
-st.metric("Annual Net Impact ($M)", f"{net_annual:+,.0f}")
+# Akıllı özet kartları
+create_smart_summary_cards(
+    assets_weekly, assets_annual,
+    liab_weekly, liab_annual,
+    net_weekly, net_annual
+)
 
-# ---------------------------- Methodology -------------------------------
-st.markdown("### Methodology")
-with st.expander("Click to expand methodology details"):
-    st.markdown("""
-**Data source:** Federal Reserve H.4.1 Statistical Release (FRED release/tables)
-
-**Thresholds for display:** ±$50M (weekly), ±$100M (annual)
-
-**Legend:** 🔵 Positive = increases; 🔴 Negative = decreases
-
-**Securities calculation:** held outright + unamortized premiums + unamortized discounts
-
-**Annual baseline:** fixed to **2025-01-01** (not YoY)
-""")
 
 # --------------------------- Footer -------------------------------
 st.markdown("---")
