@@ -521,12 +521,31 @@ create_enhanced_assets_table(assets_tbl)
 create_enhanced_liabilities_table(liab_tbl)
 
 # Net etkiler (aynı hesap)
+# ---------- Totals (keep for the expander breakdown) ----------
 assets_weekly = float(df_assets["weekly"].sum()) if not df_assets.empty else 0.0
 assets_annual = float(df_assets["annual"].sum()) if not df_assets.empty else 0.0
 liab_weekly   = float(df_liab["weekly_impact"].sum()) if not df_liab.empty else 0.0
 liab_annual   = float(df_liab["annual_impact"].sum()) if not df_liab.empty else 0.0
-net_weekly = assets_weekly + liab_weekly
-net_annual = assets_annual + liab_annual
+
+# ---------- Smart Summary NET from H.4.1 line item ----------
+# pull directly from the table snapshots (millions USD)
+RB_NAME    = "Reserve balances with Federal Reserve Banks"
+rb_latest  = lookup(vals_t, RB_NAME, default=math.nan)
+rb_weekago = lookup(vals_w, RB_NAME, default=math.nan)
+rb_base    = lookup(vals_y, RB_NAME, default=math.nan)   # baseline (e.g., 2025-01-01)
+
+if np.isnan(rb_latest) or np.isnan(rb_weekago) or np.isnan(rb_base):
+    # fallback to component sums if the line is not found
+    net_weekly = assets_weekly + liab_weekly
+    net_annual = assets_annual + liab_annual
+else:
+    # direct change in reserve balances → this is the true net impact
+    net_weekly = rb_latest - rb_weekago
+    net_annual = rb_latest - rb_base
+
+# (opsiyonel: kontrol için küçük not)
+# st.caption(f"Debug RB (M$): latest={rb_latest:,.0f}, wk_ago={rb_weekago:,.0f}, base={rb_base:,.0f} → Δw={net_weekly:,.0f}, Δa={net_annual:,.0f}")
+
 
 # Akıllı özet kartları
 create_smart_summary_cards(
