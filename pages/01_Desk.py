@@ -291,38 +291,66 @@ if __name__ == "__main__":
     main()
 
 # ------------------------------ Methodology ------------------------------
-with st.expander("Methodology"):
+st.markdown("### 📋 Methodology")
+with st.expander("🔎 Click to expand methodology details", expanded=False):
     st.markdown("""
-**Source:** Federal Reserve Bank of New York – **Primary Dealer Desk Operations** API  
-`https://markets.newyorkfed.org/api/rp/{repo|reverserepo}/all/results/last/{N}.json`
+**What this page shows**  
+- 🧰 Primary Dealer **Desk Operations** from the New York Fed: **Repo** and **Reverse Repo** (ON RRP).  
+- 📅 Aggregated **by operation day**: accepted amounts and **weighted average rates**.
 
-**What’s included:**
-- **Repo** and **Reverse Repo** operations; each operation may have multiple **details** buckets.
-- **Accepted amounts:** `totalAmtAccepted` (USD).
-- **Rates:**
-  - **Repo:** weighted by `percentWeightedAverageRate` over `amtAccepted`.
-  - **Reverse Repo:** weighted by `percentAwardRate` over `amtAccepted`.
+---
 
-**Transformations (this dashboard):**
-- Parse all operations, **drop zero-accepted** ones.
-- Compute **weighted average rate** per operation day.
-- **Group by date** and **sum accepted amounts** (if multiple ops per day).
-- Convert amounts to **billions of dollars** for charts.
+### 🗂️ Data source
+- 🏦 Federal Reserve Bank of New York — **Primary Dealer Desk Operations** API  
+  • Base: `https://markets.newyorkfed.org/api/`  
+  • Endpoints:  
+    - `rp/repo/all/results/last/{N}.json`  
+    - `rp/reverserepo/all/results/last/{N}.json`  
+- ⏱️ Update: business days; occasional intraday postings and revisions.
 
-**Time window:**
-- Charts labeled “since January 1, 2025” filter on `operation_date >= 2025-01-01`.
+---
 
-**Units:**
-- Amounts: **$ billions** (`B`).
-- Rates: **percent** (`%`), operation-level weighted averages.
+### 📦 What’s included
+- 🔄 **Operations** (each may contain multiple **detail** rows).  
+- 💵 **Accepted amounts**: `totalAmtAccepted` (USD).  
+- 📈 **Rates**:  
+  - **Repo**: weighted by `percentWeightedAverageRate` over `amtAccepted`.  
+  - **Reverse Repo**: weighted by `percentAwardRate` over `amtAccepted`.
 
-**Known caveats:**
-- The Desk may conduct **multiple ops per day**; we aggregate them by date.
-- Some fields can be **missing** in certain result buckets; we only weight by rows with valid amounts/rates.
-- **Weekends/holidays** typically show no operations.
-- API responses are **cached for 1 hour** (`@st.cache_data(ttl=3600)`).  
-  
-""")
+---
+
+### 🧮 Transformations (in this dashboard)
+- 🧹 Parse all operations; **drop zero-accepted** rows.  
+- 🧷 Compute **operation-day weighted average rate**:  
+  - Repo W.A. = Σ(rateᵢ × amtᵢ) / Σ(amtᵢ), using **percentWeightedAverageRate**.  
+  - RRP W.A. = Σ(rateᵢ × amtᵢ) / Σ(amtᵢ), using **percentAwardRate**.  
+- ➕ If multiple ops on the same day: **sum accepted** amounts, **re-weight** the rate.  
+- 🔢 Convert amounts to **billions of dollars** (÷1,000).  
+- 🗓️ Optional filter chips: e.g., **since 2025-01-01** → `operation_date ≥ 2025-01-01`.
+
+---
+
+### 🔢 Units & scales
+- 💵 Amounts: **$ billions (B)**.  
+- 📊 Rates: **percent (%)**, operation-day weighted averages.
+
+---
+
+### ⚠️ Caveats
+- 📆 Multiple operations per day are common (AM/PM); we aggregate by **date**.  
+- 🧮 Weighting uses only rows with valid **amount** and **rate**; missing fields are skipped.  
+- 🚫 Weekends/holidays generally have **no operations**.  
+- 🧊 Responses are **cached** (`@st.cache_data(ttl=3600)`), so recent updates may lag.
+
+---
+
+### 🗺️ Glossary
+- **Repo**: Fed lends cash against collateral to dealers (adds reserves).  
+- **Reverse Repo (RRP)**: Fed takes in cash against collateral (drains reserves).  
+- **Accepted amount**: Final awarded cash volume for the operation.  
+- **Weighted average rate**: Amount-weighted price of the operation for that day.
+    """)
+
 
 # --------------------------- Footer -------------------------------
 st.markdown("---")
