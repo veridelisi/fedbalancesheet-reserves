@@ -499,33 +499,64 @@ with col4:
 
 # --------------------------- Methodology --------------------------
 st.markdown("### 📋 Methodology")
-with st.expander("Click to expand methodology details"):
+with st.expander("🔎 Click to expand methodology details", expanded=False):
     st.markdown(
-    """
-    #### Calculation Method
-    - **Closing Balance is computed**: **Opening + Deposits − Withdrawals** (not fetched directly from the API)
-    - All values are converted from millions to billions for better readability
-    - Missing weekend/holiday data is forward-filled to create smooth continuous lines
-    
-    #### Baseline Options
-    - **YoY (Year-over-Year)**: Compares current date with same date one year prior
-    - **2025-01-01**: Uses beginning of current year as baseline
-    
-    #### Chart Features
-    - **Bar Chart**: Shows latest day's deposits and withdrawals with rounded corners and modern styling
-    - **Line Chart**: Displays daily closing balance trend with smooth interpolation and 7-day moving average overlay
-    - **Interactive Elements**: Hover tooltips, zoom capabilities, and responsive design
-    
-    #### Data Source
-    - **U.S. Treasury Fiscal Data** — Daily Treasury Statement (`operating_cash_balance`)
-    - **API Endpoint**: https://api.fiscaldata.treasury.gov/services/api/fiscal_service
-    - **Update Frequency**: Daily (business days)
-    
-    #### Technical Notes
-    - Data gaps on weekends/holidays are handled via forward-fill interpolation
-    - Charts use monotonic interpolation for smooth curves between data points
-    - Color scheme follows modern design principles with accessibility considerations
-    """
+        """
+**What this page shows**  
+- 🏦 **Treasury General Account (TGA)** daily dynamics: deposits, withdrawals, and the **closing cash balance**.  
+- 🧭 Side-by-side change vs two baselines: **previous year (YoY)** or a fixed date (**2025-01-01**).
+
+---
+
+### 🧮 Calculation logic
+- **Closing balance (computed locally):**  
+  `Closing = Opening + Deposits − Withdrawals`  
+  > We compute this series from the flows; it is **not** taken as a ready field from the API.
+- 🔁 **Weekend/holiday handling:** Missing dates are **forward-filled** so the line is continuous.
+- 🔢 **Units:** Raw data are **millions of USD**. We divide by **1,000** to display **USD billions**.
+
+---
+
+### 🎯 Baseline options
+- 📆 **YoY (Year-over-Year):** Compares the latest date to the **same calendar date a year earlier**.  
+- 🎯 **2025-01-01:** Uses **01 Jan 2025** as a fixed anchor to measure year-to-date change.
+
+---
+
+### 📊 Chart features
+- 📦 **Bar chart:** Latest-day **Deposits** and **Withdrawals** (rounded corners, modern styling).  
+- 📈 **Line chart:** Daily **Closing Balance** with a **7-day moving average** overlay for trend clarity.  
+- 🖱️ **Interactivity:** Tooltips, zoom/pan, responsive layout.
+
+---
+
+### 🗂️ Data source
+- 🇺🇸 **U.S. Treasury Fiscal Data** — *Daily Treasury Statement* (DTS)  
+  • Dataset: `operating_cash_balance`  
+  • API: <https://api.fiscaldata.treasury.gov/services/api/fiscal_service>  
+  • ⏱️ **Refresh:** Daily on business days (publication lags can occur).
+
+---
+
+### ⚙️ Technical notes
+- 🧩 **Forward-fill** is applied only to the **closing balance** to avoid artificial jumps on weekends/holidays.  
+- 📐 **Smoothing:** 7-day MA is **non-causal** (uses past values only) to avoid look-ahead bias.  
+- 🎨 **Accessibility:** Color palette chosen for contrast; negative values are clearly distinguished.
+
+---
+
+### ⚠️ Caveats
+- ⏳ **Reporting lag:** Recent dates may revise as DTS finalizes.  
+- 🕒 **Intraday vs EOD:** Values represent **end-of-day** positions; intraday swings are not captured.  
+- 🔎 **Reconciliation:** Large moves can reflect **settlement timing** (tax dates, coupon/redemption, cash management bills).
+
+---
+
+### 🗺️ Glossary
+- **Deposits (➕):** Inflows to TGA (tax receipts, debt issuance proceeds, etc.).  
+- **Withdrawals (➖):** Outflows (agency outlays, redemptions, etc.).  
+- **Closing balance:** Treasury’s cash at the Fed after the day’s flows.
+        """
     )
 
 # --------------------------- Footer -------------------------------
