@@ -1,6 +1,6 @@
 # streamlit_app.py
 import math, re, requests
-from datetime import timedelta
+from datetime import timedelta, date
 import pandas as pd
 import numpy as np
 import streamlit as st
@@ -8,13 +8,10 @@ from dateutil.relativedelta import relativedelta
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter, AutoLocator
 
-
-
 st.set_page_config(page_title="Veridelisi • Reserve Page", layout="wide")
 
-# --- Gezinme Barı (Yatay Menü, saf Streamlit) ---
+# --- Top nav ---
 cols = st.columns(8)
-
 with cols[0]:
     st.page_link("streamlit_app.py", label="🏠 Home")
 with cols[1]:
@@ -32,31 +29,27 @@ with cols[6]:
 with cols[7]:
     st.page_link("pages/01_Eurodollar.py", label="💡 Eurodollar")
 
-
-# --- Sol menü sakla ---
+# --- Hide sidebar + small CSS + badge helper ---
 st.markdown("""
-    <style>
-        [data-testid="stSidebarNav"] {display: none;}
-        section[data-testid="stSidebar"][aria-expanded="true"]{display: none;}
-    </style>
-    """, unsafe_allow_html=True)
+<style>
+  [data-testid="stSidebarNav"]{display:none;}
+  section[data-testid="stSidebar"][aria-expanded="true"]{display:none;}
+  .vd-badge{
+    display:inline-block;padding:3px 8px;border-radius:8px;
+    font-size:0.75rem;font-weight:600;letter-spacing:.2px;
+    color:#111827;background:#E5E7EB;border:1px solid #D1D5DB;
+    margin-left:.5rem;vertical-align:middle;
+  }
+</style>
+""", unsafe_allow_html=True)
 
+def badge(text, bg="#E5E7EB", fg="#111827", br="#D1D5DB"):
+    return f'<span class="vd-badge" style="background:{bg};color:{fg};border-color:{br};">{text}</span>'
 
-
-# --- Sol menü sakla ---
-st.markdown("""
-    <style>
-        [data-testid="stSidebarNav"] {display: none;}
-        section[data-testid="stSidebar"][aria-expanded="true"]{display: none;}
-    </style>
-    """, unsafe_allow_html=True)
-
-# --- Secrets/env loader: st.secrets -> section -> environment ---
+# --- Secrets/env loader ---
 def get_secret(keys, default=None, cast=None):
     if isinstance(keys, str):
         keys = [keys]
-
-    # 1) düz st.secrets["KEY"]
     for k in keys:
         try:
             if k in st.secrets:
@@ -64,8 +57,6 @@ def get_secret(keys, default=None, cast=None):
                 return cast(val) if (cast and val is not None) else val
         except Exception:
             pass
-
-    # 2) st.secrets tablo (örn. [fred] api_key=...)
     try:
         for _, section in st.secrets.items():
             if isinstance(section, dict):
@@ -76,42 +67,25 @@ def get_secret(keys, default=None, cast=None):
                         return cast(val) if (cast and val is not None) else val
     except Exception:
         pass
-
-    # 3) ortam değişkeni
+    import os
     for k in keys:
         val = os.environ.get(k)
         if val is not None:
             return cast(val) if cast else val
-
     return default
 
-# --- FRED ayarları (fallback'lı) ---
+# --- FRED settings ---
 API_KEY    = get_secret(["API_KEY", "FRED_API_KEY"])
 BASE       = get_secret(["BASE", "FRED_BASE"], default="https://api.stlouisfed.org")
 RELEASE_ID = get_secret(["RELEASE_ID", "FRED_RELEASE_ID"], default=20, cast=int)
 ELEMENT_ID = get_secret(["ELEMENT_ID", "FRED_ELEMENT_ID"], default=1193943, cast=int)
-
 if not API_KEY:
     st.error("API key not set. Settings → Secrets'e `API_KEY` (veya `FRED_API_KEY`) ekleyin.")
     st.stop()
 
-
 # ---------- Page ----------
-
-
 st.title("🏦 Federal Reserve H.4.1 — Assets & Liabilities (Reserves Impact)")
 st.caption("Weekly change vs prior week, and Annual change vs fixed baseline 2025-01-01")
-
-# ---------- Settings ----------
-BASE        = "https://api.stlouisfed.org"
-RELEASE_ID  = 20
-ELEMENT_ID  = 1193943
-
-# API key'i Streamlit Secrets'tan al
-API_KEY = st.secrets.get("API_KEY", None)
-if not API_KEY:
-    st.error("API key not set. Go to Settings → Secrets and set `API_KEY`.")
-    st.stop()
 
 # ---------- Helpers ----------
 def clean_num(x):
@@ -134,7 +108,6 @@ def get_latest_available_date(series_id: str) -> str | None:
 
 @st.cache_data(ttl=3600)
 def get_table_values(observation_date: str) -> dict:
-    """Return {series_name -> value in millions} for H.4.1 Table subtree."""
     url = f"{BASE}/fred/release/tables"
     params = {
         "api_key": API_KEY, "file_type": "json",
@@ -163,19 +136,15 @@ def lookup(vals: dict, name: str, default=0.0):
             return v if pd.notna(v) else default
     return default
 
-# ---------- Dates & baseline (radio) ----------
-from datetime import date
-
+# ---------- Dates & baseline ----------
 TARGET_SERIES_ID = "WSHOSHO"  # weekly Wednesday (H.4.1)
 _latest = get_latest_available_date(TARGET_SERIES_ID) or "2025-09-03"
+t       = pd.to_datetime(_latest).date()       # latest Wednesday
+t_w     = t - timedelta(days=7)                # previous week
+t_fixed = date(2025, 1, 1)                     # fixed baseline
 
-t       = pd.to_datetime(_latest).date()     # Latest Wednesday
-t_w     = t - timedelta(days=7)              # previous week
-t_yoy   = t - relativedelta(years=1)         # YoY (t - 1 year)
-t_fixed = date(2025, 1, 1)                   # 01.01.2025
-
-fmt = "%d.%m.%Y"
-c1, c2 = st.columns([1, 3])
+# Header chip with latest date
+c1, _ = st.columns([1, 3])
 with c1:
     st.markdown(
         f"""
@@ -193,31 +162,11 @@ with c1:
         unsafe_allow_html=True
     )
 
-with c2:
-    baseline_label = st.radio(
-        "Annual baseline",
-        ("YoY (t - 1 year)", "01.01.2025"),
-        index=0,              # default: YoY
-        horizontal=True       # yuvarlak kutucuklar yatay dursun
-    )
-
-# Seçime göre yıllık baz
-if baseline_label.startswith("YoY"):
-    t_y = t_yoy
-    base_label = "YoY"
-else:
-    t_y = t_fixed
-    base_label = "2025-01-01"
-
-# ---------- Fetch (seçilen baza göre) ----------
+# ---------- Fetch ----------
 with st.spinner("Fetching H.4.1 data..."):
     vals_t = get_table_values(t.isoformat())
     vals_w = get_table_values(t_w.isoformat())
-    vals_y = get_table_values(t_y.isoformat())
-
-
-
-
+    vals_y = get_table_values(t_fixed.isoformat())   # annual baseline fixed to 2025-01-01
 
 # ---------- Calculations ----------
 def net_sec(vdict):
@@ -228,7 +177,7 @@ def net_sec(vdict):
     )
 
 assets_map = {
-    "Securities held outright": "Securities (net of prem./disc.)",  # computed via net_sec
+    "Securities held outright": "Securities (net of prem./disc.)",
     "Repurchase agreements": "Repurchase agreements",
     "Loans": "Loans to depository institutions",
     "Net portfolio holdings of MS Facilities 2020 LLC (Main Street Lending Program)": "Net portfolio holdings of facilities",
@@ -306,32 +255,48 @@ def plot_barh_billions(df, col, title, xlabel):
     ax.xaxis.set_major_formatter(fmtB)
     st.pyplot(fig, clear_figure=True)
 
-# ---------- Layout ----------
-left, right = st.columns(2, gap="large")
-
-with left:
-    st.subheader("Assets — Changes (billions)")
+# ---------- Layout (two rows with badges) ----------
+# Row 1 — WEEKLY
+st.markdown(
+    f"### Charts {badge('WEEKLY', bg='#DCFCE7', fg='#065F46', br='#A7F3D0')}",
+    unsafe_allow_html=True
+)
+row1_left, row1_right = st.columns(2, gap="large")
+with row1_left:
+    st.subheader("Assets — Weekly change (billions)")
     plot_barh_billions(
         df_assets, 'weekly',
         f"Weekly change ({t.strftime('%b %d, %Y')} vs {t_w.strftime('%b %d, %Y')})",
         "Change (billions of dollars)"
     )
-    plot_barh_billions(
-        df_assets, 'annual',
-        f"Annual change vs baseline {t_y} ({t.strftime('%b %d, %Y')} vs {t_y.strftime('%b %d, %Y')})",
-        "Change (billions of dollars)"
-    )
-
-with right:
-    st.subheader("Liabilities — Reserve impact (billions)")
+with row1_right:
+    st.subheader("Liabilities — Weekly reserve impact (billions)")
     plot_barh_billions(
         df_liab, 'weekly_impact',
         f"Weekly impact on reserves ({t.strftime('%b %d, %Y')} vs {t_w.strftime('%b %d, %Y')})",
         "Reserve impact (billions of dollars)"
     )
+
+st.markdown("---")
+
+# Row 2 — 2025-01-01 baseline
+st.markdown(
+    f"### Charts {badge('2025-01-01 BASELINE', bg='#DBEAFE', fg='#1E3A8A', br='#BFDBFE')}",
+    unsafe_allow_html=True
+)
+row2_left, row2_right = st.columns(2, gap="large")
+with row2_left:
+    st.subheader("Assets — Annual change vs baseline (billions)")
+    plot_barh_billions(
+        df_assets, 'annual',
+        f"Annual change vs baseline {t_fixed} ({t.strftime('%b %d, %Y')} vs {t_fixed.strftime('%b %d, %Y')})",
+        "Change (billions of dollars)"
+    )
+with row2_right:
+    st.subheader("Liabilities — Annual reserve impact (billions)")
     plot_barh_billions(
         df_liab, 'annual_impact',
-        f"Annual impact vs baseline {t_y} ({t.strftime('%b %d, %Y')} vs {t_y.strftime('%b %d, %Y')})",
+        f"Annual impact vs baseline {t_fixed} ({t.strftime('%b %d, %Y')} vs {t_fixed.strftime('%b %d, %Y')})",
         "Reserve impact (billions of dollars)"
     )
 
@@ -370,16 +335,16 @@ st.metric("Annual Net Impact ($M)", f"{net_annual:+,.0f}")
 st.markdown("### Methodology")
 with st.expander("Click to expand methodology details"):
     st.markdown("""
-    **Data source:** Federal Reserve H.4.1 Statistical Release (FRED release/tables)
-    
-    **Thresholds for display:** ±$50M (weekly), ±$100M (annual)
-    
-    **Legend:** 🔵 Positive = increases; 🔴 Negative = decreases
-    
-    **Securities calculation:** held outright + unamortized premiums + unamortized discounts
-    
-    **Annual baseline:** fixed to YoY (t - 1 year) (not 01.01.2025)
-    """)
+**Data source:** Federal Reserve H.4.1 Statistical Release (FRED release/tables)
+
+**Thresholds for display:** ±$50M (weekly), ±$100M (annual)
+
+**Legend:** 🔵 Positive = increases; 🔴 Negative = decreases
+
+**Securities calculation:** held outright + unamortized premiums + unamortized discounts
+
+**Annual baseline:** fixed to **2025-01-01** (not YoY)
+""")
 
 # --------------------------- Footer -------------------------------
 st.markdown("---")
@@ -392,24 +357,16 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-# ---------- Raw values table (latest, week-ago, YoY date, and 2025-01-01) ----------
-# Snapshots (millions of USD)
-vals_2025 = get_table_values(t_fixed.isoformat())   # 2025-01-01
-vals_yoy  = get_table_values(t_yoy.isoformat())     # t - 1 year (YoY reference)
 
-# Union of all series we pulled
-all_series = sorted(set(vals_t.keys()) | set(vals_w.keys()) | set(vals_2025.keys()) | set(vals_yoy.keys()))
-
-df_raw = pd.DataFrame(
-    [{
-        "Series": s,
-        f"Latest {t.isoformat()} ($M)": vals_t.get(s, math.nan),
-        f"Week-ago {t_w.isoformat()} ($M)": vals_w.get(s, math.nan),
-        f"YoY {t_yoy.isoformat()} ($M)": vals_yoy.get(s, math.nan),
-        "2025-01-01 ($M)": vals_2025.get(s, math.nan),
-    } for s in all_series]
-)
-
+# ---------- Raw values table (Latest, Week-ago, 2025-01-01) ----------
+vals_2025 = get_table_values(t_fixed.isoformat())
+all_series = sorted(set(vals_t.keys()) | set(vals_w.keys()) | set(vals_2025.keys()))
+df_raw = pd.DataFrame([{
+    "Series": s,
+    f"Latest {t.isoformat()} ($M)": vals_t.get(s, math.nan),
+    f"Week-ago {t_w.isoformat()} ($M)": vals_w.get(s, math.nan),
+    "2025-01-01 ($M)": vals_2025.get(s, math.nan),
+} for s in all_series])
 st.markdown("---")
-st.subheader("Raw H.4.1 values — latest, week-ago, YoY, and 2025-01-01 (millions)")
+st.subheader("Raw H.4.1 values — latest, week-ago, and 2025-01-01 (millions)")
 st.dataframe(df_raw.reset_index(drop=True), use_container_width=True)
