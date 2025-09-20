@@ -16,7 +16,7 @@ import datetime as dt
 API_URL = "https://markets.newyorkfed.org/api/pd/get/all/timeseries.csv"
 st.set_page_config(page_title="NY Fed Primary Dealer • Repo Dashboard", layout="wide")
 
-# --- Gezinme Barı (Yatay Menü, saf Streamlit) ---
+
 # --- Gezinme Barı (Yatay Menü, saf Streamlit) ---
 cols = st.columns(8)
 
@@ -72,8 +72,9 @@ def to_num(s):
 def fetch_data():
     """Load full Primary Dealer timeseries and standardize columns."""
     r = requests.get(API_URL, timeout=60)
-    r.raise_for_status()
+    st.write("API response preview:", r.text[:500])  # <--- Ekle
     df = pd.read_csv(StringIO(r.text))
+  
 
     date_col   = find_col(df.columns, ["as of date", "date", "asof"])
     series_col = find_col(df.columns, ["time series", "timeseries", "series", "keyid"])
