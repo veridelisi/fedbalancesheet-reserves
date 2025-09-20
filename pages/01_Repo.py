@@ -442,24 +442,63 @@ with st.container(border=True):
 
 
 # ------------------------------ Methodology ---------------------------
-with st.expander("Methodology"):
+st.markdown("### 📋 Methodology")
+with st.expander("🔎 Click to expand methodology details", expanded=False):
     st.markdown("""
-**Source:** Federal Reserve Bank of New York — *Primary Dealer Statistics* (timeseries.csv).  
-**Grouping logic (both Repo and Reverse Repo):**
+**What this page shows**  
+- 🔁 Primary dealer **Repo** and **Reverse Repo** activity by market segment, with change vs **YoY** or **2025-01-01** baselines.
+
+---
+
+### 🗂️ Data source
+- 🏦 **Federal Reserve Bank of New York — Primary Dealer Statistics**  
+  • File: **timeseries.csv** (dealer financing volumes)  
+  • Coverage: Repo and Reverse Repo, multiple segments and collateral types  
+  • Frequency: **Daily business days** (market holidays excluded)
+
+---
+
+### 🧱 Field mapping & grouping (applied to both Repo and Reverse Repo)
 - **Uncleared Bilateral** = *General* + *Specified*  
 - **Cleared Bilateral** = *General* + *Specified*  
-- **Treasury** = *GCF* + *Triparty*
+- **Treasury** = *GCF* + *Triparty*  
+> These rollups align granular categories in `timeseries.csv` to three headline buckets for clarity.
 
-**Baseline selection:**  
-- **YoY (t - 1 year):** Uses the **nearest on/before** date that is approximately one year earlier than the latest date.  
-- **01.01.2025:** Uses the **nearest on/before** 2025-01-01.  
+---
 
-**Units:**  
-- Charts display **Billions of dollars (bn)**.  
-- Net impact displays **Billions of dollars ($B)**.  
+### 🎯 Baseline selection (comparison anchor)
+- 📆 **YoY (t − 1 year)**: uses the **nearest on/before** trading day ~1 year before the latest date.  
+- 🎯 **2025-01-01**: uses the **nearest on/before** 2025-01-01 trading day.  
+> 🧭 “Nearest on/before” avoids gaps when the exact calendar date is a weekend/holiday.
 
-**Notes:** Minor calendar alignment differences are handled by “nearest on/before” logic to avoid gaps on non-trading days.
-""")
+---
+
+### 🔢 Units & scaling
+- All charts display **Billions of dollars (B)**.  
+- Any “net impact” tiles or deltas are also shown in **$B**.
+
+---
+
+### 📊 Chart notes
+- Segments are shown **side-by-side** to compare relative move and level.  
+- Tooltips report exact values and the chosen baseline date used for the comparison.  
+- If a segment is missing for a day, it is **not forward-filled** to avoid synthetic volume.
+
+---
+
+### ⚠️ Caveats
+- 📅 Publication timing: the CSV can revise; small back-fills may occur.  
+- 🔄 Category overlap: dealers may shift volume across segments (e.g., triparty ↔ bilateral); interpret **mix shifts** carefully.  
+- 🧮 Our grouping is a **presentation rollup**; it does **not** change the underlying totals from the CSV.
+
+---
+
+### 🗺️ Glossary
+- **General vs Specified**: collateral pool vs named security.  
+- **GCF**: centrally cleared GC repo service.  
+- **Triparty**: agent-managed collateral and settlement (e.g., BNYM).  
+- **Bilateral**: directly negotiated between counterparties (cleared or uncleared).
+    """)
 
 # --------------------------- Footer -------------------------------
 st.markdown("---")
