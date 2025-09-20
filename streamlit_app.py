@@ -463,7 +463,7 @@ st.markdown("""
         <h3 style="margin-top: 0;">About Veridelisi Analytics</h3>
         <p style="margin-bottom: 1.5rem;">
             Professional-grade financial market analytics and Federal Reserve operations monitoring. 
-            Built for traders, analysts, and policymakers who need deep insights into monetary policy implementation.
+            Built for researchers, analysts, and policymakers who need deep insights into monetary policy implementation.
         </p>
         <div style="border-top: 1px solid #475569; padding-top: 1.5rem; margin-top: 1.5rem;">
             <a href="https://veridelisi.substack.com/">📰 Veri Delisi Substack</a> • 
