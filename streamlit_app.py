@@ -328,7 +328,7 @@ with col1:
         description=(
             "Comprehensive tracking of the Fed's weekly H.4.1 release with detailed breakdowns of "
             "assets and liabilities. Identify primary drivers of reserve fluctuations and assess "
-            "their impact on overall liquidity conditions with interactive charts and smart analytics."
+            "their impact on overall liquidity conditions with interactive charts."
         ),
         page_path="pages/01_Reserves.py",
         link_label="🔍 Explore Reserves Dashboard",
