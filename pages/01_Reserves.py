@@ -392,22 +392,24 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-# ---------- Raw values table (latest, week-ago, and 2025-01-01) ----------
-# Always fetch the 2025-01-01 snapshot explicitly
-vals_2025 = get_table_values(t_fixed.isoformat())
+# ---------- Raw values table (latest, week-ago, YoY date, and 2025-01-01) ----------
+# Snapshots (millions of USD)
+vals_2025 = get_table_values(t_fixed.isoformat())   # 2025-01-01
+vals_yoy  = get_table_values(t_yoy.isoformat())     # t - 1 year (YoY reference)
 
-# Union of all series we pulled; values are in millions of USD
-all_series = sorted(set(vals_t.keys()) | set(vals_w.keys()) | set(vals_2025.keys()))
+# Union of all series we pulled
+all_series = sorted(set(vals_t.keys()) | set(vals_w.keys()) | set(vals_2025.keys()) | set(vals_yoy.keys()))
 
 df_raw = pd.DataFrame(
     [{
         "Series": s,
-        "Latest ($M)": vals_t.get(s, math.nan),
-        "Week-ago ($M)": vals_w.get(s, math.nan),
+        f"Latest {t.isoformat()} ($M)": vals_t.get(s, math.nan),
+        f"Week-ago {t_w.isoformat()} ($M)": vals_w.get(s, math.nan),
+        f"YoY {t_yoy.isoformat()} ($M)": vals_yoy.get(s, math.nan),
         "2025-01-01 ($M)": vals_2025.get(s, math.nan),
     } for s in all_series]
 )
 
 st.markdown("---")
-st.subheader("Raw H.4.1 values — latest vs week-ago vs 2025-01-01 (millions)")
+st.subheader("Raw H.4.1 values — latest, week-ago, YoY, and 2025-01-01 (millions)")
 st.dataframe(df_raw.reset_index(drop=True), use_container_width=True)
