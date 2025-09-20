@@ -9,6 +9,11 @@ st.markdown("""
         section[data-testid="stSidebar"][aria-expanded="true"]{display: none;}
         
         /* Hero section styling */
+            
+            <div class="hero-title">
+    <img src="assets/hero/veridelisi_logo.png" style="height: 50px; vertical-align: middle; margin-right: 15px;">
+    Veridelisi Analytics Portal
+              </div>
         .hero-container {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             padding: 3rem 2rem;
