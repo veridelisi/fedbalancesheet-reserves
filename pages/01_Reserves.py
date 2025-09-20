@@ -392,3 +392,22 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+# ---------- Raw values table (latest, week-ago, and 2025-01-01) ----------
+# Always fetch the 2025-01-01 snapshot explicitly
+vals_2025 = get_table_values(t_fixed.isoformat())
+
+# Union of all series we pulled; values are in millions of USD
+all_series = sorted(set(vals_t.keys()) | set(vals_w.keys()) | set(vals_2025.keys()))
+
+df_raw = pd.DataFrame(
+    [{
+        "Series": s,
+        "Latest ($M)": vals_t.get(s, math.nan),
+        "Week-ago ($M)": vals_w.get(s, math.nan),
+        "2025-01-01 ($M)": vals_2025.get(s, math.nan),
+    } for s in all_series]
+)
+
+st.markdown("---")
+st.subheader("Raw H.4.1 values — latest vs week-ago vs 2025-01-01 (millions)")
+st.dataframe(df_raw.reset_index(drop=True), use_container_width=True)
