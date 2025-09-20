@@ -1,6 +1,6 @@
 import streamlit as st
 
-st.set_page_config(page_title="Veridelisi • Analytics Portal", layout="wide", page_icon="📊")
+st.set_page_config(page_title="Veridelisi • Analytics Portal", layout="wide", page_icon="VD")
 
 # Enhanced CSS styling with gradient + icon system
 st.markdown("""
@@ -10,7 +10,7 @@ st.markdown("""
         
         /* Hero section styling */
             
-            <img src="./assets/hero/veridelisi_logo.jpg" style="height: 50px; vertical-align: middle; margin-right: 15px;">
+            
         .hero-container {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             padding: 3rem 2rem;
