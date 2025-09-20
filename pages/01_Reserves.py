@@ -562,7 +562,7 @@ with st.expander("🔎 Click to expand methodology details", expanded=False):
 - 🧭 Compares **the latest Wednesday** H.4.1 snapshot to:
   - ⏱️ **Previous Wednesday** → *Weekly* change  
   - 📅 **Fixed baseline** → *Yearly* change vs **2025-01-01**
-- 🧰 Two rows of charts (Eurodollar style):
+- 🧰 Two rows of charts :
   - **WEEKLY:** Assets (Δ level) • Liabilities (Δ reserve impact) — *top-6 by |weekly|*  
   - **YEARLY:** same metrics vs **2025-01-01**
 
