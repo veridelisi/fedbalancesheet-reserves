@@ -75,99 +75,160 @@ def get_significance_badge(value):
     return "🔥 Major" if v >= 5000 else "⚡ High" if v >= 1000 else "📈 Medium" if v >= 500 else "💭 Low"
 
 def create_enhanced_assets_table(df_assets):
+    """Enhanced assets table (NO summary line)."""
     if df_assets.empty:
-        st.info("No significant asset changes to display"); return
+        st.info("No significant asset changes to display")
+        return
+    
     display_df = df_assets.copy()
     display_df = display_df.sort_values('weekly', key=abs, ascending=False)
-
-    st.markdown('<div class="assets-table"><div class="table-header">📊 Assets Changes</div>', unsafe_allow_html=True)
-    c1,c2,c3 = st.columns([2,1,1])
-    with c1:
-        sort_by = st.selectbox("Sort by:", ["Weekly Impact","Annual Impact","Asset Name"], key="assets_sort")
-    with c2:
-        show_threshold = st.selectbox("Show items ≥", ["All","500M+","1B+","5B+"], key="assets_threshold")
-    with c3:
-        view_mode = st.radio("View:", ["Compact","Detailed"], key="assets_view", horizontal=True)
-
-    df = display_df.copy()
+    
+    st.markdown(
+        '<div class="assets-table"><div class="table-header">📊 Assets Changes</div>',
+        unsafe_allow_html=True
+    )
+    
+    col1, col2, col3 = st.columns([2, 1, 1])
+    with col1:
+        sort_by = st.selectbox(
+            "Sort by:",
+            ["Weekly Impact", "Annual Impact", "Asset Name"],
+            key="assets_sort"
+        )
+    with col2:
+        show_threshold = st.selectbox(
+            "Show items ≥",
+            ["All", "500M+", "1B+", "5B+"],
+            key="assets_threshold"
+        )
+    with col3:
+        view_mode = st.radio("View:", ["Compact", "Detailed"], key="assets_view", horizontal=True)
+    
+    # filter & sort
+    filtered_df = display_df.copy()
     if show_threshold != "All":
-        thr = {"500M+":500, "1B+":1000, "5B+":5000}[show_threshold]
-        df = df[(df['weekly'].abs()>=thr) | (df['annual'].abs()>=thr)]
+        threshold_map = {"500M+": 500, "1B+": 1000, "5B+": 5000}
+        min_val = threshold_map[show_threshold]
+        filtered_df = filtered_df[
+            (filtered_df['weekly'].abs() >= min_val) |
+            (filtered_df['annual'].abs() >= min_val)
+        ]
     if sort_by == "Weekly Impact":
-        df = df.sort_values('weekly', key=abs, ascending=False)
+        filtered_df = filtered_df.sort_values('weekly', key=abs, ascending=False)
     elif sort_by == "Annual Impact":
-        df = df.sort_values('annual', key=abs, ascending=False)
+        filtered_df = filtered_df.sort_values('annual', key=abs, ascending=False)
     else:
-        df = df.sort_values('name')
-
-    rows=[]
-    for _,r in df.iterrows():
-        if view_mode=="Compact":
-            rows.append({"Asset": (r['name'][:30]+"...") if len(r['name'])>30 else r['name'],
-                         "Weekly": format_millions(r['weekly']),
-                         "Annual": format_millions(r['annual'])})
+        filtered_df = filtered_df.sort_values('name')
+    
+    # rows
+    rows = []
+    for _, row in filtered_df.iterrows():
+        if view_mode == "Compact":
+            rows.append({
+                "Asset": row['name'][:30] + "..." if len(row['name']) > 30 else row['name'],
+                "Weekly": format_millions(row['weekly']),
+                "Annual": format_millions(row['annual'])
+            })
         else:
-            rows.append({"Asset Factor": r['name'],
-                         "Weekly Change": format_millions(r['weekly']),
-                         "Weekly Impact": get_significance_badge(r['weekly']),
-                         "Annual Change": format_millions(r['annual']),
-                         "Annual Impact": get_significance_badge(r['annual'])})
+            rows.append({
+                "Asset Factor": row['name'],
+                "Weekly Change": format_millions(row['weekly']),
+                "Weekly Impact": get_significance_badge(row['weekly']),
+                "Annual Change": format_millions(row['annual']),
+                "Annual Impact": get_significance_badge(row['annual'])
+            })
+    
     if rows:
-        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True,
-                     height=min(400, len(rows)*35+100))
-        st.markdown(f"**Summary:** {len(df)} items • Weekly total: {format_millions(df['weekly'].sum())} • Annual total: {format_millions(df['annual'].sum())}")
+        df_display = pd.DataFrame(rows)
+        st.dataframe(
+            df_display,
+            use_container_width=True,
+            hide_index=True,
+            height=min(400, len(df_display) * 35 + 100)
+        )
+    
     st.markdown('</div>', unsafe_allow_html=True)
+
 
 def create_enhanced_liabilities_table(df_liab):
+    """Enhanced liabilities table (NO summary line, NO biggest-impact note)."""
     if df_liab.empty:
-        st.info("No significant liability changes to display"); return
+        st.info("No significant liability changes to display")
+        return
+    
     display_df = df_liab.copy()
     display_df = display_df.sort_values('weekly_impact', key=abs, ascending=False)
-
-    st.markdown('<div class="liabilities-table"><div class="liab-table-header">🏦 Liabilities Reserve Impact</div>', unsafe_allow_html=True)
-    c1,c2,c3 = st.columns([2,1,1])
-    with c1:
-        sort_by = st.selectbox("Sort by:", ["Weekly Impact","Annual Impact","Liability Name"], key="liab_sort")
-    with c2:
-        show_threshold = st.selectbox("Show items ≥", ["All","500M+","1B+","5B+"], key="liab_threshold")
-    with c3:
-        view_mode = st.radio("View:", ["Compact","Detailed"], key="liab_view", horizontal=True)
-
-    df = display_df.copy()
+    
+    st.markdown(
+        '<div class="liabilities-table"><div class="liab-table-header">🏦 Liabilities Reserve Impact</div>',
+        unsafe_allow_html=True
+    )
+    
+    col1, col2, col3 = st.columns([2, 1, 1])
+    with col1:
+        sort_by = st.selectbox(
+            "Sort by:",
+            ["Weekly Impact", "Annual Impact", "Liability Name"],
+            key="liab_sort"
+        )
+    with col2:
+        show_threshold = st.selectbox(
+            "Show items ≥",
+            ["All", "500M+", "1B+", "5B+"],
+            key="liab_threshold"
+        )
+    with col3:
+        view_mode = st.radio("View:", ["Compact", "Detailed"], key="liab_view", horizontal=True)
+    
+    # filter & sort
+    filtered_df = display_df.copy()
     if show_threshold != "All":
-        thr = {"500M+":500, "1B+":1000, "5B+":5000}[show_threshold]
-        df = df[(df['weekly_impact'].abs()>=thr) | (df['annual_impact'].abs()>=thr)]
+        threshold_map = {"500M+": 500, "1B+": 1000, "5B+": 5000}
+        min_val = threshold_map[show_threshold]
+        filtered_df = filtered_df[
+            (filtered_df['weekly_impact'].abs() >= min_val) |
+            (filtered_df['annual_impact'].abs() >= min_val)
+        ]
     if sort_by == "Weekly Impact":
-        df = df.sort_values('weekly_impact', key=abs, ascending=False)
+        filtered_df = filtered_df.sort_values('weekly_impact', key=abs, ascending=False)
     elif sort_by == "Annual Impact":
-        df = df.sort_values('annual_impact', key=abs, ascending=False)
+        filtered_df = filtered_df.sort_values('annual_impact', key=abs, ascending=False)
     else:
-        df = df.sort_values('name')
-
-    rows=[]
-    for _,r in df.iterrows():
-        if view_mode=="Compact":
-            rows.append({"Liability": (r['name'][:30]+"...") if len(r['name'])>30 else r['name'],
-                         "Weekly Impact": format_millions(r['weekly_impact']),
-                         "Annual Impact": format_millions(r['annual_impact'])})
+        filtered_df = filtered_df.sort_values('name')
+    
+    # rows
+    rows = []
+    for _, row in filtered_df.iterrows():
+        if view_mode == "Compact":
+            rows.append({
+                "Liability": row['name'][:30] + "..." if len(row['name']) > 30 else row['name'],
+                "Weekly Impact": format_millions(row['weekly_impact']),
+                "Annual Impact": format_millions(row['annual_impact'])
+            })
         else:
-            wd = "📈" if r['weekly_change']>0 else "📉" if r['weekly_change']<0 else "➡️"
-            ad = "📈" if r['annual_change']>0 else "📉" if r['annual_change']<0 else "➡️"
-            rows.append({"Liability Factor": r['name'],
-                         "Weekly Change": f"{wd} {format_millions(r['weekly_change'])}",
-                         "Weekly Reserve Impact": format_millions(r['weekly_impact']),
-                         "Weekly Significance": get_significance_badge(r['weekly_impact']),
-                         "Annual Change": f"{ad} {format_millions(r['annual_change'])}",
-                         "Annual Reserve Impact": format_millions(r['annual_impact']),
-                         "Annual Significance": get_significance_badge(r['annual_impact'])})
+            weekly_dir = "📈" if row['weekly_change'] > 0 else "📉" if row['weekly_change'] < 0 else "➡️"
+            annual_dir = "📈" if row['annual_change'] > 0 else "📉" if row['annual_change'] < 0 else "➡️"
+            rows.append({
+                "Liability Factor": row['name'],
+                "Weekly Change": f"{weekly_dir} {format_millions(row['weekly_change'])}",
+                "Weekly Reserve Impact": format_millions(row['weekly_impact']),
+                "Weekly Significance": get_significance_badge(row['weekly_impact']),
+                "Annual Change": f"{annual_dir} {format_millions(row['annual_change'])}",
+                "Annual Reserve Impact": format_millions(row['annual_impact']),
+                "Annual Significance": get_significance_badge(row['annual_impact'])
+            })
+    
     if rows:
-        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True,
-                     height=min(400, len(rows)*35+100))
-        st.markdown(f"**Summary:** {len(df)} items • Weekly impact: {format_millions(df['weekly_impact'].sum())} • Annual impact: {format_millions(df['annual_impact'].sum())}")
-        if len(df)>0:
-            dom = df.loc[df['weekly_impact'].abs().idxmax(), 'name']
-            st.caption(f"💡 Biggest weekly impact: {dom}")
+        df_display = pd.DataFrame(rows)
+        st.dataframe(
+            df_display,
+            use_container_width=True,
+            hide_index=True,
+            height=min(400, len(df_display) * 35 + 100)
+        )
+    
     st.markdown('</div>', unsafe_allow_html=True)
+
 
 def create_smart_summary_cards(assets_weekly, assets_annual, liab_weekly, liab_annual, net_weekly, net_annual):
     cls_w = "positive" if net_weekly>0 else "negative" if net_weekly<0 else "neutral"
