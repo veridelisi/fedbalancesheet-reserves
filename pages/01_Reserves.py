@@ -566,6 +566,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 """
 # ---------- Raw values table (Latest, Week-ago, 2025-01-01) ----------
 vals_2025 = get_table_values(t_fixed.isoformat())
