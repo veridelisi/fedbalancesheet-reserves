@@ -71,13 +71,16 @@ def fetch_rates(rate_name: str, last_n: int = 500) -> pd.DataFrame:
     spec = SPECS[rate_name]
     url = f"{API_BASE}/{spec['group']}/{spec['code']}/last/{last_n}.csv"
     r = requests.get(url, timeout=20)
-    # Check for HTML or maintenance message
+     # Check for HTML or maintenance message
     if "text/html" in r.headers.get("Content-Type", "") or "Site Maintenance" in r.text:
-        raise ValueError(f"{rate_name}: API returned HTML or maintenance page.")
-    try:
-        raw = pd.read_csv(io.StringIO(r.text))
-    except Exception as e:
-        raise ValueError(f"{rate_name}: CSV parse error: {e}")
+        st.warning(
+            "The page you are looking for is temporarily unavailable and will be available shortly.\n\n"
+            "We are sorry for any inconvenience and appreciate your patience.\n\n"
+            "Thank you."
+        )
+        st.stop()
+    r.raise_for_status()
+    raw = pd.read_csv(io.StringIO(r.text))
     if "Effective Date" in raw.columns and "Rate (%)" in raw.columns:
         df = raw[["Effective Date", "Rate (%)"]].copy()
         df.columns = ["date", "rate"]
