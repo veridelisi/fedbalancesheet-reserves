@@ -45,11 +45,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 def badge(text, bg="#E5E7EB", fg="#111827", br="#D1D5DB"):
-    return f"""
-    <span class="vd-badge" style="background:{bg};color:{fg};border-color:{br};">
-      {text}
-    </span>
-    """
+    # single-line HTML to avoid Markdown code block rendering
+    return f'<span class="vd-badge" style="background:{bg};color:{fg};border-color:{br};">{text}</span>'
+
 
 # --- Secrets/env loader: st.secrets -> section -> environment ---
 def get_secret(keys, default=None, cast=None):
