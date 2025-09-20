@@ -369,17 +369,52 @@ chart_volytd = alt.Chart(vol_ytd).mark_line().encode(
 st.altair_chart(chart_volytd, use_container_width=True)
 
 # ------------------------------ Methodology ---------------------------
-with st.expander("Methodology"):
+st.markdown("### 📋 Methodology")
+with st.expander("🔎 Click to expand methodology details", expanded=False):
     st.markdown(
         """
-- Only `Effective Date` and `Rate (%)` are retrieved from the NY Fed API.
-- Summary shows values on those dates.
-- Two charts (levels): **Last 7 Days** and **Since 01-01-2025**.
-- Default selection is **EFFR only**; the 5 inline checkboxes let users add SOFR, OBFR, BGCR, TGCR.
-- Y-axis is dynamic (no zero baseline).
-- Styles: EFFR solid & **black**, OBFR dashed, SOFR solid, BGCR/TGCR dotted; dash legend hidden.
+**What this page shows**  
+- 🧭 NY Fed **overnight reference rates** with two level charts:  
+  - 📅 **Last 7 business days**  
+  - 📆 **Since 2025-01-01 (YTD)**
+
+---
+
+### 🗂️ Data source & fields
+- 🇺🇸 **Federal Reserve Bank of New York — Reference Rates API**  
+- Retrieved per series: **Effective Date** and **Rate (%)** only.  
+- Series supported: **EFFR**, **OBFR**, **SOFR**, **BGCR**, **TGCR**.
+
+---
+
+### 🎛️ Series selection & defaults
+- ✅ Default: **EFFR** only.  
+- ⬜ Inline checkboxes let you add **SOFR**, **OBFR**, **BGCR**, **TGCR** dynamically.
+
+---
+
+### 📊 Chart behavior
+- 📈 Levels (no diffs), business days only, **auto y-axis** (no forced zero).  
+- 🧰 Tooltips show **Effective Date** and **Rate (%)**; zoom/pan enabled.  
+- 🎨 Style: **EFFR black solid**, OBFR dashed, SOFR solid, **BGCR/TGCR dotted** (dash legend hidden).
+
+---
+
+### 🗺️ Glossary — one-line definitions
+- **EFFR** — Overnight **unsecured** federal funds rate among depository institutions (volume-weighted median of fed funds trades).  
+- **OBFR** — Overnight **unsecured** bank funding rate combining **fed funds + Eurodollar** transactions (volume-weighted).  
+- **SOFR** — Overnight **secured** repo rate backed by **U.S. Treasuries** across tri-party/cleared/bi-lateral transactions (transaction-based).  
+- **BGCR** — **Broad** general collateral repo rate from **tri-party** repo excluding specials, across Treasury/agency collateral.  
+- **TGCR** — **Tri-party** general collateral repo rate backed by **Treasury** collateral only (ex-specials).
+
+---
+
+### ⚠️ Notes & caveats
+- ⏳ Publication timing: latest prints may post next business morning and can revise.  
+- 🔁 Missing series on a given date are omitted (no forward-fill).
         """
     )
+
 
 # --------------------------- Footer -------------------------------
 st.markdown("---")
