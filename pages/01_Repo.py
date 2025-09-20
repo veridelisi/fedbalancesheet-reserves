@@ -72,9 +72,17 @@ def to_num(s):
 def fetch_data():
     """Load full Primary Dealer timeseries and standardize columns."""
     r = requests.get(API_URL, timeout=60)
-    st.write("API response preview:", r.text[:500])  # <--- Ekle
+    # Check for site maintenance or HTML error
+    if "text/html" in r.headers.get("Content-Type", "") or "Site Maintenance" in r.text:
+        st.warning(
+            "Site Maintenance\n\n"
+            "The page you are looking for is temporarily unavailable and will be available shortly.\n\n"
+            "We are sorry for any inconvenience and appreciate your patience.\n\n"
+            "Thank you."
+        )
+        st.stop()
+    r.raise_for_status()
     df = pd.read_csv(StringIO(r.text))
-  
 
     date_col   = find_col(df.columns, ["as of date", "date", "asof"])
     series_col = find_col(df.columns, ["time series", "timeseries", "series", "keyid"])
