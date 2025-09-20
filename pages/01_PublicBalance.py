@@ -546,7 +546,7 @@ else:
         st.metric(
             label="YTD Net Result",
             value=f"${fmt_bn(ytd_net)}B",
-            delta=f"{'⬆TGA Increased' if ytd_net >= 0 else '⬇TGA Decreased'}"
+            delta=f"{'TGA Increased' if ytd_net >= 0 else 'TGA Decreased'}"
         )
 
 # ---------------------------- Methodology -------------------------------
