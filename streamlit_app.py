@@ -11,7 +11,7 @@ st.markdown("""
         /* Hero section styling */
             
             <div class="hero-title">
-    <img src="assets/hero/veridelisi_logo.png" style="height: 50px; vertical-align: middle; margin-right: 15px;">
+    <img src="assets/hero/veridelisi_logo.jpg" style="height: 50px; vertical-align: middle; margin-right: 15px;">
     Veridelisi Analytics Portal
               </div>
         .hero-container {
