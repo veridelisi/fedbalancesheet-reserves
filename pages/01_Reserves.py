@@ -276,7 +276,8 @@ def _fmtB(x, pos):
     return f"{x:,.1f}B" if abs(x) < 10 else f"{x:,.0f}B"
 fmtB = FuncFormatter(_fmtB)
 
-def plot_barh_billions(df, col, title, xlabel):
+def plot_barh_billions(df, col, title, xlabel, xlim_b=None):
+    """Barh in billions. If xlim_b is given, use symmetric [-xlim_b, +xlim_b]."""
     if df.empty or df[col].abs().max() == 0:
         return
     dd = df.copy()
@@ -290,69 +291,428 @@ def plot_barh_billions(df, col, title, xlabel):
     ax.set_xlabel(xlabel)
     ax.grid(axis='x', alpha=0.3)
     ax.axvline(0, color='black', lw=1)
-    max_val = max(abs(dd['val_b'].min()), abs(dd['val_b'].max()))
-    ax.set_xlim(-max_val*1.2, max_val*1.2)
+
+    if xlim_b is None:
+        max_val = max(abs(dd['val_b'].min()), abs(dd['val_b'].max()))
+        ax.set_xlim(-max_val*1.2, max_val*1.2)
+    else:
+        ax.set_xlim(-xlim_b, xlim_b)
+
     ax.xaxis.set_major_locator(AutoLocator())
     ax.xaxis.set_major_formatter(fmtB)
     st.pyplot(fig, clear_figure=True)
 
-# ---------- Layout (Eurodollar-style: two rows) ----------
-# Select equal counts for both sides (presentation only)
-n_weekly = min(len(df_assets), len(df_liab))
-assets_w = df_assets.loc[df_assets['weekly'].abs().nlargest(n_weekly).index] if not df_assets.empty else df_assets
-liabs_w  = df_liab.loc[df_liab['weekly_impact'].abs().nlargest(n_weekly).index] if not df_liab.empty else df_liab
+# Enhanced table functions - replace the table section in your code
 
-n_annual = min(len(df_assets), len(df_liab))
-assets_a = df_assets.loc[df_assets['annual'].abs().nlargest(n_annual).index] if not df_assets.empty else df_assets
-liabs_a  = df_liab.loc[df_liab['annual_impact'].abs().nlargest(n_annual).index] if not df_liab.empty else df_liab
+def format_millions(value):
+    """Format millions with proper styling"""
+    if pd.isna(value) or value == 0:
+        return "—"
+    
+    abs_val = abs(value)
+    if abs_val >= 1000:
+        formatted = f"${abs_val/1000:.1f}B"
+    else:
+        formatted = f"${abs_val:,.0f}M"
+    
+    return f"+{formatted}" if value > 0 else f"-{formatted}"
 
-# Row 1 — WEEKLY
-st.markdown(
-    f"### Charts {badge('WEEKLY', bg='#DCFCE7', fg='#065F46', br='#A7F3D0')}",
-    unsafe_allow_html=True
-)
-row1_left, row1_right = st.columns(2, gap="large")
+def get_significance_badge(value):
+    """Return significance badge based on magnitude"""
+    abs_val = abs(value) if not pd.isna(value) else 0
+    if abs_val >= 5000:  # 5B+
+        return "🔥 Major"
+    elif abs_val >= 1000:  # 1B+
+        return "⚡ High"
+    elif abs_val >= 500:   # 500M+
+        return "📈 Medium"
+    else:
+        return "💭 Low"
 
-with row1_left:
-    st.subheader("Assets — Weekly change (billions)")
-    plot_barh_billions(
-        assets_w, 'weekly',
-        f"Weekly change ({t.strftime('%b %d, %Y')} vs {t_w.strftime('%b %d, %Y')})",
-        "Change (billions of dollars)"
+def create_enhanced_assets_table(df_assets, show_details=True):
+    """Create enhanced assets table with modern styling"""
+    if df_assets.empty:
+        st.info("No significant asset changes to display")
+        return
+    
+    # Prepare data
+    display_df = df_assets.copy()
+    display_df = display_df.sort_values('weekly', key=abs, ascending=False)
+    
+    # Create display table
+    table_data = []
+    for _, row in display_df.iterrows():
+        weekly_badge = get_significance_badge(row['weekly'])
+        annual_badge = get_significance_badge(row['annual'])
+        
+        table_data.append({
+            "Asset Factor": row['name'],
+            "Weekly": format_millions(row['weekly']),
+            "Weekly Impact": weekly_badge,
+            "Annual": format_millions(row['annual']),
+            "Annual Impact": annual_badge
+        })
+    
+    # Display with custom styling
+    st.markdown("""
+    <style>
+    .assets-table {
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        border-radius: 12px;
+        padding: 16px;
+        border: 1px solid #cbd5e1;
+        margin: 16px 0;
+    }
+    .table-header {
+        color: #1e293b;
+        font-weight: 600;
+        font-size: 1.1rem;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    st.markdown(
+        '<div class="assets-table">'
+        '<div class="table-header">📊 Assets Changes</div>',
+        unsafe_allow_html=True
     )
+    
+    # Control options
+    col1, col2, col3 = st.columns([2, 1, 1])
+    with col1:
+        sort_by = st.selectbox(
+            "Sort by:",
+            ["Weekly Impact", "Annual Impact", "Asset Name"],
+            key="assets_sort"
+        )
+    with col2:
+        show_threshold = st.selectbox(
+            "Show items ≥",
+            ["All", "500M+", "1B+", "5B+"],
+            key="assets_threshold"
+        )
+    with col3:
+        view_mode = st.radio("View:", ["Compact", "Detailed"], key="assets_view", horizontal=True)
+    
+    # Apply filters and sorting
+    filtered_df = display_df.copy()
+    
+    # Apply threshold filter
+    if show_threshold != "All":
+        threshold_map = {"500M+": 500, "1B+": 1000, "5B+": 5000}
+        min_val = threshold_map[show_threshold]
+        filtered_df = filtered_df[
+            (filtered_df['weekly'].abs() >= min_val) | 
+            (filtered_df['annual'].abs() >= min_val)
+        ]
+    
+    # Apply sorting
+    if sort_by == "Weekly Impact":
+        filtered_df = filtered_df.sort_values('weekly', key=abs, ascending=False)
+    elif sort_by == "Annual Impact":
+        filtered_df = filtered_df.sort_values('annual', key=abs, ascending=False)
+    else:  # Asset Name
+        filtered_df = filtered_df.sort_values('name')
+    
+    # Rebuild table data after filtering/sorting
+    table_data = []
+    for _, row in filtered_df.iterrows():
+        if view_mode == "Compact":
+            table_data.append({
+                "Asset": row['name'][:30] + "..." if len(row['name']) > 30 else row['name'],
+                "Weekly": format_millions(row['weekly']),
+                "Annual": format_millions(row['annual'])
+            })
+        else:
+            weekly_badge = get_significance_badge(row['weekly'])
+            annual_badge = get_significance_badge(row['annual'])
+            table_data.append({
+                "Asset Factor": row['name'],
+                "Weekly Change": format_millions(row['weekly']),
+                "Weekly Impact": weekly_badge,
+                "Annual Change": format_millions(row['annual']),
+                "Annual Impact": annual_badge
+            })
+    
+    # Display the table
+    if table_data:
+        df_display = pd.DataFrame(table_data)
+        st.dataframe(
+            df_display,
+            use_container_width=True,
+            hide_index=True,
+            height=min(400, len(df_display) * 35 + 100)
+        )
+        
+        # Summary stats
+        if len(filtered_df) > 0:
+            total_weekly = filtered_df['weekly'].sum()
+            total_annual = filtered_df['annual'].sum()
+            st.markdown(
+                f"**Summary:** {len(filtered_df)} items • "
+                f"Weekly total: {format_millions(total_weekly)} • "
+                f"Annual total: {format_millions(total_annual)}"
+            )
+    else:
+        st.info("No items match the selected criteria")
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
-with row1_right:
-    st.subheader("Liabilities — Weekly reserve impact (billions)")
-    plot_barh_billions(
-        liabs_w, 'weekly_impact',
-        f"Weekly impact on reserves ({t.strftime('%b %d, %Y')} vs {t_w.strftime('%b %d, %Y')})",
-        "Reserve impact (billions of dollars)"
+def create_enhanced_liabilities_table(df_liab, show_details=True):
+    """Create enhanced liabilities table with modern styling"""
+    if df_liab.empty:
+        st.info("No significant liability changes to display")
+        return
+    
+    # Prepare data
+    display_df = df_liab.copy()
+    display_df = display_df.sort_values('weekly_impact', key=abs, ascending=False)
+    
+    st.markdown("""
+    <style>
+    .liabilities-table {
+        background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+        border-radius: 12px;
+        padding: 16px;
+        border: 1px solid #fca5a5;
+        margin: 16px 0;
+    }
+    .liab-table-header {
+        color: #7f1d1d;
+        font-weight: 600;
+        font-size: 1.1rem;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    st.markdown(
+        '<div class="liabilities-table">'
+        '<div class="liab-table-header">🏦 Liabilities Reserve Impact</div>',
+        unsafe_allow_html=True
     )
+    
+    # Control options
+    col1, col2, col3 = st.columns([2, 1, 1])
+    with col1:
+        sort_by = st.selectbox(
+            "Sort by:",
+            ["Weekly Impact", "Annual Impact", "Liability Name"],
+            key="liab_sort"
+        )
+    with col2:
+        show_threshold = st.selectbox(
+            "Show items ≥",
+            ["All", "500M+", "1B+", "5B+"],
+            key="liab_threshold"
+        )
+    with col3:
+        view_mode = st.radio("View:", ["Compact", "Detailed"], key="liab_view", horizontal=True)
+    
+    # Apply filters and sorting
+    filtered_df = display_df.copy()
+    
+    # Apply threshold filter
+    if show_threshold != "All":
+        threshold_map = {"500M+": 500, "1B+": 1000, "5B+": 5000}
+        min_val = threshold_map[show_threshold]
+        filtered_df = filtered_df[
+            (filtered_df['weekly_impact'].abs() >= min_val) | 
+            (filtered_df['annual_impact'].abs() >= min_val)
+        ]
+    
+    # Apply sorting
+    if sort_by == "Weekly Impact":
+        filtered_df = filtered_df.sort_values('weekly_impact', key=abs, ascending=False)
+    elif sort_by == "Annual Impact":
+        filtered_df = filtered_df.sort_values('annual_impact', key=abs, ascending=False)
+    else:  # Liability Name
+        filtered_df = filtered_df.sort_values('name')
+    
+    # Create table data
+    table_data = []
+    for _, row in filtered_df.iterrows():
+        if view_mode == "Compact":
+            table_data.append({
+                "Liability": row['name'][:30] + "..." if len(row['name']) > 30 else row['name'],
+                "Weekly Impact": format_millions(row['weekly_impact']),
+                "Annual Impact": format_millions(row['annual_impact'])
+            })
+        else:
+            weekly_badge = get_significance_badge(row['weekly_impact'])
+            annual_badge = get_significance_badge(row['annual_impact'])
+            
+            # Direction indicators
+            weekly_dir = "📈" if row['weekly_change'] > 0 else "📉" if row['weekly_change'] < 0 else "➡️"
+            annual_dir = "📈" if row['annual_change'] > 0 else "📉" if row['annual_change'] < 0 else "➡️"
+            
+            table_data.append({
+                "Liability Factor": row['name'],
+                "Weekly Change": f"{weekly_dir} {format_millions(row['weekly_change'])}",
+                "Weekly Reserve Impact": format_millions(row['weekly_impact']),
+                "Weekly Significance": weekly_badge,
+                "Annual Change": f"{annual_dir} {format_millions(row['annual_change'])}",
+                "Annual Reserve Impact": format_millions(row['annual_impact']),
+                "Annual Significance": annual_badge
+            })
+    
+    # Display the table
+    if table_data:
+        df_display = pd.DataFrame(table_data)
+        st.dataframe(
+            df_display,
+            use_container_width=True,
+            hide_index=True,
+            height=min(400, len(df_display) * 35 + 100)
+        )
+        
+        # Summary stats
+        if len(filtered_df) > 0:
+            total_weekly = filtered_df['weekly_impact'].sum()
+            total_annual = filtered_df['annual_impact'].sum()
+            st.markdown(
+                f"**Summary:** {len(filtered_df)} items • "
+                f"Weekly impact: {format_millions(total_weekly)} • "
+                f"Annual impact: {format_millions(total_annual)}"
+            )
+            
+            # Additional insight
+            dominant_weekly = filtered_df.loc[filtered_df['weekly_impact'].abs().idxmax(), 'name'] if len(filtered_df) > 0 else "None"
+            st.caption(f"💡 Biggest weekly impact: {dominant_weekly}")
+    else:
+        st.info("No items match the selected criteria")
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
+def create_smart_summary_cards(assets_weekly, assets_annual, liab_weekly, liab_annual, net_weekly, net_annual):
+    """Create beautiful summary cards with insights"""
+    
+    st.markdown("""
+    <style>
+    .summary-container {
+        display: flex;
+        gap: 16px;
+        margin: 24px 0;
+        flex-wrap: wrap;
+    }
+    .summary-card {
+        flex: 1;
+        min-width: 200px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 16px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        position: relative;
+        overflow: hidden;
+    }
+    .summary-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255,255,255,0.1);
+        backdrop-filter: blur(10px);
+        z-index: 0;
+    }
+    .card-content {
+        position: relative;
+        z-index: 1;
+    }
+    .card-title {
+        font-size: 0.9rem;
+        opacity: 0.9;
+        margin-bottom: 8px;
+    }
+    .card-value {
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin-bottom: 4px;
+    }
+    .card-subtitle {
+        font-size: 0.8rem;
+        opacity: 0.8;
+    }
+    .positive { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+    .negative { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+    .neutral { background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Determine card colors and insights
+    net_weekly_class = "positive" if net_weekly > 0 else "negative" if net_weekly < 0 else "neutral"
+    net_annual_class = "positive" if net_annual > 0 else "negative" if net_annual < 0 else "neutral"
+    
+    weekly_emoji = "💰" if net_weekly > 0 else "📉" if net_weekly < 0 else "➖"
+    annual_emoji = "🚀" if net_annual > 0 else "⚠️" if net_annual < 0 else "➖"
+    
+    # Create insights
+    weekly_insight = "Reserves increasing" if net_weekly > 0 else "Reserves decreasing" if net_weekly < 0 else "No net change"
+    annual_insight = "Long-term growth" if net_annual > 0 else "Long-term decline" if net_annual < 0 else "Stable trend"
+    
+    st.markdown("### 💼 Smart Reserve Impact Summary")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown(f"""
+        <div class="summary-card {net_weekly_class}">
+            <div class="card-content">
+                <div class="card-title">{weekly_emoji} Weekly Net Impact</div>
+                <div class="card-value">{format_millions(net_weekly)}</div>
+                <div class="card-subtitle">{weekly_insight}</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f"""
+        <div class="summary-card {net_annual_class}">
+            <div class="card-content">
+                <div class="card-title">{annual_emoji} Annual Net Impact</div>
+                <div class="card-value">{format_millions(net_annual)}</div>
+                <div class="card-subtitle">{annual_insight}</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Additional breakdown
+    with st.expander("🔍 Detailed Breakdown", expanded=False):
+        breakdown_data = [
+            {"Component": "Assets (Weekly)", "Impact": format_millions(assets_weekly), "Direction": "📈" if assets_weekly > 0 else "📉"},
+            {"Component": "Liabilities (Weekly)", "Impact": format_millions(liab_weekly), "Direction": "📈" if liab_weekly > 0 else "📉"},
+            {"Component": "Assets (Annual)", "Impact": format_millions(assets_annual), "Direction": "📈" if assets_annual > 0 else "📉"},
+            {"Component": "Liabilities (Annual)", "Impact": format_millions(liab_annual), "Direction": "📈" if liab_annual > 0 else "📉"},
+        ]
+        breakdown_df = pd.DataFrame(breakdown_data)
+        st.dataframe(breakdown_df, use_container_width=True, hide_index=True)
+
+# Usage example - replace your existing table section with:
+"""
+# ---------- Enhanced Tables Section ----------
 st.markdown("---")
+st.subheader("📊 Smart Reserve Analysis")
 
-# Row 2 — YEARLY
-st.markdown(
-    f"### Charts {badge('YEARLY', bg='#DBEAFE', fg='#1E3A8A', br='#BFDBFE')} {badge(base_label)}",
-    unsafe_allow_html=True
+# Create enhanced tables
+create_enhanced_assets_table(assets_tbl)
+create_enhanced_liabilities_table(liab_tbl)
+
+# Create smart summary
+create_smart_summary_cards(
+    assets_weekly, assets_annual, 
+    liab_weekly, liab_annual, 
+    net_weekly, net_annual
 )
-row2_left, row2_right = st.columns(2, gap="large")
-
-with row2_left:
-    st.subheader("Assets — Annual change vs baseline (billions)")
-    plot_barh_billions(
-        assets_a, 'annual',
-        f"Annual change vs baseline {t_y} ({t.strftime('%b %d, %Y')} vs {t_y.strftime('%b %d, %Y')})",
-        "Change (billions of dollars)"
-    )
-
-with row2_right:
-    st.subheader("Liabilities — Annual reserve impact (billions)")
-    plot_barh_billions(
-        liabs_a, 'annual_impact',
-        f"Annual impact vs baseline {t_y} ({t.strftime('%b %d, %Y')} vs {t_y.strftime('%b %d, %Y')})",
-        "Reserve impact (billions of dollars)"
-    )
+"""
 
 # ---------- Tables & Net ----------
 st.markdown("---")
