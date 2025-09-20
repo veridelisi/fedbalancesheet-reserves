@@ -84,7 +84,7 @@ def create_enhanced_assets_table(df_assets):
     display_df = display_df.sort_values('weekly', key=abs, ascending=False)
     
     st.markdown(
-        '<div class="assets-table"><div class="table-header">📊 Assets Changes</div>',
+        '<div class="assets-table"><div class="table-header">📊 Assets Reserve Impacts</div>',
         unsafe_allow_html=True
     )
     
