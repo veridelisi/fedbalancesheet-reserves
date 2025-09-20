@@ -553,6 +553,56 @@ create_smart_summary_cards(
     liab_weekly, liab_annual,
     net_weekly, net_annual
 )
+# ---------------------------- Methodology -------------------------------
+st.markdown("### 📋 Methodology")
+with st.expander("🔎 Click to expand methodology details", expanded=False):
+    st.markdown(
+        f"""
+**What this page shows**
+- 🧭 Compares **the latest Wednesday** H.4.1 snapshot to:
+  - ⏱️ **Previous Wednesday** → *Weekly* change  
+  - 📅 **Fixed baseline** → *Yearly* change vs **2025-01-01**
+- 🧰 Two rows of charts (Eurodollar style):
+  - **WEEKLY:** Assets (Δ level) • Liabilities (Δ reserve impact) — *top-6 by |weekly|*  
+  - **YEARLY:** same metrics vs **2025-01-01**
+
+**Data source**
+- 📡 Federal Reserve **H.4.1 Statistical Release** via FRED *release/tables* API  
+  • H.4.1 overview: <https://www.federalreserve.gov/releases/h41.htm>  
+  • FRED API (Release Tables): <https://fred.stlouisfed.org/docs/api/fred/releasetables.html>  
+  • Release/Element used: **rid=20**, **eid=1193943** (Wednesday level table)
+
+**Units & transforms**
+- 🔢 Values returned by the API are **millions of USD**; charts label **billions** (M → ÷1,000).
+- 🧮 *Securities (net of prem./disc.)* =  
+  **Held outright** + **Unamortized premiums** + **Unamortized discounts**.
+
+**How changes are computed (by line item)**
+- **Assets:**  
+  `weekly = latest − week_ago` • `annual = latest − baseline(2025-01-01)`
+- **Liabilities:**  
+  `weekly_change = latest − week_ago` • `annual_change = latest − baseline`  
+  Reserve-impact convention:  
+  `weekly_impact = − weekly_change` • `annual_impact = − annual_change`  
+  (A rise in a liability **drains** reserves ➜ negative impact.)
+
+**Smart Reserve Impact Summary (the headline card)**
+- 🧮 Net weekly/annual numbers are taken **directly** from the H.4.1 line  
+  **“Reserve balances with Federal Reserve Banks.”**  
+  `NET_weekly = RB(latest) − RB(week_ago)`  
+  `NET_annual = RB(latest) − RB(2025-01-01)`  
+  👉 This ensures the headline matches the official H.4.1 total even if individual components are filtered.
+
+**Display rules**
+- 🚧 Noise filter (applied to component lists): **±$50M** for weekly, **±$100M** for annual.
+- 🟩 Positive bars increase levels / add to reserves; 🟥 negatives reduce them.
+- 📋 Tables provide compact/detailed views with optional thresholds; charts show top-contributors for readability.
+
+**Caveats**
+- Minor differences can appear between component sums and the headline due to filters, rounding, or excluded small lines.  
+  The **Smart** card always reflects the official **Reserve balances** change.
+        """
+    )
 
 
 # --------------------------- Footer -------------------------------
