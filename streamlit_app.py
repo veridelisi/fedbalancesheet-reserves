@@ -254,8 +254,8 @@ st.markdown("""
 # Hero Section
 st.markdown("""
     <div class="hero-container">
-        <div class="hero-title">📊 Veridelisi Analytics Portal</div>
-        <div class="hero-subtitle">Financial Markets Intelligence & Data Analytics</div>
+        <div class="hero-title"> Veridelisi Analytics Portal</div>
+        <div class="hero-subtitle">Data Analytics</div>
         <div class="hero-description">
             Comprehensive dashboards for Federal Reserve operations, money markets, and Treasury analytics. 
             Real-time insights into liquidity conditions, market structure, and monetary policy implementation.
