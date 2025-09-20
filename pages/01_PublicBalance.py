@@ -619,7 +619,7 @@ with st.expander("🔎 Click to expand methodology details", expanded=False):
     )
 
 # --------------------------- Footer -------------------------------
-st.markdown("---")
+
 st.markdown(
     """
     <div style="text-align:center;color:#64748b;font-size:0.95rem;padding:20px 0;">
