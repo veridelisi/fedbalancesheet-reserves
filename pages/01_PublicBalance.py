@@ -550,39 +550,73 @@ else:
         )
 
 # ---------------------------- Methodology -------------------------------
-
-st.markdown("### Methodology")
-with st.expander("Click to expand methodology details"):
+st.markdown("### 📋 Methodology")
+with st.expander("🔎 Click to expand methodology details", expanded=False):
     st.markdown(
         """
-        **Data Source:** U.S. Treasury – FiscalData `deposits_withdrawals_operating_cash`
-        
-        **Daily Calculations:**
-        - **Taxes** = Total TGA Deposits (Table II) − Public Debt Cash Issues (Table IIIB)
-        - **Expenditures** = Total TGA Withdrawals (Table II) − Public Debt Cash Redemptions (Table IIIB)
-        - **Daily Result** = Taxes + New Debt − Expenditures − Redemptions (billions)
-        
-        **YTD Analysis:**
-        - All values are cumulative from 2025-01-01 to latest available date
-        - Categories are aggregated across all business days in the period
-        - Debt operations chart shows total new issuances vs total redemptions
-        - Net result represents government's overall cash position change for the year
-        
-        **Data Processing:**
-        - All amounts converted from millions to billions for readability
-        - Top-10 tables exclude total/summary rows and debt-related categories
-        - Business days only (weekends/holidays excluded)
-        - Null/empty categories filtered out using string matching
-        - Only positive transaction amounts included in rankings
-        
-        **Categories Excluded from Tables:**
-        - Total TGA Deposits/Withdrawals (summary rows)
-        - Public Debt Cash Issues/Redemptions (handled separately)
-        - Null/empty category names
-        - Zero or negative transaction amounts
+**What this page shows**  
+- 🧾 Decomposition of the Federal public cash position into **Taxes**, **Expenditures**, and **Debt operations**.  
+- 🧮 Two lenses: **daily result** and **year-to-date (YTD)** aggregates starting **2025-01-01**.
+
+---
+
+### 🧮 Calculation logic (daily)
+- 💵 **Taxes** = **Total TGA Deposits (DTS Table II)** − **Public Debt Cash Issues (DTS Table IIIB)**  
+- 🧾 **Expenditures** = **Total TGA Withdrawals (DTS Table II)** − **Public Debt Cash Redemptions (DTS Table IIIB)**  
+- 🔗 **Debt operations** are shown separately as:
+  - **New Debt (Issues)** = Public Debt Cash Issues (IIIB)  
+  - **Redemptions** = Public Debt Cash Redemptions (IIIB)  
+- 📊 **Daily Result (Δ cash)** = **Taxes + New Debt − Expenditures − Redemptions**  
+- 🔁 **Business days only**; weekends/holidays excluded (no forward-fill on flows).
+
+---
+
+### 📅 YTD analysis
+- 🧷 Period: **from 2025-01-01 to latest available date**.  
+- ➕ Categories are summed across all business days.  
+- 🧮 **Debt ops chart** compares **total Issues** vs **total Redemptions**.  
+- 🧾 **YTD Net result** = cumulative **Daily Result** (gov’t cash position change).
+
+---
+
+### 🗂️ Data source
+- 🇺🇸 **U.S. Treasury – Fiscal Data (Daily Treasury Statement)**  
+  • Primary dataset: `deposits_withdrawals_operating_cash` (DTS Table II baseline)  
+  • Debt ops mapping: **Public Debt Cash Issues/Redemptions** (DTS Table IIIB)  
+  • ⏱️ **Update**: Daily on business days (publication lag and revisions may occur).
+
+---
+
+### ⚙️ Data processing
+- 🔢 Units: API returns **millions of USD** → displayed as **USD billions** (÷1,000).  
+- 🧹 Ranking tables (Top-10):  
+  - Exclude **total/summary** rows and debt-related categories (handled separately).  
+  - Filter out **null/empty** labels.  
+  - Keep **positive** transaction amounts only for the Top-10 leaderboards.  
+
+---
+
+### 🚫 Categories excluded from Top-10 tables
+- **Total TGA Deposits/Withdrawals** (summary rows)  
+- **Public Debt Cash Issues/Redemptions** (shown in Debt ops section)  
+- **Null/empty** category names  
+- **Zero or negative** amounts for ranking views
+
+---
+
+### ⚠️ Caveats
+- ⏳ **Timing effects** (settlement dates, tax peaks, coupon/redemption days) can cause large day-to-day swings.  
+- 🔁 **Revisions**: DTS entries may be restated after initial publication.  
+- 🕒 Values are **end-of-day**; intraday cash movements are not captured.
+
+---
+
+### 🗺️ Glossary
+- **Taxes (proxy)**: Non-debt deposit inflows into TGA (after removing debt-issue proceeds).  
+- **Expenditures (proxy)**: Non-debt outflows (after removing redemptions).  
+- **Daily Result**: Net change in the government’s cash position for that day.
         """
     )
-
 
 # --------------------------- Footer -------------------------------
 st.markdown("---")
