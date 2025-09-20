@@ -10,10 +10,7 @@ st.markdown("""
         
         /* Hero section styling */
             
-            <div class="hero-title">
-    <img src="assets/hero/veridelisi_logo.jpg" style="height: 50px; vertical-align: middle; margin-right: 15px;">
-    Veridelisi Analytics Portal
-              </div>
+            <img src="./assets/hero/veridelisi_logo.jpg" style="height: 50px; vertical-align: middle; margin-right: 15px;">
         .hero-container {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             padding: 3rem 2rem;
