@@ -1,6 +1,6 @@
 # streamlit_app.py
-import os, math, re, requests
-from datetime import timedelta, date
+import math, re, requests
+from datetime import timedelta
 import pandas as pd
 import numpy as np
 import streamlit as st
@@ -8,10 +8,13 @@ from dateutil.relativedelta import relativedelta
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter, AutoLocator
 
+
+
 st.set_page_config(page_title="Veridelisi • Reserve Page", layout="wide")
 
-# --- Top navigation (pure Streamlit) ---
+# --- Gezinme Barı (Yatay Menü, saf Streamlit) ---
 cols = st.columns(8)
+
 with cols[0]:
     st.page_link("streamlit_app.py", label="🏠 Home")
 with cols[1]:
@@ -29,31 +32,31 @@ with cols[6]:
 with cols[7]:
     st.page_link("pages/01_Eurodollar.py", label="💡 Eurodollar")
 
-# --- Styling (single CSS + badge helper) ---
+
+# --- Sol menü sakla ---
 st.markdown("""
-<style>
-  [data-testid="stSidebarNav"]{display:none;}
-  section[data-testid="stSidebar"][aria-expanded="true"]{display:none;}
-  div.block-container{padding-top:0.75rem;}
-  .vd-badge{
-    display:inline-block;padding:3px 8px;border-radius:8px;
-    font-size:0.75rem;font-weight:600;letter-spacing:.2px;
-    color:#111827;background:#E5E7EB;border:1px solid #D1D5DB;
-    margin-left:.5rem;vertical-align:middle;
-  }
-</style>
-""", unsafe_allow_html=True)
+    <style>
+        [data-testid="stSidebarNav"] {display: none;}
+        section[data-testid="stSidebar"][aria-expanded="true"]{display: none;}
+    </style>
+    """, unsafe_allow_html=True)
 
-def badge(text, bg="#E5E7EB", fg="#111827", br="#D1D5DB"):
-    # single-line HTML to avoid Markdown code block rendering
-    return f'<span class="vd-badge" style="background:{bg};color:{fg};border-color:{br};">{text}</span>'
 
+
+# --- Sol menü sakla ---
+st.markdown("""
+    <style>
+        [data-testid="stSidebarNav"] {display: none;}
+        section[data-testid="stSidebar"][aria-expanded="true"]{display: none;}
+    </style>
+    """, unsafe_allow_html=True)
 
 # --- Secrets/env loader: st.secrets -> section -> environment ---
 def get_secret(keys, default=None, cast=None):
     if isinstance(keys, str):
         keys = [keys]
-    # 1) direct st.secrets["KEY"]
+
+    # 1) düz st.secrets["KEY"]
     for k in keys:
         try:
             if k in st.secrets:
@@ -61,7 +64,8 @@ def get_secret(keys, default=None, cast=None):
                 return cast(val) if (cast and val is not None) else val
         except Exception:
             pass
-    # 2) search nested sections (e.g., [fred])
+
+    # 2) st.secrets tablo (örn. [fred] api_key=...)
     try:
         for _, section in st.secrets.items():
             if isinstance(section, dict):
@@ -72,31 +76,38 @@ def get_secret(keys, default=None, cast=None):
                         return cast(val) if (cast and val is not None) else val
     except Exception:
         pass
-    # 3) environment variable
+
+    # 3) ortam değişkeni
     for k in keys:
         val = os.environ.get(k)
         if val is not None:
             return cast(val) if cast else val
+
     return default
 
-# --- FRED settings (fallbacks) ---
+# --- FRED ayarları (fallback'lı) ---
 API_KEY    = get_secret(["API_KEY", "FRED_API_KEY"])
 BASE       = get_secret(["BASE", "FRED_BASE"], default="https://api.stlouisfed.org")
 RELEASE_ID = get_secret(["RELEASE_ID", "FRED_RELEASE_ID"], default=20, cast=int)
 ELEMENT_ID = get_secret(["ELEMENT_ID", "FRED_ELEMENT_ID"], default=1193943, cast=int)
 
 if not API_KEY:
-    st.error("API key not set. Settings → Secrets: add `API_KEY` (or `FRED_API_KEY`).")
+    st.error("API key not set. Settings → Secrets'e `API_KEY` (veya `FRED_API_KEY`) ekleyin.")
     st.stop()
 
+
 # ---------- Page ----------
+
+
 st.title("🏦 Federal Reserve H.4.1 — Assets & Liabilities (Reserves Impact)")
 st.caption("Weekly change vs prior week, and Annual change vs fixed baseline 2025-01-01")
 
-# ---------- Settings (kept as in original) ----------
+# ---------- Settings ----------
 BASE        = "https://api.stlouisfed.org"
 RELEASE_ID  = 20
 ELEMENT_ID  = 1193943
+
+# API key'i Streamlit Secrets'tan al
 API_KEY = st.secrets.get("API_KEY", None)
 if not API_KEY:
     st.error("API key not set. Go to Settings → Secrets and set `API_KEY`.")
@@ -153,6 +164,8 @@ def lookup(vals: dict, name: str, default=0.0):
     return default
 
 # ---------- Dates & baseline (radio) ----------
+from datetime import date
+
 TARGET_SERIES_ID = "WSHOSHO"  # weekly Wednesday (H.4.1)
 _latest = get_latest_available_date(TARGET_SERIES_ID) or "2025-09-03"
 
@@ -184,11 +197,11 @@ with c2:
     baseline_label = st.radio(
         "Annual baseline",
         ("YoY (t - 1 year)", "01.01.2025"),
-        index=0,
-        horizontal=True
+        index=0,              # default: YoY
+        horizontal=True       # yuvarlak kutucuklar yatay dursun
     )
 
-# Select yearly baseline
+# Seçime göre yıllık baz
 if baseline_label.startswith("YoY"):
     t_y = t_yoy
     base_label = "YoY"
@@ -196,13 +209,17 @@ else:
     t_y = t_fixed
     base_label = "2025-01-01"
 
-# ---------- Fetch (as-is) ----------
+# ---------- Fetch (seçilen baza göre) ----------
 with st.spinner("Fetching H.4.1 data..."):
     vals_t = get_table_values(t.isoformat())
     vals_w = get_table_values(t_w.isoformat())
     vals_y = get_table_values(t_y.isoformat())
 
-# ---------- Calculations (as-is) ----------
+
+
+
+
+# ---------- Calculations ----------
 def net_sec(vdict):
     return (
         lookup(vdict, "Securities held outright")
@@ -211,7 +228,7 @@ def net_sec(vdict):
     )
 
 assets_map = {
-    "Securities held outright": "Securities (net of prem./disc.)",
+    "Securities held outright": "Securities (net of prem./disc.)",  # computed via net_sec
     "Repurchase agreements": "Repurchase agreements",
     "Loans": "Loans to depository institutions",
     "Net portfolio holdings of MS Facilities 2020 LLC (Main Street Lending Program)": "Net portfolio holdings of facilities",
@@ -275,7 +292,7 @@ def plot_barh_billions(df, col, title, xlabel):
     dd = df.copy()
     dd['val_b'] = dd[col] / 1000.0
     dd = dd.sort_values('val_b')
-    colors = ['#16a34a' if x >= 0 else '#ef4444' for x in dd['val_b']]
+    colors = ['#1f77b4' if x >= 0 else 'red' for x in dd['val_b']]
 
     fig, ax = plt.subplots(figsize=(12, max(4, 0.45*len(dd)+2)))
     ax.barh(dd['name'], dd['val_b'], color=colors, alpha=0.85)
@@ -289,52 +306,36 @@ def plot_barh_billions(df, col, title, xlabel):
     ax.xaxis.set_major_formatter(fmtB)
     st.pyplot(fig, clear_figure=True)
 
-# ---------- Layout (Eurodollar-style: two rows) ----------
-# Row 1 — WEEKLY
-st.markdown(f"### Charts {badge('WEEKLY', bg='#DCFCE7', fg='#065F46', br='#A7F3D0')}", unsafe_allow_html=True)
+# ---------- Layout ----------
+left, right = st.columns(2, gap="large")
 
-row1_left, row1_right = st.columns(2, gap="large")
-
-with row1_left:
-    st.subheader("Assets — Weekly change (billions)")
+with left:
+    st.subheader("Assets — Changes (billions)")
     plot_barh_billions(
         df_assets, 'weekly',
         f"Weekly change ({t.strftime('%b %d, %Y')} vs {t_w.strftime('%b %d, %Y')})",
         "Change (billions of dollars)"
     )
-
-with row1_right:
-    st.subheader("Liabilities — Weekly reserve impact (billions)")
-    plot_barh_billions(
-        df_liab, 'weekly_impact',
-        f"Weekly impact on reserves ({t.strftime('%b %d, %Y')} vs {t_w.strftime('%b %d, %Y')})",
-        "Reserve impact (billions of dollars)"
-    )
-
-st.markdown("---")
-
-# Row 2 — YEARLY
-st.markdown(f"### Charts {badge('YEARLY', bg='#DBEAFE', fg='#1E3A8A', br='#BFDBFE')} {badge(base_label)}", unsafe_allow_html=True)
-
-row2_left, row2_right = st.columns(2, gap="large")
-
-with row2_left:
-    st.subheader("Assets — Annual change vs baseline (billions)")
     plot_barh_billions(
         df_assets, 'annual',
         f"Annual change vs baseline {t_y} ({t.strftime('%b %d, %Y')} vs {t_y.strftime('%b %d, %Y')})",
         "Change (billions of dollars)"
     )
 
-with row2_right:
-    st.subheader("Liabilities — Annual reserve impact (billions)")
+with right:
+    st.subheader("Liabilities — Reserve impact (billions)")
+    plot_barh_billions(
+        df_liab, 'weekly_impact',
+        f"Weekly impact on reserves ({t.strftime('%b %d, %Y')} vs {t_w.strftime('%b %d, %Y')})",
+        "Reserve impact (billions of dollars)"
+    )
     plot_barh_billions(
         df_liab, 'annual_impact',
         f"Annual impact vs baseline {t_y} ({t.strftime('%b %d, %Y')} vs {t_y.strftime('%b %d, %Y')})",
         "Reserve impact (billions of dollars)"
     )
 
-# ---------- Tables & Net (as-is) ----------
+# ---------- Tables & Net ----------
 st.markdown("---")
 st.subheader("Detailed breakdown (millions)")
 
@@ -366,30 +367,19 @@ st.metric("Weekly Net Impact ($M)", f"{net_weekly:+,.0f}")
 st.metric("Annual Net Impact ($M)", f"{net_annual:+,.0f}")
 
 # ---------------------------- Methodology -------------------------------
-st.markdown("### 📋 Methodology")
-with st.expander("🔎 Click to expand methodology details", expanded=False):
-    st.markdown(
-        f"""
-**What this page does**
-- 🧭 Compares **the latest Wednesday** H.4.1 snapshot to:
-  - ⏱️ **Previous Wednesday** → *Weekly* change
-  - 📅 **Baseline** → *Yearly* change (toggle: **YoY** or **2025-01-01**)
-
-**Data source**
-- 📡 Federal Reserve **H.4.1 Statistical Release** via FRED *release/tables* API  
-  • H.4.1: <https://www.federalreserve.gov/releases/h41.htm>  
-  • FRED API (release/tables): <https://fred.stlouisfed.org/docs/api/fred/releasetables.html>
-
-**Computation notes**
-- 🕒 Frequency: weekly (Wednesday reference date).  
-- 📐 Units: input values are **millions of USD**; charts display **billions**.  
-- 🧮 *Securities (net)* = **Held outright** + **Unamortized premiums** + **Unamortized discounts**.  
-- 🏦 Reserve‐impact sign convention for liabilities:  
-  - Increase in a liability (e.g., **Reverse repos**, **TGA**) → **reduces** reserves → shown as **negative** impact.  
-- 🚧 Display thresholds (to reduce noise): **±$50M** (weekly), **±$100M** (annual).  
-- 🎨 Chart colors: positive values (add to reserves/levels) shown in **green**; negatives in **red**.
-        """
-    )
+st.markdown("### Methodology")
+with st.expander("Click to expand methodology details"):
+    st.markdown("""
+    **Data source:** Federal Reserve H.4.1 Statistical Release (FRED release/tables)
+    
+    **Thresholds for display:** ±$50M (weekly), ±$100M (annual)
+    
+    **Legend:** 🔵 Positive = increases; 🔴 Negative = decreases
+    
+    **Securities calculation:** held outright + unamortized premiums + unamortized discounts
+    
+    **Annual baseline:** fixed to YoY (t - 1 year) (not 01.01.2025)
+    """)
 
 # --------------------------- Footer -------------------------------
 st.markdown("---")
