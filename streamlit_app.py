@@ -466,10 +466,12 @@ st.markdown("""
             Built for researchers, analysts, and policymakers who need deep insights into monetary policy implementation.
         </p>
         <div style="border-top: 1px solid #475569; padding-top: 1.5rem; margin-top: 1.5rem;">
-            <a href="https://veridelisi.substack.com/">📰 Veri Delisi Substack</a> • 
+            
             <span style="color: #94a3b8;">Created by</span> 
             <strong>Engin Yılmaz</strong> • 
             <span style="color: #94a3b8;">Amherst • September 2025</span>
+            <br>
+            <a href="https://veridelisi.substack.com/">📰 Veri Delisi Substack</a>  
         </div>
     </div>
     """, unsafe_allow_html=True)
