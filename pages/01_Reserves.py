@@ -45,12 +45,17 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 def badge(text, bg="#E5E7EB", fg="#111827", br="#D1D5DB"):
-    return f'<span class="vd-badge" style="background:{bg};color:{fg};border-color:{br};">{text}</span>'
+    return f"""
+    <span class="vd-badge" style="background:{bg};color:{fg};border-color:{br};">
+      {text}
+    </span>
+    """
 
 # --- Secrets/env loader: st.secrets -> section -> environment ---
 def get_secret(keys, default=None, cast=None):
     if isinstance(keys, str):
         keys = [keys]
+    # 1) direct st.secrets["KEY"]
     for k in keys:
         try:
             if k in st.secrets:
@@ -58,6 +63,7 @@ def get_secret(keys, default=None, cast=None):
                 return cast(val) if (cast and val is not None) else val
         except Exception:
             pass
+    # 2) search nested sections (e.g., [fred])
     try:
         for _, section in st.secrets.items():
             if isinstance(section, dict):
@@ -68,6 +74,7 @@ def get_secret(keys, default=None, cast=None):
                         return cast(val) if (cast and val is not None) else val
     except Exception:
         pass
+    # 3) environment variable
     for k in keys:
         val = os.environ.get(k)
         if val is not None:
@@ -259,19 +266,12 @@ for orig, clean in liab_map.items():
         })
 df_liab = pd.DataFrame(liab_rows)
 
-def topN(df, col, n):
-    if df.empty:
-        return df
-    idx = df[col].abs().nlargest(n).index
-    return df.loc[idx]
-
 # ---------- Plot helpers (billions) ----------
 def _fmtB(x, pos):
     return f"{x:,.1f}B" if abs(x) < 10 else f"{x:,.0f}B"
 fmtB = FuncFormatter(_fmtB)
 
-def plot_barh_billions(df, col, title, xlabel, xlim_b=None):
-    """Barh in billions. If xlim_b is given, use symmetric [-xlim_b, +xlim_b]."""
+def plot_barh_billions(df, col, title, xlabel):
     if df.empty or df[col].abs().max() == 0:
         return
     dd = df.copy()
@@ -285,110 +285,69 @@ def plot_barh_billions(df, col, title, xlabel, xlim_b=None):
     ax.set_xlabel(xlabel)
     ax.grid(axis='x', alpha=0.3)
     ax.axvline(0, color='black', lw=1)
-
-    if xlim_b is None:
-        max_val = max(abs(dd['val_b'].min()), abs(dd['val_b'].max()))
-        ax.set_xlim(-max_val*1.2, max_val*1.2)
-    else:
-        ax.set_xlim(-xlim_b, xlim_b)
-
+    max_val = max(abs(dd['val_b'].min()), abs(dd['val_b'].max()))
+    ax.set_xlim(-max_val*1.2, max_val*1.2)
     ax.xaxis.set_major_locator(AutoLocator())
     ax.xaxis.set_major_formatter(fmtB)
     st.pyplot(fig, clear_figure=True)
 
 # ---------- Layout (Eurodollar-style: two rows) ----------
-# WEEKLY: show top-6 on both sides (presentation only)
-assets_w6 = topN(df_assets, 'weekly', 6)
-liabs_w6  = topN(df_liab, 'weekly_impact', 6)
-
-# YEARLY: keep equal counts (presentation only)
-n_annual = min(len(df_assets), len(df_liab))
-assets_a = df_assets.loc[df_assets['annual'].abs().nlargest(n_annual).index] if not df_assets.empty else df_assets
-liabs_a  = df_liab.loc[df_liab['annual_impact'].abs().nlargest(n_annual).index] if not df_liab.empty else df_liab
-
-# Shared x-axis spans (in billions) so L/R charts in a row align visually
-weekly_xlim_b = max(
-    (assets_w6['weekly'].abs().max() if not assets_w6.empty else 0),
-    (liabs_w6['weekly_impact'].abs().max() if not liabs_w6.empty else 0)
-) / 1000.0
-
-annual_xlim_b = max(
-    (assets_a['annual'].abs().max() if not assets_a.empty else 0),
-    (liabs_a['annual_impact'].abs().max() if not liabs_a.empty else 0)
-) / 1000.0
-
 # Row 1 — WEEKLY
-st.markdown(
-    f"### Charts {badge('WEEKLY', bg='#DCFCE7', fg='#065F46', br='#A7F3D0')}",
-    unsafe_allow_html=True
-)
+st.markdown(f"### Charts {badge('WEEKLY', bg='#DCFCE7', fg='#065F46', br='#A7F3D0')}", unsafe_allow_html=True)
+
 row1_left, row1_right = st.columns(2, gap="large")
 
 with row1_left:
     st.subheader("Assets — Weekly change (billions)")
     plot_barh_billions(
-        assets_w6, 'weekly',
+        df_assets, 'weekly',
         f"Weekly change ({t.strftime('%b %d, %Y')} vs {t_w.strftime('%b %d, %Y')})",
-        "Change (billions of dollars)",
-        xlim_b=weekly_xlim_b * 1.10
+        "Change (billions of dollars)"
     )
 
 with row1_right:
     st.subheader("Liabilities — Weekly reserve impact (billions)")
     plot_barh_billions(
-        liabs_w6, 'weekly_impact',
+        df_liab, 'weekly_impact',
         f"Weekly impact on reserves ({t.strftime('%b %d, %Y')} vs {t_w.strftime('%b %d, %Y')})",
-        "Reserve impact (billions of dollars)",
-        xlim_b=weekly_xlim_b * 1.10
+        "Reserve impact (billions of dollars)"
     )
 
 st.markdown("---")
 
 # Row 2 — YEARLY
-st.markdown(
-    f"### Charts {badge('YEARLY', bg='#DBEAFE', fg='#1E3A8A', br='#BFDBFE')} {badge(base_label)}",
-    unsafe_allow_html=True
-)
+st.markdown(f"### Charts {badge('YEARLY', bg='#DBEAFE', fg='#1E3A8A', br='#BFDBFE')} {badge(base_label)}", unsafe_allow_html=True)
+
 row2_left, row2_right = st.columns(2, gap="large")
 
 with row2_left:
     st.subheader("Assets — Annual change vs baseline (billions)")
     plot_barh_billions(
-        assets_a, 'annual',
+        df_assets, 'annual',
         f"Annual change vs baseline {t_y} ({t.strftime('%b %d, %Y')} vs {t_y.strftime('%b %d, %Y')})",
-        "Change (billions of dollars)",
-        xlim_b=annual_xlim_b * 1.10
+        "Change (billions of dollars)"
     )
 
 with row2_right:
     st.subheader("Liabilities — Annual reserve impact (billions)")
     plot_barh_billions(
-        liabs_a, 'annual_impact',
+        df_liab, 'annual_impact',
         f"Annual impact vs baseline {t_y} ({t.strftime('%b %d, %Y')} vs {t_y.strftime('%b %d, %Y')})",
-        "Reserve impact (billions of dollars)",
-        xlim_b=annual_xlim_b * 1.10
+        "Reserve impact (billions of dollars)"
     )
 
-# ---------- Tables & Net ----------
+# ---------- Tables & Net (as-is) ----------
 st.markdown("---")
 st.subheader("Detailed breakdown (millions)")
 
-# Weekly tables: show top-6 on both sides
-assets_tbl = topN(df_assets, 'weekly', 6)
-liab_tbl   = topN(df_liab, 'weekly_impact', 6)
-
-if not assets_tbl.empty:
+if not df_assets.empty:
     st.write("**Assets**")
-    sdata = assets_tbl.rename(columns={
-        "name":"Asset Factor",
-        "weekly":"Weekly ($M)",
-        "annual":"Annual ($M)"
-    })
+    sdata = df_assets.rename(columns={"name":"Asset Factor", "weekly":"Weekly ($M)", "annual":"Annual ($M)"})
     st.dataframe(sdata.reset_index(drop=True), use_container_width=True)
 
-if not liab_tbl.empty:
+if not df_liab.empty:
     st.write("**Liabilities** (impact on reserves shown as negative for increases)")
-    tdata = liab_tbl.rename(columns={
+    tdata = df_liab.rename(columns={
         "name":"Liability Factor",
         "weekly_change":"Weekly Change ($M)",
         "annual_change":"Annual Change ($M)",
@@ -397,12 +356,10 @@ if not liab_tbl.empty:
     })
     st.dataframe(tdata.reset_index(drop=True), use_container_width=True)
 
-# Net impact uses the full data (unchanged)
 assets_weekly = float(df_assets["weekly"].sum()) if not df_assets.empty else 0.0
 assets_annual = float(df_assets["annual"].sum()) if not df_assets.empty else 0.0
 liab_weekly   = float(df_liab["weekly_impact"].sum()) if not df_liab.empty else 0.0
 liab_annual   = float(df_liab["annual_impact"].sum()) if not df_liab.empty else 0.0
-
 net_weekly = assets_weekly + liab_weekly
 net_annual = assets_annual + liab_annual
 
