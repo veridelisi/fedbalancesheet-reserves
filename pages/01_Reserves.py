@@ -448,7 +448,7 @@ with row2_right:
 
 # ---------- Enhanced Tables & Net ----------
 st.markdown("---")
-st.subheader("📊 Smart Reserve Analysis")
+
 
 # (Sunum eşleşmesi için; tabloda iki taraf aynı sayıda satır)
 n_table = min(len(df_assets), len(df_liab))
