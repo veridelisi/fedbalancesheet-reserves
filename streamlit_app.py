@@ -369,7 +369,7 @@ with col1:
         description=(
             "Comprehensive view of primary dealer repo activities across all segments: uncleared/cleared "
             "bilateral, GCF, and tri-party. Analyze net market positions and understand dealer roles "
-            "in short-term funding dynamics with advanced visualizations."
+            "in short-term funding dynamics."
         ),
         page_path="pages/01_Repo.py",
         link_label="🔍 Analyze Repo Markets",
