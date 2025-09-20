@@ -257,8 +257,9 @@ st.markdown("""
         <div class="hero-title">💥 Veridelisi Analytics Portal</div>
         <div class="hero-subtitle">Financial Markets Intelligence & Data Analytics</div>
         <div class="hero-description">
-            Comprehensive dashboards for Federal Reserve operations, money markets, and Treasury analytics. 
-            Real-time insights into liquidity conditions, market structure, and monetary policy implementation.
+            Weekly tracking of Fed's H.4.1 balance sheet changes with detailed asset and liability breakdowns. 
+Identify key reserve drivers and assess liquidity impact through interactive charts. 
+Smart analytics for comprehensive monetary policy implementation monitoring.
         </div>
     </div>
     """, unsafe_allow_html=True)
