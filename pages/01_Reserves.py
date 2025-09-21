@@ -56,7 +56,7 @@ with cols[6]:
 with cols[7]:
     st.page_link("pages/01_Eurodollar.py", label="💡 Eurodollar")
 
-# --- Hide sidebar + enhanced CSS + badge helper ---
+# --- Hide sidebar + small CSS + badge helper ---
 st.markdown("""
 <style>
   [data-testid="stSidebarNav"]{display:none;}
@@ -91,38 +91,17 @@ st.markdown("""
 def badge(text, bg="#E5E7EB", fg="#111827", br="#D1D5DB"):
     return f'<span class="vd-badge" style="background:{bg};color:{fg};border-color:{br};">{text}</span>'
 
-# --- Enhanced styling for tables ---
+# --- Styling extras for enhanced tables ---
 st.markdown("""
 <style>
-  .assets-table {
-    background:linear-gradient(135deg,#f0f9ff 0%,#e0f2fe 100%);
-    border-radius:16px;padding:20px;border:1px solid #0ea5e9;
-    margin:20px 0;box-shadow:0 4px 6px -1px rgba(14, 165, 233, 0.1);
-  }
-  .liabilities-table {
-    background:linear-gradient(135deg,#fef2f2 0%,#fee2e2 100%);
-    border-radius:16px;padding:20px;border:1px solid #f87171;
-    margin:20px 0;box-shadow:0 4px 6px -1px rgba(248, 113, 113, 0.1);
-  }
-  .table-header,.liab-table-header{
-    font-weight:600;font-size:1.2rem;margin-bottom:16px;
-    display:flex;align-items:center;gap:8px;color:#1e293b;
-  }
+  .assets-table {background:linear-gradient(135deg,#f8fafc 0%,#e2e8f0 100%);border-radius:12px;padding:16px;border:1px solid #cbd5e1;margin:16px 0;}
+  .liabilities-table {background:linear-gradient(135deg,#fef2f2 0%,#fee2e2 100%);border-radius:12px;padding:16px;border:1px solid #fca5a5;margin:16px 0;}
+  .table-header,.liab-table-header{font-weight:600;font-size:1.1rem;margin-bottom:12px;display:flex;align-items:center;gap:8px}
   .liab-table-header{color:#7f1d1d}
-  .summary-card{
-    background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
-    color:#fff;padding:24px;border-radius:20px;
-    box-shadow:0 10px 25px rgba(0,0,0,.15);margin:12px 0;
-    position:relative;overflow:hidden;
-  }
-  .summary-card::before{
-    content:'';position:absolute;inset:0;
-    background:rgba(255,255,255,.1);backdrop-filter:blur(10px);z-index:0;
-  }
-  .card-content{position:relative;z-index:1}
-  .card-title{font-size:1rem;opacity:.9;margin-bottom:10px;font-weight:500}
-  .card-value{font-size:2rem;font-weight:700;margin-bottom:6px;letter-spacing:-0.5px}
-  .card-subtitle{font-size:0.85rem;opacity:.85}
+  .summary-card{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;padding:20px;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,.1);margin:8px 0;position:relative;overflow:hidden}
+  .summary-card::before{content:'';position:absolute;inset:0;background:rgba(255,255,255,.1);backdrop-filter:blur(10px);z-index:0}
+  .card-content{position:relative;z-index:1}.card-title{font-size:.9rem;opacity:.9;margin-bottom:8px}
+  .card-value{font-size:1.8rem;font-weight:700;margin-bottom:4px}.card-subtitle{font-size:.8rem;opacity:.8}
   .positive{background:linear-gradient(135deg,#10b981 0%,#059669 100%)}
   .negative{background:linear-gradient(135deg,#ef4444 0%,#dc2626 100%)}
   .neutral{background:linear-gradient(135deg,#6b7280 0%,#4b5563 100%)}
@@ -408,6 +387,100 @@ def lookup(vals: dict, name: str, default=0.0):
             return v if pd.notna(v) else default
     return default
 
+# ---------- Dates & baseline ----------
+TARGET_SERIES_ID = "WSHOSHO"  # weekly Wednesday (H.4.1)
+_latest = get_latest_available_date(TARGET_SERIES_ID) or "2025-09-03"
+t       = pd.to_datetime(_latest).date()       # latest Wednesday
+t_w     = t - timedelta(days=7)                # previous week
+t_fixed = date(2025, 1, 1)                     # fixed baseline
+
+# Header chip with latest date
+c1, _ = st.columns([1, 3])
+with c1:
+    st.markdown(
+        f"""
+        <div style="
+            display:inline-block; padding:10px 14px; border:1px solid #e5e7eb; 
+            border-radius:10px; background:#fafafa;">
+            <div style="font-size:0.95rem; color:#6b7280; margin-bottom:2px;">
+                Latest Wednesday
+            </div>
+            <div style="font-size:1.15rem; font-weight:600; letter-spacing:0.2px;">
+                {t.strftime('%d.%m.%Y')}
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+# ---------- Fetch ----------
+with st.spinner("Fetching H.4.1 data..."):
+    vals_t = get_table_values(t.isoformat())
+    vals_w = get_table_values(t_w.isoformat())
+    vals_y = get_table_values(t_fixed.isoformat())   # annual baseline fixed to 2025-01-01
+
+# ---------- Calculations ----------
+def net_sec(vdict):
+    return (
+        lookup(vdict, "Securities held outright")
+        + lookup(vdict, "Unamortized premiums on securities held outright")
+        + lookup(vdict, "Unamortized discounts on securities held outright")
+    )
+
+assets_map = {
+    "Securities held outright": "Securities (net of prem./disc.)",
+    "Repurchase agreements": "Repurchase agreements",
+    "Loans": "Loans to depository institutions",
+    "Net portfolio holdings of MS Facilities 2020 LLC (Main Street Lending Program)": "Net portfolio holdings of facilities",
+    "Float": "Float",
+    "Central bank liquidity swaps": "Central bank liquidity swaps",
+    "Other Federal Reserve assets": "Other Federal Reserve assets",
+    "Foreign currency denominated assets": "Foreign currency denominated assets",
+    "Gold stock": "Gold stock",
+    "Special drawing rights certificate account": "Special drawing rights certificate account",
+    "Treasury currency outstanding": "Treasury currency outstanding",
+}
+
+asset_rows = []
+for orig, clean in assets_map.items():
+    if orig == "Securities held outright":
+        vt, vw, vy = net_sec(vals_t), net_sec(vals_w), net_sec(vals_y)
+    else:
+        vt, vw, vy = lookup(vals_t, orig), lookup(vals_w, orig), lookup(vals_y, orig)
+    weekly = vt - vw
+    annual = vt - vy
+    if abs(weekly) >= 50 or abs(annual) >= 100:  # thresholds in millions
+        asset_rows.append({"name": clean, "weekly": weekly, "annual": annual})
+df_assets = pd.DataFrame(asset_rows)
+
+liab_map = {
+    "Currency in circulation": "Currency in circulation",
+    "Reverse repurchase agreements": "Reverse repos",
+    "Foreign official and international accounts": "Foreign official",
+    "Others": "Other deposits",
+    "U.S. Treasury, General Account": "Treasury General Account",
+    "Other liabilities and capital": "Other liabilities",
+}
+
+liab_rows = []
+for orig, clean in liab_map.items():
+    cur = lookup(vals_t, orig)
+    wk  = lookup(vals_w, orig)
+    yr  = lookup(vals_y, orig)
+    weekly_change = cur - wk
+    annual_change = cur - yr
+    weekly_impact = -weekly_change
+    annual_impact = -annual_change
+    if abs(weekly_change) >= 50 or abs(annual_change) >= 100:
+        liab_rows.append({
+            "name": clean,
+            "weekly_change": weekly_change,
+            "annual_change": annual_change,
+            "weekly_impact": weekly_impact,
+            "annual_impact": annual_impact,
+        })
+df_liab = pd.DataFrame(liab_rows)
+
 # ---------- Enhanced plot helpers with modern design ----------
 def _fmtB(x, pos):
     return f"{x:,.1f}B" if abs(x) < 10 else f"{x:,.0f}B"
@@ -583,229 +656,50 @@ def plot_barh_billions(df, col, title, xlabel):
     st.pyplot(fig, clear_figure=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ---------- Dates & baseline ----------
-TARGET_SERIES_ID = "WSHOSHO"  # weekly Wednesday (H.4.1)
-_latest = get_latest_available_date(TARGET_SERIES_ID) or "2025-09-03"
-t       = pd.to_datetime(_latest).date()       # latest Wednesday
-t_w     = t - timedelta(days=7)                # previous week
-t_fixed = date(2025, 1, 1)                     # fixed baseline
-
-# Enhanced header chip with latest date
-st.markdown("---")
-c1, c2, c3 = st.columns([1, 2, 1])
-with c2:
-    st.markdown(
-        f"""
-        <div style="
-            display:flex; justify-content:center; align-items:center; 
-            padding:16px 20px; border:2px solid #0EA5E9; 
-            border-radius:16px; background:linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 100%);
-            box-shadow: 0 4px 6px -1px rgba(14, 165, 233, 0.2);">
-            <div style="text-align:center;">
-                <div style="font-size:0.9rem; color:#0369A1; margin-bottom:4px; font-weight:600;">
-                    📅 Latest Data Available
-                </div>
-                <div style="font-size:1.4rem; font-weight:700; letter-spacing:0.5px; color:#0C4A6E;">
-                    {t.strftime('%B %d, %Y')}
-                </div>
-                <div style="font-size:0.8rem; color:#0369A1; margin-top:2px;">
-                    Federal Reserve H.4.1 Release
-                </div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-st.markdown("---")
-
-# ---------- Fetch ----------
-with st.spinner("Fetching H.4.1 data..."):
-    vals_t = get_table_values(t.isoformat())
-    vals_w = get_table_values(t_w.isoformat())
-    vals_y = get_table_values(t_fixed.isoformat())   # annual baseline fixed to 2025-01-01
-
-# ---------- Calculations ----------
-def net_sec(vdict):
-    return (
-        lookup(vdict, "Securities held outright")
-        + lookup(vdict, "Unamortized premiums on securities held outright")
-        + lookup(vdict, "Unamortized discounts on securities held outright")
-    )
-
-assets_map = {
-    "Securities held outright": "Securities (net of prem./disc.)",
-    "Repurchase agreements": "Repurchase agreements",
-    "Loans": "Loans to depository institutions",
-    "Net portfolio holdings of MS Facilities 2020 LLC (Main Street Lending Program)": "Net portfolio holdings of facilities",
-    "Float": "Float",
-    "Central bank liquidity swaps": "Central bank liquidity swaps",
-    "Other Federal Reserve assets": "Other Federal Reserve assets",
-    "Foreign currency denominated assets": "Foreign currency denominated assets",
-    "Gold stock": "Gold stock",
-    "Special drawing rights certificate account": "Special drawing rights certificate account",
-    "Treasury currency outstanding": "Treasury currency outstanding",
-}
-
-asset_rows = []
-for orig, clean in assets_map.items():
-    if orig == "Securities held outright":
-        vt, vw, vy = net_sec(vals_t), net_sec(vals_w), net_sec(vals_y)
-    else:
-        vt, vw, vy = lookup(vals_t, orig), lookup(vals_w, orig), lookup(vals_y, orig)
-    weekly = vt - vw
-    annual = vt - vy
-    if abs(weekly) >= 50 or abs(annual) >= 100:  # thresholds in millions
-        asset_rows.append({"name": clean, "weekly": weekly, "annual": annual})
-df_assets = pd.DataFrame(asset_rows)
-
-liab_map = {
-    "Currency in circulation": "Currency in circulation",
-    "Reverse repurchase agreements": "Reverse repos",
-    "Foreign official and international accounts": "Foreign official",
-    "Others": "Other deposits",
-    "U.S. Treasury, General Account": "Treasury General Account",
-    "Other liabilities and capital": "Other liabilities",
-}
-
-liab_rows = []
-for orig, clean in liab_map.items():
-    cur = lookup(vals_t, orig)
-    wk  = lookup(vals_w, orig)
-    yr  = lookup(vals_y, orig)
-    weekly_change = cur - wk
-    annual_change = cur - yr
-    weekly_impact = -weekly_change
-    annual_impact = -annual_change
-    if abs(weekly_change) >= 50 or abs(annual_change) >= 100:
-        liab_rows.append({
-            "name": clean,
-            "weekly_change": weekly_change,
-            "annual_change": annual_change,
-            "weekly_impact": weekly_impact,
-            "annual_impact": annual_impact,
-        })
-df_liab = pd.DataFrame(liab_rows)
-
-# ---------- Calculate summary statistics ----------
-assets_weekly_total = df_assets['weekly'].sum() if not df_assets.empty else 0
-assets_annual_total = df_assets['annual'].sum() if not df_assets.empty else 0
-liab_weekly_total = df_liab['weekly_impact'].sum() if not df_liab.empty else 0
-liab_annual_total = df_liab['annual_impact'].sum() if not df_liab.empty else 0
-net_weekly = assets_weekly_total + liab_weekly_total
-net_annual = assets_annual_total + liab_annual_total
-
-# ---------- Enhanced Layout with Summary Cards ----------
-# Summary Cards at the top
-create_smart_summary_cards(
-    assets_weekly_total, assets_annual_total, 
-    liab_weekly_total, liab_annual_total, 
-    net_weekly, net_annual
-)
-
-st.markdown("---")
-
-# Row 1 — WEEKLY CHARTS
+# ---------- Layout (two rows with badges) ----------
+# Row 1 — WEEKLY
 st.markdown(
-    f"### 📊 Weekly Impact Analysis {badge('WEEK-OVER-WEEK', bg='#DCFCE7', fg='#065F46', br='#A7F3D0')}",
+    f"### Charts {badge('WEEKLY', bg='#DCFCE7', fg='#065F46', br='#A7F3D0')}",
     unsafe_allow_html=True
 )
-
 row1_left, row1_right = st.columns(2, gap="large")
 with row1_left:
-    st.markdown('<div class="chart-title">📈 Assets — Weekly Change (Billions)</div>', unsafe_allow_html=True)
+    st.subheader("Assets — Weekly change (billions)")
     plot_barh_billions(
         df_assets, 'weekly',
-        f"Weekly Change: {t.strftime('%b %d')} vs {t_w.strftime('%b %d, %Y')}",
-        "Change in billions of dollars"
+        f"Weekly change ({t.strftime('%b %d, %Y')} vs {t_w.strftime('%b %d, %Y')})",
+        "Change (billions of dollars)"
     )
-    
 with row1_right:
-    st.markdown('<div class="chart-title">🏦 Liabilities — Weekly Reserve Impact (Billions)</div>', unsafe_allow_html=True)
+    st.subheader("Liabilities — Weekly reserve impact (billions)")
     plot_barh_billions(
         df_liab, 'weekly_impact',
-        f"Weekly Reserve Impact: {t.strftime('%b %d')} vs {t_w.strftime('%b %d, %Y')}",
-        "Impact on reserves (billions of dollars)"
+        f"Weekly impact on reserves ({t.strftime('%b %d, %Y')} vs {t_w.strftime('%b %d, %Y')})",
+        "Reserve impact (billions of dollars)"
     )
 
 st.markdown("---")
 
-# Row 2 — ANNUAL BASELINE CHARTS
+# Row 2 — 2025-01-01 baseline
 st.markdown(
-    f"### 📊 Annual Trend Analysis {badge('VS 2025-01-01 BASELINE', bg='#DBEAFE', fg='#1E3A8A', br='#BFDBFE')}",
+    f"### Charts {badge('2025-01-01 BASELINE', bg='#DBEAFE', fg='#1E3A8A', br='#BFDBFE')}",
     unsafe_allow_html=True
 )
-
 row2_left, row2_right = st.columns(2, gap="large")
 with row2_left:
-    st.markdown('<div class="chart-title">📈 Assets — Annual Change vs Baseline (Billions)</div>', unsafe_allow_html=True)
+    st.subheader("Assets — Annual change vs baseline (billions)")
     plot_barh_billions(
         df_assets, 'annual',
-        f"Annual Change: {t.strftime('%b %d, %Y')} vs Baseline {t_fixed.strftime('%b %d, %Y')}",
-        "Change from baseline (billions of dollars)"
+        f"Annual change vs baseline {t_fixed} ({t.strftime('%b %d, %Y')} vs {t_fixed.strftime('%b %d, %Y')})",
+        "Change (billions of dollars)"
     )
-    
 with row2_right:
-    st.markdown('<div class="chart-title">🏦 Liabilities — Annual Reserve Impact (Billions)</div>', unsafe_allow_html=True)
+    st.subheader("Liabilities — Annual reserve impact (billions)")
     plot_barh_billions(
         df_liab, 'annual_impact',
-        f"Annual Reserve Impact vs Baseline {t_fixed.strftime('%b %d, %Y')}",
-        "Impact on reserves (billions of dollars)"
+        f"Annual impact vs baseline {t_fixed} ({t.strftime('%b %d, %Y')} vs {t_fixed.strftime('%b %d, %Y')})",
+        "Reserve impact (billions of dollars)"
     )
-
-st.markdown("---")
-
-# Enhanced Data Tables Section
-st.markdown("### 📋 Detailed Data Tables")
-
-# Create tabs for better organization
-tab1, tab2 = st.tabs(["📊 Assets Data", "🏦 Liabilities Data"])
-
-with tab1:
-    create_enhanced_assets_table(df_assets)
-
-with tab2:
-    create_enhanced_liabilities_table(df_liab)
-
-# ---------- Enhanced Footer with methodology ----------
-st.markdown("---")
-st.markdown("### 📚 Methodology & Data Sources")
-
-col1, col2 = st.columns(2)
-with col1:
-    st.markdown("""
-    **📈 Data Sources:**
-    - Federal Reserve H.4.1 Release (Weekly)
-    - FRED API (St. Louis Fed)
-    - Latest available Wednesday data
-    
-    **🔄 Calculation Methods:**
-    - Weekly: Current week vs previous week
-    - Annual: Current vs 2025-01-01 baseline
-    - Reserve Impact: Liability changes inverted
-    """)
-
-with col2:
-    st.markdown("""
-    **⚡ Key Metrics:**
-    - Thresholds: ≥$50M weekly, ≥$100M annual
-    - Securities: Net of premiums/discounts
-    - Liability Impact: Increase = Reserve decrease
-    
-    **🎨 Chart Features:**
-    - Gradient colors by impact magnitude
-    - Smart value label positioning
-    - Enhanced visual hierarchy
-    """)
-
-# Enhanced footer
-st.markdown("""
----
-<div style="text-align:center; padding:20px; color:#6B7280; font-size:0.9rem;">
-    📊 <strong>Veridelisi</strong> • Federal Reserve Balance Sheet Analytics<br>
-    <em>Real-time insights into monetary policy impacts</em>
-</div>
-""", unsafe_allow_html=True)
 
 # ---------- Enhanced Tables & Net ----------
 st.markdown("---")
@@ -888,7 +782,7 @@ with st.expander("🔎 Click to expand methodology details", expanded=False):
 
 **Smart Reserve Impact Summary (the headline card)**
 - 🧮 Net weekly/annual numbers are taken **directly** from the H.4.1 line  
-  **“Reserve balances with Federal Reserve Banks.”**  
+  **"Reserve balances with Federal Reserve Banks."**  
   `NET_weekly = RB(latest) − RB(week_ago)`  
   `NET_annual = RB(latest) − RB(2025-01-01)`  
   👉 This ensures the headline matches the official H.4.1 total even if individual components are filtered.
@@ -930,4 +824,3 @@ if False:
     st.markdown("---")
     st.subheader("Raw H.4.1 values — latest, week-ago, and 2025-01-01 (millions)")
     st.dataframe(df_raw.reset_index(drop=True), use_container_width=True)
-
