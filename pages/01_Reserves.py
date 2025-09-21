@@ -7,8 +7,35 @@ import streamlit as st
 from dateutil.relativedelta import relativedelta
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter, AutoLocator
+import matplotlib.patches as patches
+from matplotlib.colors import LinearSegmentedColormap
 
 st.set_page_config(page_title="Veridelisi • Reserve Page", layout="wide")
+
+# --- Modern matplotlib styling ---
+plt.style.use('default')
+plt.rcParams.update({
+    'font.family': ['Segoe UI', 'Arial', 'sans-serif'],
+    'font.size': 11,
+    'axes.titlesize': 14,
+    'axes.labelsize': 12,
+    'xtick.labelsize': 10,
+    'ytick.labelsize': 10,
+    'legend.fontsize': 10,
+    'figure.titlesize': 16,
+    'axes.spines.top': False,
+    'axes.spines.right': False,
+    'axes.spines.left': True,
+    'axes.spines.bottom': True,
+    'axes.linewidth': 0.8,
+    'grid.alpha': 0.3,
+    'grid.linewidth': 0.5,
+    'axes.edgecolor': '#E5E7EB',
+    'text.color': '#374151',
+    'axes.labelcolor': '#374151',
+    'xtick.color': '#6B7280',
+    'ytick.color': '#6B7280'
+})
 
 # --- Top nav ---
 cols = st.columns(8)
@@ -29,7 +56,7 @@ with cols[6]:
 with cols[7]:
     st.page_link("pages/01_Eurodollar.py", label="💡 Eurodollar")
 
-# --- Hide sidebar + small CSS + badge helper ---
+# --- Hide sidebar + enhanced CSS + badge helper ---
 st.markdown("""
 <style>
   [data-testid="stSidebarNav"]{display:none;}
@@ -40,23 +67,62 @@ st.markdown("""
     color:#111827;background:#E5E7EB;border:1px solid #D1D5DB;
     margin-left:.5rem;vertical-align:middle;
   }
+  
+  /* Enhanced styling for chart containers */
+  .chart-container {
+    background: linear-gradient(145deg, #f8fafc 0%, #f1f5f9 100%);
+    border-radius: 16px;
+    padding: 20px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    margin: 16px 0;
+  }
+  
+  .chart-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 16px;
+    text-align: center;
+  }
 </style>
 """, unsafe_allow_html=True)
 
 def badge(text, bg="#E5E7EB", fg="#111827", br="#D1D5DB"):
     return f'<span class="vd-badge" style="background:{bg};color:{fg};border-color:{br};">{text}</span>'
 
-# --- Styling extras for enhanced tables ---
+# --- Enhanced styling for tables ---
 st.markdown("""
 <style>
-  .assets-table {background:linear-gradient(135deg,#f8fafc 0%,#e2e8f0 100%);border-radius:12px;padding:16px;border:1px solid #cbd5e1;margin:16px 0;}
-  .liabilities-table {background:linear-gradient(135deg,#fef2f2 0%,#fee2e2 100%);border-radius:12px;padding:16px;border:1px solid #fca5a5;margin:16px 0;}
-  .table-header,.liab-table-header{font-weight:600;font-size:1.1rem;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .assets-table {
+    background:linear-gradient(135deg,#f0f9ff 0%,#e0f2fe 100%);
+    border-radius:16px;padding:20px;border:1px solid #0ea5e9;
+    margin:20px 0;box-shadow:0 4px 6px -1px rgba(14, 165, 233, 0.1);
+  }
+  .liabilities-table {
+    background:linear-gradient(135deg,#fef2f2 0%,#fee2e2 100%);
+    border-radius:16px;padding:20px;border:1px solid #f87171;
+    margin:20px 0;box-shadow:0 4px 6px -1px rgba(248, 113, 113, 0.1);
+  }
+  .table-header,.liab-table-header{
+    font-weight:600;font-size:1.2rem;margin-bottom:16px;
+    display:flex;align-items:center;gap:8px;color:#1e293b;
+  }
   .liab-table-header{color:#7f1d1d}
-  .summary-card{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;padding:20px;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,.1);margin:8px 0;position:relative;overflow:hidden}
-  .summary-card::before{content:'';position:absolute;inset:0;background:rgba(255,255,255,.1);backdrop-filter:blur(10px);z-index:0}
-  .card-content{position:relative;z-index:1}.card-title{font-size:.9rem;opacity:.9;margin-bottom:8px}
-  .card-value{font-size:1.8rem;font-weight:700;margin-bottom:4px}.card-subtitle{font-size:.8rem;opacity:.8}
+  .summary-card{
+    background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
+    color:#fff;padding:24px;border-radius:20px;
+    box-shadow:0 10px 25px rgba(0,0,0,.15);margin:12px 0;
+    position:relative;overflow:hidden;
+  }
+  .summary-card::before{
+    content:'';position:absolute;inset:0;
+    background:rgba(255,255,255,.1);backdrop-filter:blur(10px);z-index:0;
+  }
+  .card-content{position:relative;z-index:1}
+  .card-title{font-size:1rem;opacity:.9;margin-bottom:10px;font-weight:500}
+  .card-value{font-size:2rem;font-weight:700;margin-bottom:6px;letter-spacing:-0.5px}
+  .card-subtitle{font-size:0.85rem;opacity:.85}
   .positive{background:linear-gradient(135deg,#10b981 0%,#059669 100%)}
   .negative{background:linear-gradient(135deg,#ef4444 0%,#dc2626 100%)}
   .neutral{background:linear-gradient(135deg,#6b7280 0%,#4b5563 100%)}
@@ -252,7 +318,6 @@ def create_smart_summary_cards(assets_weekly, assets_annual, liab_weekly, liab_a
         <div class="card-subtitle">{text_a}</div></div></div>""", unsafe_allow_html=True)
 
 
-
 # --- Secrets/env loader ---
 def get_secret(keys, default=None, cast=None):
     if isinstance(keys, str):
@@ -343,6 +408,181 @@ def lookup(vals: dict, name: str, default=0.0):
             return v if pd.notna(v) else default
     return default
 
+# ---------- Enhanced plot helpers with modern design ----------
+def _fmtB(x, pos):
+    return f"{x:,.1f}B" if abs(x) < 10 else f"{x:,.0f}B"
+fmtB = FuncFormatter(_fmtB)
+
+def create_modern_colormap():
+    """Create modern gradient colormaps for positive and negative values"""
+    # Positive gradient: light blue to deep blue
+    positive_colors = ['#E0F2FE', '#0EA5E9', '#0284C7', '#0369A1']
+    positive_cmap = LinearSegmentedColormap.from_list('positive', positive_colors)
+    
+    # Negative gradient: light red to deep red  
+    negative_colors = ['#FEE2E2', '#F87171', '#EF4444', '#DC2626']
+    negative_cmap = LinearSegmentedColormap.from_list('negative', negative_colors)
+    
+    return positive_cmap, negative_cmap
+
+def get_bar_colors(values, intensity_factor=0.7):
+    """Generate modern gradient colors based on values with intensity"""
+    pos_cmap, neg_cmap = create_modern_colormap()
+    colors = []
+    
+    if len(values) == 0:
+        return colors
+        
+    max_abs = max(abs(v) for v in values) if values else 1
+    
+    for val in values:
+        if val >= 0:
+            # Positive values: gradient blue
+            intensity = min(abs(val) / max_abs * intensity_factor + 0.3, 1.0)
+            colors.append(pos_cmap(intensity))
+        else:
+            # Negative values: gradient red
+            intensity = min(abs(val) / max_abs * intensity_factor + 0.3, 1.0)
+            colors.append(neg_cmap(intensity))
+    
+    return colors
+
+def add_value_labels(ax, bars, values, is_billions=True):
+    """Add value labels on bars with smart positioning"""
+    for bar, val in zip(bars, values):
+        if val == 0:
+            continue
+            
+        # Format the label
+        if is_billions:
+            if abs(val) >= 10:
+                label = f'{val:+.0f}B'
+            else:
+                label = f'{val:+.1f}B'
+        else:
+            label = f'{val:+.0f}M'
+        
+        # Position the label
+        bar_width = bar.get_width()
+        if abs(bar_width) < ax.get_xlim()[1] * 0.15:  # Short bars
+            # Place label outside the bar
+            x_pos = bar_width + (ax.get_xlim()[1] * 0.02 if bar_width >= 0 else -ax.get_xlim()[1] * 0.02)
+            ha = 'left' if bar_width >= 0 else 'right'
+            color = '#374151'
+        else:
+            # Place label inside the bar
+            x_pos = bar_width * 0.5
+            ha = 'center'
+            color = 'white'
+        
+        y_pos = bar.get_y() + bar.get_height() * 0.5
+        
+        ax.text(x_pos, y_pos, label, ha=ha, va='center', 
+                fontweight='600', fontsize=9, color=color,
+                bbox=dict(boxstyle='round,pad=0.3', facecolor='white', 
+                         alpha=0.8, edgecolor='none') if color == '#374151' else None)
+
+def plot_barh_billions(df, col, title, xlabel):
+    """Enhanced horizontal bar chart with modern design"""
+    if df.empty or df[col].abs().max() == 0:
+        st.info("No data to display for this chart")
+        return
+    
+    # Prepare data
+    dd = df.copy()
+    dd['val_b'] = dd[col] / 1000.0  # Convert to billions
+    dd = dd.sort_values('val_b')
+    
+    # Create figure with modern styling
+    fig, ax = plt.subplots(figsize=(12, max(4.5, 0.5*len(dd)+2.5)))
+    fig.patch.set_facecolor('#FAFAFA')
+    ax.set_facecolor('#FFFFFF')
+    
+    # Get modern gradient colors
+    colors = get_bar_colors(dd['val_b'].values)
+    
+    # Create bars with enhanced styling
+    bars = ax.barh(dd['name'], dd['val_b'], color=colors, alpha=0.9,
+                   edgecolor='white', linewidth=1.5, height=0.7)
+    
+    # Add subtle shadow effect to bars
+    for bar in bars:
+        shadow = patches.Rectangle(
+            (bar.get_x() + 0.05, bar.get_y() - 0.02),
+            bar.get_width(), bar.get_height(),
+            facecolor='black', alpha=0.1, zorder=bar.zorder-1
+        )
+        ax.add_patch(shadow)
+    
+    # Add value labels on bars
+    add_value_labels(ax, bars, dd['val_b'].values, is_billions=True)
+    
+    # Enhanced title styling
+    ax.set_title(title, fontweight='700', fontsize=14, color='#1E293B', 
+                pad=20, linespacing=1.2)
+    ax.set_xlabel(xlabel, fontweight='600', fontsize=12, color='#475569', labelpad=15)
+    
+    # Enhanced grid
+    ax.grid(axis='x', alpha=0.4, linestyle='-', linewidth=0.8, color='#CBD5E1')
+    ax.set_axisbelow(True)
+    
+    # Enhanced zero line
+    ax.axvline(0, color='#374151', linewidth=2, alpha=0.8, zorder=3)
+    
+    # Smart axis limits with padding
+    max_val = max(abs(dd['val_b'].min()), abs(dd['val_b'].max()))
+    padding = max_val * 0.15
+    ax.set_xlim(-max_val - padding, max_val + padding)
+    
+    # Enhanced tick formatting
+    ax.xaxis.set_major_locator(AutoLocator())
+    ax.xaxis.set_major_formatter(fmtB)
+    ax.tick_params(axis='x', colors='#6B7280', labelsize=10, pad=8)
+    ax.tick_params(axis='y', colors='#374151', labelsize=10, pad=5)
+    
+    # Enhanced y-axis labels with text wrapping
+    labels = []
+    for label in dd['name']:
+        if len(label) > 25:
+            # Split long labels into multiple lines
+            words = label.split()
+            lines = []
+            current_line = []
+            current_length = 0
+            
+            for word in words:
+                if current_length + len(word) + 1 <= 25:
+                    current_line.append(word)
+                    current_length += len(word) + 1
+                else:
+                    if current_line:
+                        lines.append(' '.join(current_line))
+                    current_line = [word]
+                    current_length = len(word)
+            
+            if current_line:
+                lines.append(' '.join(current_line))
+            
+            labels.append('\n'.join(lines))
+        else:
+            labels.append(label)
+    
+    ax.set_yticklabels(labels, fontweight='500')
+    
+    # Remove top and right spines for cleaner look
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_color('#E5E7EB')
+    ax.spines['bottom'].set_color('#E5E7EB')
+    
+    # Adjust layout for better spacing
+    plt.tight_layout(pad=2.0)
+    
+    # Display with enhanced container
+    st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+    st.pyplot(fig, clear_figure=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
 # ---------- Dates & baseline ----------
 TARGET_SERIES_ID = "WSHOSHO"  # weekly Wednesday (H.4.1)
 _latest = get_latest_available_date(TARGET_SERIES_ID) or "2025-09-03"
@@ -350,24 +590,34 @@ t       = pd.to_datetime(_latest).date()       # latest Wednesday
 t_w     = t - timedelta(days=7)                # previous week
 t_fixed = date(2025, 1, 1)                     # fixed baseline
 
-# Header chip with latest date
-c1, _ = st.columns([1, 3])
-with c1:
+# Enhanced header chip with latest date
+st.markdown("---")
+c1, c2, c3 = st.columns([1, 2, 1])
+with c2:
     st.markdown(
         f"""
         <div style="
-            display:inline-block; padding:10px 14px; border:1px solid #e5e7eb; 
-            border-radius:10px; background:#fafafa;">
-            <div style="font-size:0.95rem; color:#6b7280; margin-bottom:2px;">
-                Latest Wednesday
-            </div>
-            <div style="font-size:1.15rem; font-weight:600; letter-spacing:0.2px;">
-                {t.strftime('%d.%m.%Y')}
+            display:flex; justify-content:center; align-items:center; 
+            padding:16px 20px; border:2px solid #0EA5E9; 
+            border-radius:16px; background:linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 100%);
+            box-shadow: 0 4px 6px -1px rgba(14, 165, 233, 0.2);">
+            <div style="text-align:center;">
+                <div style="font-size:0.9rem; color:#0369A1; margin-bottom:4px; font-weight:600;">
+                    📅 Latest Data Available
+                </div>
+                <div style="font-size:1.4rem; font-weight:700; letter-spacing:0.5px; color:#0C4A6E;">
+                    {t.strftime('%B %d, %Y')}
+                </div>
+                <div style="font-size:0.8rem; color:#0369A1; margin-top:2px;">
+                    Federal Reserve H.4.1 Release
+                </div>
             </div>
         </div>
         """,
         unsafe_allow_html=True
     )
+
+st.markdown("---")
 
 # ---------- Fetch ----------
 with st.spinner("Fetching H.4.1 data..."):
@@ -437,75 +687,125 @@ for orig, clean in liab_map.items():
         })
 df_liab = pd.DataFrame(liab_rows)
 
-# ---------- Plot helpers (billions) ----------
-def _fmtB(x, pos):
-    return f"{x:,.1f}B" if abs(x) < 10 else f"{x:,.0f}B"
-fmtB = FuncFormatter(_fmtB)
+# ---------- Calculate summary statistics ----------
+assets_weekly_total = df_assets['weekly'].sum() if not df_assets.empty else 0
+assets_annual_total = df_assets['annual'].sum() if not df_assets.empty else 0
+liab_weekly_total = df_liab['weekly_impact'].sum() if not df_liab.empty else 0
+liab_annual_total = df_liab['annual_impact'].sum() if not df_liab.empty else 0
+net_weekly = assets_weekly_total + liab_weekly_total
+net_annual = assets_annual_total + liab_annual_total
 
-def plot_barh_billions(df, col, title, xlabel):
-    if df.empty or df[col].abs().max() == 0:
-        return
-    dd = df.copy()
-    dd['val_b'] = dd[col] / 1000.0
-    dd = dd.sort_values('val_b')
-    colors = ['#1f77b4' if x >= 0 else 'red' for x in dd['val_b']]
+# ---------- Enhanced Layout with Summary Cards ----------
+# Summary Cards at the top
+create_smart_summary_cards(
+    assets_weekly_total, assets_annual_total, 
+    liab_weekly_total, liab_annual_total, 
+    net_weekly, net_annual
+)
 
-    fig, ax = plt.subplots(figsize=(12, max(4, 0.45*len(dd)+2)))
-    ax.barh(dd['name'], dd['val_b'], color=colors, alpha=0.85)
-    ax.set_title(title, fontweight='bold')
-    ax.set_xlabel(xlabel)
-    ax.grid(axis='x', alpha=0.3)
-    ax.axvline(0, color='black', lw=1)
-    max_val = max(abs(dd['val_b'].min()), abs(dd['val_b'].max()))
-    ax.set_xlim(-max_val*1.2, max_val*1.2)
-    ax.xaxis.set_major_locator(AutoLocator())
-    ax.xaxis.set_major_formatter(fmtB)
-    st.pyplot(fig, clear_figure=True)
+st.markdown("---")
 
-# ---------- Layout (two rows with badges) ----------
-# Row 1 — WEEKLY
+# Row 1 — WEEKLY CHARTS
 st.markdown(
-    f"### Charts {badge('WEEKLY', bg='#DCFCE7', fg='#065F46', br='#A7F3D0')}",
+    f"### 📊 Weekly Impact Analysis {badge('WEEK-OVER-WEEK', bg='#DCFCE7', fg='#065F46', br='#A7F3D0')}",
     unsafe_allow_html=True
 )
+
 row1_left, row1_right = st.columns(2, gap="large")
 with row1_left:
-    st.subheader("Assets — Weekly change (billions)")
+    st.markdown('<div class="chart-title">📈 Assets — Weekly Change (Billions)</div>', unsafe_allow_html=True)
     plot_barh_billions(
         df_assets, 'weekly',
-        f"Weekly change ({t.strftime('%b %d, %Y')} vs {t_w.strftime('%b %d, %Y')})",
-        "Change (billions of dollars)"
+        f"Weekly Change: {t.strftime('%b %d')} vs {t_w.strftime('%b %d, %Y')}",
+        "Change in billions of dollars"
     )
+    
 with row1_right:
-    st.subheader("Liabilities — Weekly reserve impact (billions)")
+    st.markdown('<div class="chart-title">🏦 Liabilities — Weekly Reserve Impact (Billions)</div>', unsafe_allow_html=True)
     plot_barh_billions(
         df_liab, 'weekly_impact',
-        f"Weekly impact on reserves ({t.strftime('%b %d, %Y')} vs {t_w.strftime('%b %d, %Y')})",
-        "Reserve impact (billions of dollars)"
+        f"Weekly Reserve Impact: {t.strftime('%b %d')} vs {t_w.strftime('%b %d, %Y')}",
+        "Impact on reserves (billions of dollars)"
     )
 
 st.markdown("---")
 
-# Row 2 — 2025-01-01 baseline
+# Row 2 — ANNUAL BASELINE CHARTS
 st.markdown(
-    f"### Charts {badge('2025-01-01 BASELINE', bg='#DBEAFE', fg='#1E3A8A', br='#BFDBFE')}",
+    f"### 📊 Annual Trend Analysis {badge('VS 2025-01-01 BASELINE', bg='#DBEAFE', fg='#1E3A8A', br='#BFDBFE')}",
     unsafe_allow_html=True
 )
+
 row2_left, row2_right = st.columns(2, gap="large")
 with row2_left:
-    st.subheader("Assets — Annual change vs baseline (billions)")
+    st.markdown('<div class="chart-title">📈 Assets — Annual Change vs Baseline (Billions)</div>', unsafe_allow_html=True)
     plot_barh_billions(
         df_assets, 'annual',
-        f"Annual change vs baseline {t_fixed} ({t.strftime('%b %d, %Y')} vs {t_fixed.strftime('%b %d, %Y')})",
-        "Change (billions of dollars)"
+        f"Annual Change: {t.strftime('%b %d, %Y')} vs Baseline {t_fixed.strftime('%b %d, %Y')}",
+        "Change from baseline (billions of dollars)"
     )
+    
 with row2_right:
-    st.subheader("Liabilities — Annual reserve impact (billions)")
+    st.markdown('<div class="chart-title">🏦 Liabilities — Annual Reserve Impact (Billions)</div>', unsafe_allow_html=True)
     plot_barh_billions(
         df_liab, 'annual_impact',
-        f"Annual impact vs baseline {t_fixed} ({t.strftime('%b %d, %Y')} vs {t_fixed.strftime('%b %d, %Y')})",
-        "Reserve impact (billions of dollars)"
+        f"Annual Reserve Impact vs Baseline {t_fixed.strftime('%b %d, %Y')}",
+        "Impact on reserves (billions of dollars)"
     )
+
+st.markdown("---")
+
+# Enhanced Data Tables Section
+st.markdown("### 📋 Detailed Data Tables")
+
+# Create tabs for better organization
+tab1, tab2 = st.tabs(["📊 Assets Data", "🏦 Liabilities Data"])
+
+with tab1:
+    create_enhanced_assets_table(df_assets)
+
+with tab2:
+    create_enhanced_liabilities_table(df_liab)
+
+# ---------- Enhanced Footer with methodology ----------
+st.markdown("---")
+st.markdown("### 📚 Methodology & Data Sources")
+
+col1, col2 = st.columns(2)
+with col1:
+    st.markdown("""
+    **📈 Data Sources:**
+    - Federal Reserve H.4.1 Release (Weekly)
+    - FRED API (St. Louis Fed)
+    - Latest available Wednesday data
+    
+    **🔄 Calculation Methods:**
+    - Weekly: Current week vs previous week
+    - Annual: Current vs 2025-01-01 baseline
+    - Reserve Impact: Liability changes inverted
+    """)
+
+with col2:
+    st.markdown("""
+    **⚡ Key Metrics:**
+    - Thresholds: ≥$50M weekly, ≥$100M annual
+    - Securities: Net of premiums/discounts
+    - Liability Impact: Increase = Reserve decrease
+    
+    **🎨 Chart Features:**
+    - Gradient colors by impact magnitude
+    - Smart value label positioning
+    - Enhanced visual hierarchy
+    """)
+
+# Enhanced footer
+st.markdown("""
+---
+<div style="text-align:center; padding:20px; color:#6B7280; font-size:0.9rem;">
+    📊 <strong>Veridelisi</strong> • Federal Reserve Balance Sheet Analytics<br>
+    <em>Real-time insights into monetary policy impacts</em>
+</div>
+""", unsafe_allow_html=True)
 
 # ---------- Enhanced Tables & Net ----------
 st.markdown("---")
