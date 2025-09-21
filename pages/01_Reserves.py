@@ -7,35 +7,8 @@ import streamlit as st
 from dateutil.relativedelta import relativedelta
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter, AutoLocator
-import matplotlib.patches as patches
-from matplotlib.colors import LinearSegmentedColormap
 
 st.set_page_config(page_title="Veridelisi • Reserve Page", layout="wide")
-
-# --- Modern matplotlib styling ---
-plt.style.use('default')
-plt.rcParams.update({
-    'font.family': ['Segoe UI', 'Arial', 'sans-serif'],
-    'font.size': 11,
-    'axes.titlesize': 14,
-    'axes.labelsize': 12,
-    'xtick.labelsize': 10,
-    'ytick.labelsize': 10,
-    'legend.fontsize': 10,
-    'figure.titlesize': 16,
-    'axes.spines.top': False,
-    'axes.spines.right': False,
-    'axes.spines.left': True,
-    'axes.spines.bottom': True,
-    'axes.linewidth': 0.8,
-    'grid.alpha': 0.3,
-    'grid.linewidth': 0.5,
-    'axes.edgecolor': '#E5E7EB',
-    'text.color': '#374151',
-    'axes.labelcolor': '#374151',
-    'xtick.color': '#6B7280',
-    'ytick.color': '#6B7280'
-})
 
 # --- Top nav ---
 cols = st.columns(8)
@@ -66,24 +39,6 @@ st.markdown("""
     font-size:0.75rem;font-weight:600;letter-spacing:.2px;
     color:#111827;background:#E5E7EB;border:1px solid #D1D5DB;
     margin-left:.5rem;vertical-align:middle;
-  }
-  
-  /* Enhanced styling for chart containers */
-  .chart-container {
-    background: linear-gradient(145deg, #f8fafc 0%, #f1f5f9 100%);
-    border-radius: 16px;
-    padding: 20px;
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    margin: 16px 0;
-  }
-  
-  .chart-title {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: #1e293b;
-    margin-bottom: 16px;
-    text-align: center;
   }
 </style>
 """, unsafe_allow_html=True)
@@ -297,6 +252,7 @@ def create_smart_summary_cards(assets_weekly, assets_annual, liab_weekly, liab_a
         <div class="card-subtitle">{text_a}</div></div></div>""", unsafe_allow_html=True)
 
 
+
 # --- Secrets/env loader ---
 def get_secret(keys, default=None, cast=None):
     if isinstance(keys, str):
@@ -481,180 +437,30 @@ for orig, clean in liab_map.items():
         })
 df_liab = pd.DataFrame(liab_rows)
 
-# ---------- Enhanced plot helpers with modern design ----------
+# ---------- Plot helpers (billions) ----------
 def _fmtB(x, pos):
     return f"{x:,.1f}B" if abs(x) < 10 else f"{x:,.0f}B"
 fmtB = FuncFormatter(_fmtB)
 
-def create_modern_colormap():
-    """Create modern gradient colormaps for positive and negative values"""
-    # Positive gradient: light blue to deep blue
-    positive_colors = ['#E0F2FE', '#0EA5E9', '#0284C7', '#0369A1']
-    positive_cmap = LinearSegmentedColormap.from_list('positive', positive_colors)
-    
-    # Negative gradient: light red to deep red  
-    negative_colors = ['#FEE2E2', '#F87171', '#EF4444', '#DC2626']
-    negative_cmap = LinearSegmentedColormap.from_list('negative', negative_colors)
-    
-    return positive_cmap, negative_cmap
-
-def get_bar_colors(values, intensity_factor=0.7):
-    """Generate modern gradient colors based on values with intensity"""
-    pos_cmap, neg_cmap = create_modern_colormap()
-    colors = []
-    
-    if len(values) == 0:
-        return colors
-        
-    max_abs = max(abs(v) for v in values) if values else 1
-    
-    for val in values:
-        if val >= 0:
-            # Positive values: gradient blue
-            intensity = min(abs(val) / max_abs * intensity_factor + 0.3, 1.0)
-            colors.append(pos_cmap(intensity))
-        else:
-            # Negative values: gradient red
-            intensity = min(abs(val) / max_abs * intensity_factor + 0.3, 1.0)
-            colors.append(neg_cmap(intensity))
-    
-    return colors
-
-def add_value_labels(ax, bars, values, is_billions=True):
-    """Add value labels on bars with smart positioning"""
-    for bar, val in zip(bars, values):
-        if val == 0:
-            continue
-            
-        # Format the label
-        if is_billions:
-            if abs(val) >= 10:
-                label = f'{val:+.0f}B'
-            else:
-                label = f'{val:+.1f}B'
-        else:
-            label = f'{val:+.0f}M'
-        
-        # Position the label
-        bar_width = bar.get_width()
-        if abs(bar_width) < ax.get_xlim()[1] * 0.15:  # Short bars
-            # Place label outside the bar
-            x_pos = bar_width + (ax.get_xlim()[1] * 0.02 if bar_width >= 0 else -ax.get_xlim()[1] * 0.02)
-            ha = 'left' if bar_width >= 0 else 'right'
-            color = '#374151'
-        else:
-            # Place label inside the bar
-            x_pos = bar_width * 0.5
-            ha = 'center'
-            color = 'white'
-        
-        y_pos = bar.get_y() + bar.get_height() * 0.5
-        
-        ax.text(x_pos, y_pos, label, ha=ha, va='center', 
-                fontweight='600', fontsize=9, color=color,
-                bbox=dict(boxstyle='round,pad=0.3', facecolor='white', 
-                         alpha=0.8, edgecolor='none') if color == '#374151' else None)
-
 def plot_barh_billions(df, col, title, xlabel):
-    """Enhanced horizontal bar chart with modern design"""
     if df.empty or df[col].abs().max() == 0:
-        st.info("No data to display for this chart")
         return
-    
-    # Prepare data
     dd = df.copy()
-    dd['val_b'] = dd[col] / 1000.0  # Convert to billions
+    dd['val_b'] = dd[col] / 1000.0
     dd = dd.sort_values('val_b')
-    
-    # Create figure with modern styling
-    fig, ax = plt.subplots(figsize=(12, max(4.5, 0.5*len(dd)+2.5)))
-    fig.patch.set_facecolor('#FAFAFA')
-    ax.set_facecolor('#FFFFFF')
-    
-    # Get modern gradient colors
-    colors = get_bar_colors(dd['val_b'].values)
-    
-    # Create bars with enhanced styling
-    bars = ax.barh(dd['name'], dd['val_b'], color=colors, alpha=0.9,
-                   edgecolor='white', linewidth=1.5, height=0.7)
-    
-    # Add subtle shadow effect to bars
-    for bar in bars:
-        shadow = patches.Rectangle(
-            (bar.get_x() + 0.05, bar.get_y() - 0.02),
-            bar.get_width(), bar.get_height(),
-            facecolor='black', alpha=0.1, zorder=bar.zorder-1
-        )
-        ax.add_patch(shadow)
-    
-    # Add value labels on bars
-    add_value_labels(ax, bars, dd['val_b'].values, is_billions=True)
-    
-    # Enhanced title styling
-    ax.set_title(title, fontweight='700', fontsize=14, color='#1E293B', 
-                pad=20, linespacing=1.2)
-    ax.set_xlabel(xlabel, fontweight='600', fontsize=12, color='#475569', labelpad=15)
-    
-    # Enhanced grid
-    ax.grid(axis='x', alpha=0.4, linestyle='-', linewidth=0.8, color='#CBD5E1')
-    ax.set_axisbelow(True)
-    
-    # Enhanced zero line
-    ax.axvline(0, color='#374151', linewidth=2, alpha=0.8, zorder=3)
-    
-    # Smart axis limits with padding
+    colors = ['#1f77b4' if x >= 0 else 'red' for x in dd['val_b']]
+
+    fig, ax = plt.subplots(figsize=(12, max(4, 0.45*len(dd)+2)))
+    ax.barh(dd['name'], dd['val_b'], color=colors, alpha=0.85)
+    ax.set_title(title, fontweight='bold')
+    ax.set_xlabel(xlabel)
+    ax.grid(axis='x', alpha=0.3)
+    ax.axvline(0, color='black', lw=1)
     max_val = max(abs(dd['val_b'].min()), abs(dd['val_b'].max()))
-    padding = max_val * 0.15
-    ax.set_xlim(-max_val - padding, max_val + padding)
-    
-    # Enhanced tick formatting
+    ax.set_xlim(-max_val*1.2, max_val*1.2)
     ax.xaxis.set_major_locator(AutoLocator())
     ax.xaxis.set_major_formatter(fmtB)
-    ax.tick_params(axis='x', colors='#6B7280', labelsize=10, pad=8)
-    ax.tick_params(axis='y', colors='#374151', labelsize=10, pad=5)
-    
-    # Enhanced y-axis labels with text wrapping
-    labels = []
-    for label in dd['name']:
-        if len(label) > 25:
-            # Split long labels into multiple lines
-            words = label.split()
-            lines = []
-            current_line = []
-            current_length = 0
-            
-            for word in words:
-                if current_length + len(word) + 1 <= 25:
-                    current_line.append(word)
-                    current_length += len(word) + 1
-                else:
-                    if current_line:
-                        lines.append(' '.join(current_line))
-                    current_line = [word]
-                    current_length = len(word)
-            
-            if current_line:
-                lines.append(' '.join(current_line))
-            
-            labels.append('\n'.join(lines))
-        else:
-            labels.append(label)
-    
-    ax.set_yticklabels(labels, fontweight='500')
-    
-    # Remove top and right spines for cleaner look
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.spines['left'].set_color('#E5E7EB')
-    ax.spines['bottom'].set_color('#E5E7EB')
-    
-    # Adjust layout for better spacing
-    plt.tight_layout(pad=2.0)
-    
-    # Display with enhanced container
-    st.markdown('<div class="chart-container">', unsafe_allow_html=True)
     st.pyplot(fig, clear_figure=True)
-    st.markdown('</div>', unsafe_allow_html=True)
 
 # ---------- Layout (two rows with badges) ----------
 # Row 1 — WEEKLY
@@ -782,7 +588,7 @@ with st.expander("🔎 Click to expand methodology details", expanded=False):
 
 **Smart Reserve Impact Summary (the headline card)**
 - 🧮 Net weekly/annual numbers are taken **directly** from the H.4.1 line  
-  **"Reserve balances with Federal Reserve Banks."**  
+  **“Reserve balances with Federal Reserve Banks.”**  
   `NET_weekly = RB(latest) − RB(week_ago)`  
   `NET_annual = RB(latest) − RB(2025-01-01)`  
   👉 This ensures the headline matches the official H.4.1 total even if individual components are filtered.
@@ -824,3 +630,4 @@ if False:
     st.markdown("---")
     st.subheader("Raw H.4.1 values — latest, week-ago, and 2025-01-01 (millions)")
     st.dataframe(df_raw.reset_index(drop=True), use_container_width=True)
+
