@@ -226,7 +226,7 @@ def adv_vs_eme():
                                  name="Eme Loans", line=dict(width=3, color="#e74c3c")))
         add_shading(fig); yaxis_k(fig)
         fig.update_layout(
-    title=dict(text=title_range("Loans: Adv vs Eme"), x=0.5),
+    title=dict(text=title_range("EME Securities Loans"), x=0.5),
     height=520,
     legend=dict(
         orientation="h",
