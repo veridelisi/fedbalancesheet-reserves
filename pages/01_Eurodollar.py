@@ -192,13 +192,18 @@ def adv_vs_eme():
         fig2.add_trace(go.Bar(x=yoy["Time"], y=yoy["DebtYoY"], name="Debt YoY", marker_color="#8e44ad"))
         fig2.add_trace(go.Bar(x=yoy["Time"], y=yoy["LoansYoY"], name="Loans YoY", marker_color="#f39c12"))
         fig2.add_hline(y=0, line_dash="dash", line_color="black")
-        fig2.update_layout(title=dict(text="Advanced: YoY Growth"), barmode="group", height=420, legend=dict(
-        orientation="h",
-        yanchor="top",
-        y=-0.25,       # grafiğin altına biraz boşluk bırakır
-        xanchor="center",
-        x=0.5
-    ))
+        fig2.update_layout(
+            title=dict(text="Advanced: YoY Growth", x=0.5),
+            barmode="group",
+            height=420,
+            legend=dict(
+                orientation="h",
+                yanchor="top",
+                y=-0.25,
+                xanchor="center",
+                x=0.5
+            )
+        )
         st.plotly_chart(fig2, use_container_width=True)
 
     with tabA2:
@@ -217,13 +222,26 @@ def adv_vs_eme():
         fig2.add_trace(go.Bar(x=yoy["Time"], y=yoy["DebtYoY"], name="Debt YoY", marker_color="#27ae60"))
         fig2.add_trace(go.Bar(x=yoy["Time"], y=yoy["LoansYoY"], name="Loans YoY", marker_color="#e74c3c"))
         fig2.add_hline(y=0, line_dash="dash", line_color="black")
-        fig2.update_layout(title=dict(text="Emerging: YoY Growth"), barmode="group", height=420)
+        fig2.update_layout(
+            title=dict(text="Emerging: YoY Growth", x=0.5),
+            barmode="group",
+            height=420,
+            legend=dict(
+                orientation="h",
+                yanchor="top",
+                y=-0.25,
+                xanchor="center",
+                x=0.5
+            )
+        )
         st.plotly_chart(fig2, use_container_width=True)
 
     with tabA3:
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=df["Time"], y=df["AdvancedDebtSecurities"], mode="lines", name="Advanced", line=dict(width=3, color="#8e44ad")))
-        fig.add_trace(go.Scatter(x=df["Time"], y=df["EmeDebt"], mode="lines", name="Emerging", line=dict(width=3, color="#27ae60")))
+        fig.add_trace(go.Scatter(x=df["Time"], y=df["AdvancedDebtSecurities"], mode="lines",
+                                 name="Advanced", line=dict(width=3, color="#8e44ad")))
+        fig.add_trace(go.Scatter(x=df["Time"], y=df["EmeDebt"], mode="lines",
+                                 name="Emerging", line=dict(width=3, color="#27ae60")))
         add_shading(fig); yaxis_k(fig)
         st.plotly_chart(fig, use_container_width=True)
 
@@ -234,13 +252,26 @@ def adv_vs_eme():
         fig2.add_trace(go.Bar(x=yoy["Time"], y=yoy["AdvYoY"], name="Adv YoY", marker_color="#8e44ad"))
         fig2.add_trace(go.Bar(x=yoy["Time"], y=yoy["EmeYoY"], name="Eme YoY", marker_color="#27ae60"))
         fig2.add_hline(y=0, line_dash="dash", line_color="black")
-        fig2.update_layout(title=dict(text="Debt: YoY Growth"), barmode="group", height=420)
+        fig2.update_layout(
+            title=dict(text="Debt: YoY Growth", x=0.5),
+            barmode="group",
+            height=420,
+            legend=dict(
+                orientation="h",
+                yanchor="top",
+                y=-0.25,
+                xanchor="center",
+                x=0.5
+            )
+        )
         st.plotly_chart(fig2, use_container_width=True)
 
     with tabA4:
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=df["Time"], y=df["AdvancedLoans"], mode="lines", name="Advanced", line=dict(width=3, color="#f39c12")))
-        fig.add_trace(go.Scatter(x=df["Time"], y=df["EmeBankLoans"], mode="lines", name="Emerging", line=dict(width=3, color="#e74c3c")))
+        fig.add_trace(go.Scatter(x=df["Time"], y=df["AdvancedLoans"], mode="lines",
+                                 name="Advanced", line=dict(width=3, color="#f39c12")))
+        fig.add_trace(go.Scatter(x=df["Time"], y=df["EmeBankLoans"], mode="lines",
+                                 name="Emerging", line=dict(width=3, color="#e74c3c")))
         add_shading(fig); yaxis_k(fig)
         st.plotly_chart(fig, use_container_width=True)
 
@@ -251,8 +282,20 @@ def adv_vs_eme():
         fig2.add_trace(go.Bar(x=yoy["Time"], y=yoy["AdvYoY"], name="Adv YoY", marker_color="#f39c12"))
         fig2.add_trace(go.Bar(x=yoy["Time"], y=yoy["EmeYoY"], name="Eme YoY", marker_color="#e74c3c"))
         fig2.add_hline(y=0, line_dash="dash", line_color="black")
-        fig2.update_layout(title=dict(text="Loans: YoY Growth"), barmode="group", height=420)
+        fig2.update_layout(
+            title=dict(text="Loans: YoY Growth", x=0.5),
+            barmode="group",
+            height=420,
+            legend=dict(
+                orientation="h",
+                yanchor="top",
+                y=-0.25,
+                xanchor="center",
+                x=0.5
+            )
+        )
         st.plotly_chart(fig2, use_container_width=True)
+
 
 # ---------- Layout ----------
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
