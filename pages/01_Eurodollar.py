@@ -192,7 +192,13 @@ def adv_vs_eme():
         fig2.add_trace(go.Bar(x=yoy["Time"], y=yoy["DebtYoY"], name="Debt YoY", marker_color="#8e44ad"))
         fig2.add_trace(go.Bar(x=yoy["Time"], y=yoy["LoansYoY"], name="Loans YoY", marker_color="#f39c12"))
         fig2.add_hline(y=0, line_dash="dash", line_color="black")
-        fig2.update_layout(title=dict(text="Advanced: YoY Growth"), barmode="group", height=420)
+        fig2.update_layout(title=dict(text="Advanced: YoY Growth"), barmode="group", height=420, legend=dict(
+        orientation="h",
+        yanchor="top",
+        y=-0.25,       # grafiğin altına biraz boşluk bırakır
+        xanchor="center",
+        x=0.5
+    ))
         st.plotly_chart(fig2, use_container_width=True)
 
     with tabA2:
