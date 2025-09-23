@@ -9,166 +9,25 @@ from dateutil.relativedelta import relativedelta
 
 st.set_page_config(page_title="TGA — Deposits, Withdrawals & Closing Balance", layout="wide")
 
-# --- Modern Navigation Menu ---
-st.markdown("""
-<style>
-.nav-container {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-radius: 16px;
-    padding: 8px 16px;
-    margin: 16px 0 24px 0;
-    box-shadow: 0 8px 32px rgba(102, 126, 234, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.nav-item {
-    display: inline-block;
-    margin: 4px;
-    transition: all 0.3s ease;
-}
-
-.nav-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 16px;
-    background: rgba(255, 255, 255, 0.1);
-    color: white !important;
-    text-decoration: none !important;
-    border-radius: 12px;
-    font-weight: 500;
-    font-size: 0.9rem;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    backdrop-filter: blur(10px);
-    min-width: 120px;
-    justify-content: center;
-    letter-spacing: 0.3px;
-}
-
-.nav-link:hover {
-    background: rgba(255, 255, 255, 0.2);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    border-color: rgba(255, 255, 255, 0.3);
-}
-
-.nav-link.active {
-    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-    color: #1e293b !important;
-    font-weight: 600;
-    border-color: rgba(255, 255, 255, 0.4);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-}
-
-.nav-emoji {
-    font-size: 1.1rem;
-    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
-}
-
-.nav-text {
-    font-family: 'Segoe UI', Arial, sans-serif;
-}
-
-/* Responsive design */
-@media (max-width: 768px) {
-    .nav-container {
-        padding: 6px 8px;
-    }
-    .nav-link {
-        padding: 8px 12px;
-        font-size: 0.8rem;
-        min-width: 100px;
-    }
-    .nav-emoji {
-        font-size: 1rem;
-    }
-}
-</style>
-""", unsafe_allow_html=True)
-
-# Enhanced navigation with modern styling
-st.markdown('<div class="nav-container">', unsafe_allow_html=True)
-
-# Create columns for navigation items
+# --- Gezinme Barı (Yatay Menü, saf Streamlit) ---
 cols = st.columns(8)
 
-nav_items = [
-    ("streamlit_app.py", "🏠", "Home"),
-    ("pages/01_Reserves.py", "🌍", "Reserves"),
-    ("pages/01_Repo.py", "♻️", "Repo"),
-    ("pages/01_TGA.py", "🌐", "TGA"),
-    ("pages/01_PublicBalance.py", "💹", "Public Balance"),
-    ("pages/01_Interest.py", "✈️", "Reference Rates"),
-    ("pages/01_Desk.py", "📡", "Desk"),
-    ("pages/01_Eurodollar.py", "💡", "Eurodollar")
-]
-
-for i, (page, emoji, label) in enumerate(nav_items):
-    with cols[i]:
-        # You can add active state detection here based on current page
-        # For now, using standard page_link
-        st.page_link(page, label=f"{emoji} {label}")
-
-st.markdown('</div>', unsafe_allow_html=True)
-
-# Alternative: Custom HTML navigation (if you want more control)
-def create_custom_nav():
-    """Alternative custom navigation with HTML/CSS"""
-    
-    nav_html = """
-    <div class="nav-container">
-        <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;">
-    """
-    
-    for page, emoji, label in nav_items:
-        nav_html += f"""
-            <div class="nav-item">
-                <a href="/{page}" class="nav-link">
-                    <span class="nav-emoji">{emoji}</span>
-                    <span class="nav-text">{label}</span>
-                </a>
-            </div>
-        """
-    
-    nav_html += """
-        </div>
-    </div>
-    """
-    
-    st.markdown(nav_html, unsafe_allow_html=True)
-
-# Enhanced version with gradient background and better spacing
-def create_premium_nav():
-    """Premium navigation with enhanced styling"""
-    
-    st.markdown("""
-    <div style="
-        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #ec4899 100%);
-        border-radius: 20px;
-        padding: 12px 20px;
-        margin: 20px 0 32px 0;
-        box-shadow: 0 20px 40px rgba(79, 70, 229, 0.15);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        position: relative;
-        overflow: hidden;
-    ">
-        <div style="
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(20px);
-        "></div>
-        <div style="position: relative; z-index: 1;">
-            <!-- Navigation items will be placed here by Streamlit columns -->
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-# You can uncomment this to use the custom navigation
-# create_custom_nav()
+with cols[0]:
+    st.page_link("streamlit_app.py", label="🏠 Home")
+with cols[1]:
+    st.page_link("pages/01_Reserves.py", label="🌍 Reserves")
+with cols[2]:
+    st.page_link("pages/01_Repo.py", label="♻️ Repo")
+with cols[3]:
+    st.page_link("pages/01_TGA.py", label="🌐 TGA")
+with cols[4]:
+    st.page_link("pages/01_PublicBalance.py", label="💹 Public Balance")
+with cols[5]:
+    st.page_link("pages/01_Interest.py", label="✈️ Reference Rates")
+with cols[6]:
+    st.page_link("pages/01_Desk.py", label="📡 Desk")
+with cols[7]:
+    st.page_link("pages/01_Eurodollar.py", label="💡 Eurodollar")
 
 
 # --- Sol menü sakla ---

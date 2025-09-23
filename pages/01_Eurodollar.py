@@ -269,6 +269,273 @@ with tab3:
 with tab4:
     comparison()
 
+
+# ---------- Advanced vs Emerging Add-on ----------
+
+# Gerekli kolonlar mevcut mu?
+adv_cols = [
+    "Advanced", "AdvancedLoans", "AdvancedDebtSecurities",
+    "Eme", "EmeBankLoans", "EmeDebt"
+]
+missing = [c for c in adv_cols if c not in df.columns]
+if missing:
+    st.info(
+        "ℹ️ Gelişmiş/Gelişen karşılaştırmaları için şu kolonlar eksik: "
+        + ", ".join(missing)
+        + ". Eğer 0analysis.xlsx’de varsa, ‘Veri Kaynağı’ndan yükleyip sayfayı yenileyin."
+    )
+else:
+    # Güvenli sayı formatı (milyon → milyar yapılmıştı; yine de coercion)
+    for col in adv_cols:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    def add_shading_adv(fig):
+        # Mevcut add_shading ile aynı mantıkta, bağımsız kullanalım
+        crisis_periods = [
+            (pd.to_datetime("2007-12-01"), pd.to_datetime("2009-06-01"), "Financial Crisis"),
+            (pd.to_datetime("2020-02-01"), pd.to_datetime("2020-04-01"), "COVID-19"),
+        ]
+        for x0, x1, label in crisis_periods:
+            fig.add_vrect(
+                x0=x0, x1=x1,
+                fillcolor="red", opacity=0.10, line_width=0,
+                annotation_text=label, annotation_position="top left"
+            )
+        x0 = pd.to_datetime("2022-06-01")
+        x1 = pd.to_datetime(df["Time"].max())
+        fig.add_vrect(
+            x0=x0, x1=x1,
+            fillcolor="orange", opacity=0.08, line_width=0,
+            annotation_text="Fed Tightening", annotation_position="top left"
+        )
+
+    def yaxis_k_adv(fig, tickvals=None):
+        if tickvals is not None:
+            fig.update_yaxes(
+                tickformat="~s",
+                tickvals=tickvals,
+                ticktext=[f"{int(v/1000)}k" for v in tickvals],
+                showexponent="none"
+            )
+        else:
+            fig.update_yaxes(tickformat="~s", showexponent="none")
+
+    def title_range_adv(prefix):
+        return f"<b>{prefix} ({df['Time'].min().year}–{df['Time'].max().year})</b>"
+
+    # ---- CHART 1: Advanced Countries - Debt vs Loans ----
+    def chart1_advanced_debt_vs_loans():
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=df["Time"], y=df["AdvancedDebtSecurities"],
+            mode="lines", name="Advanced Debt Securities",
+            line=dict(width=3)
+        ))
+        fig.add_trace(go.Scatter(
+            x=df["Time"], y=df["AdvancedLoans"],
+            mode="lines", name="Advanced Loans",
+            line=dict(width=3)
+        ))
+        add_shading_adv(fig)
+        fig.update_layout(
+            title=dict(text=title_range_adv("Advanced: Debt Securities vs Loans"), x=0.5),
+            xaxis_title="Time Period", yaxis_title="USD Billions",
+            height=520, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0)
+        )
+        yaxis_k_adv(fig)
+        st.plotly_chart(fig, use_container_width=True)
+
+        yoy = df.copy()
+        yoy["YoY_AdvDebt"] = yoy["AdvancedDebtSecurities"].pct_change(4) * 100
+        yoy["YoY_AdvLoans"] = yoy["AdvancedLoans"].pct_change(4) * 100
+        fig2 = go.Figure()
+        fig2.add_trace(go.Bar(x=yoy["Time"], y=yoy["YoY_AdvDebt"], name="Debt YoY", opacity=0.75))
+        fig2.add_trace(go.Bar(x=yoy["Time"], y=yoy["YoY_AdvLoans"], name="Loans YoY", opacity=0.75))
+        fig2.add_hline(y=0, line_dash="dash", line_color="black", opacity=0.5)
+        fig2.update_layout(
+            title=dict(text=title_range_adv("Advanced: YoY Growth"), x=0.5),
+            xaxis_title="Time Period", yaxis_title="YoY (%)",
+            height=420, barmode='group',
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0)
+        )
+        st.plotly_chart(fig2, use_container_width=True)
+
+    # ---- CHART 2: Emerging Countries - Debt vs Loans ----
+    def chart2_emerging_debt_vs_loans():
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=df["Time"], y=df["EmeDebt"],
+            mode="lines", name="Emerging Debt Securities",
+            line=dict(width=3)
+        ))
+        fig.add_trace(go.Scatter(
+            x=df["Time"], y=df["EmeBankLoans"],
+            mode="lines", name="Emerging Bank Loans",
+            line=dict(width=3)
+        ))
+        add_shading_adv(fig)
+        fig.update_layout(
+            title=dict(text=title_range_adv("Emerging: Debt Securities vs Bank Loans"), x=0.5),
+            xaxis_title="Time Period", yaxis_title="USD Billions",
+            height=520, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0)
+        )
+        yaxis_k_adv(fig)
+        st.plotly_chart(fig, use_container_width=True)
+
+        yoy = df.copy()
+        yoy["YoY_EmeDebt"] = yoy["EmeDebt"].pct_change(4) * 100
+        yoy["YoY_EmeLoans"] = yoy["EmeBankLoans"].pct_change(4) * 100
+        fig2 = go.Figure()
+        fig2.add_trace(go.Bar(x=yoy["Time"], y=yoy["YoY_EmeDebt"], name="Debt YoY", opacity=0.75))
+        fig2.add_trace(go.Bar(x=yoy["Time"], y=yoy["YoY_EmeLoans"], name="Loans YoY", opacity=0.75))
+        fig2.add_hline(y=0, line_dash="dash", line_color="black", opacity=0.5)
+        fig2.update_layout(
+            title=dict(text=title_range_adv("Emerging: YoY Growth"), x=0.5),
+            xaxis_title="Time Period", yaxis_title="YoY (%)",
+            height=420, barmode='group',
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0)
+        )
+        st.plotly_chart(fig2, use_container_width=True)
+
+    # ---- CHART 3: Debt Securities Comparison (Advanced vs Emerging) ----
+    def chart3_debt_securities_comparison():
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=df["Time"], y=df["AdvancedDebtSecurities"],
+            mode="lines", name="Advanced",
+            line=dict(width=3)
+        ))
+        fig.add_trace(go.Scatter(
+            x=df["Time"], y=df["EmeDebt"],
+            mode="lines", name="Emerging",
+            line=dict(width=3)
+        ))
+        add_shading_adv(fig)
+        fig.update_layout(
+            title=dict(text=title_range_adv("Debt Securities: Advanced vs Emerging"), x=0.5),
+            xaxis_title="Time Period", yaxis_title="USD Billions",
+            height=520, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0)
+        )
+        yaxis_k_adv(fig)
+        st.plotly_chart(fig, use_container_width=True)
+
+        share = df.copy()
+        share["TotalDebt"] = share["AdvancedDebtSecurities"] + share["EmeDebt"]
+        share["AdvShare"] = (share["AdvancedDebtSecurities"] / share["TotalDebt"]) * 100
+        share["EmeShare"] = (share["EmeDebt"] / share["TotalDebt"]) * 100
+
+        fig2 = go.Figure()
+        fig2.add_trace(go.Scatter(x=share["Time"], y=share["AdvShare"], mode="lines", name="Advanced Share (%)", line=dict(width=3)))
+        fig2.add_trace(go.Scatter(x=share["Time"], y=share["EmeShare"], mode="lines", name="Emerging Share (%)", line=dict(width=3), fill="tozeroy"))
+        fig2.update_layout(
+            title=dict(text=title_range_adv("Debt Securities Market Share"), x=0.5),
+            xaxis_title="Time Period", yaxis_title="Market Share (%)",
+            height=420, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0)
+        )
+        st.plotly_chart(fig2, use_container_width=True)
+
+    # ---- CHART 4: Loans Comparison (Advanced vs Emerging) ----
+    def chart4_loans_comparison():
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=df["Time"], y=df["AdvancedLoans"],
+            mode="lines", name="Advanced",
+            line=dict(width=3)
+        ))
+        fig.add_trace(go.Scatter(
+            x=df["Time"], y=df["EmeBankLoans"],
+            mode="lines", name="Emerging",
+            line=dict(width=3)
+        ))
+        add_shading_adv(fig)
+        fig.update_layout(
+            title=dict(text=title_range_adv("Loans: Advanced vs Emerging"), x=0.5),
+            xaxis_title="Time Period", yaxis_title="USD Billions",
+            height=520, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0)
+        )
+        yaxis_k_adv(fig)
+        st.plotly_chart(fig, use_container_width=True)
+
+        share = df.copy()
+        share["TotalLoans"] = share["AdvancedLoans"] + share["EmeBankLoans"]
+        share["AdvShare"] = (share["AdvancedLoans"] / share["TotalLoans"]) * 100
+        share["EmeShare"] = (share["EmeBankLoans"] / share["TotalLoans"]) * 100
+
+        fig2 = go.Figure()
+        fig2.add_trace(go.Scatter(x=share["Time"], y=share["AdvShare"], mode="lines", name="Advanced Share (%)", line=dict(width=3)))
+        fig2.add_trace(go.Scatter(x=share["Time"], y=share["EmeShare"], mode="lines", name="Emerging Share (%)", line=dict(width=3), fill="tozeroy"))
+        fig2.update_layout(
+            title=dict(text=title_range_adv("Loans Market Share"), x=0.5),
+            xaxis_title="Time Period", yaxis_title="Market Share (%)",
+            height=420, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0)
+        )
+        st.plotly_chart(fig2, use_container_width=True)
+
+    # ---- SUMMARY STATISTICS (son dönem) ----
+    def summary_latest():
+        latest = df.iloc[-1]
+        total_debt = latest["AdvancedDebtSecurities"] + latest["EmeDebt"]
+        total_loans = latest["AdvancedLoans"] + latest["EmeBankLoans"]
+
+        colA, colB, colC = st.columns(3)
+        with colA:
+            st.metric("Latest Date", latest["Time"].strftime("%Y-%m-%d"))
+        with colB:
+            st.metric("Global Debt Securities (B$)", f"{total_debt:,.0f}")
+        with colC:
+            st.metric("Global Loans (B$)", f"{total_loans:,.0f}")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            st.write("**Advanced (B$)**")
+            st.write(
+                f"- Debt: **{latest['AdvancedDebtSecurities']:,.0f}**  \n"
+                f"- Loans: **{latest['AdvancedLoans']:,.0f}**  \n"
+                f"- Total: **{(latest['AdvancedDebtSecurities'] + latest['AdvancedLoans']):,.0f}**"
+            )
+        with col2:
+            st.write("**Emerging (B$)**")
+            st.write(
+                f"- Debt: **{latest['EmeDebt']:,.0f}**  \n"
+                f"- Loans: **{latest['EmeBankLoans']:,.0f}**  \n"
+                f"- Total: **{(latest['EmeDebt'] + latest['EmeBankLoans']):,.0f}**"
+            )
+
+        adv_debt_share = (latest['AdvancedDebtSecurities'] / total_debt) * 100 if total_debt else np.nan
+        eme_debt_share = (latest['EmeDebt'] / total_debt) * 100 if total_debt else np.nan
+        adv_loans_share = (latest['AdvancedLoans'] / total_loans) * 100 if total_loans else np.nan
+        eme_loans_share = (latest['EmeBankLoans'] / total_loans) * 100 if total_loans else np.nan
+
+        st.caption(
+            f"**Market Shares (Latest)** — Debt: Advanced {adv_debt_share:.1f}%, Emerging {eme_debt_share:.1f}% • "
+            f"Loans: Advanced {adv_loans_share:.1f}%, Emerging {eme_loans_share:.1f}%"
+        )
+
+    # ---------- UI: Yeni bölüm ve 4 sekme ----------
+    st.markdown("## 🌎 Eurodollar Market Analysis: Advanced vs Emerging Countries")
+    st.caption("BIS GLI-USD kapsamında; milyon → **milyar USD** ölçeği; YoY = **4 çeyrek** farkı.")
+
+    tabA, tabB, tabC, tabD = st.tabs([
+        "Advanced: Debt vs Loans",
+        "Emerging: Debt vs Loans",
+        "Debt: Advanced vs Emerging",
+        "Loans: Advanced vs Emerging",
+    ])
+
+    with tabA:
+        chart1_advanced_debt_vs_loans()
+    with tabB:
+        chart2_emerging_debt_vs_loans()
+    with tabC:
+        chart3_debt_securities_comparison()
+    with tabD:
+        chart4_loans_comparison()
+
+    st.markdown("### 🧾 Summary (Latest)")
+    summary_latest()
+
+
+
 # --------------------------- Methodology --------------------------
 st.markdown("### 📋 Methodology")
 
