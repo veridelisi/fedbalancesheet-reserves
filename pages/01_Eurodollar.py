@@ -183,6 +183,18 @@ def adv_vs_eme():
         fig.add_trace(go.Scatter(x=df["Time"], y=df["AdvancedLoans"], mode="lines",
                                  name="Adv Loans", line=dict(width=3, color="#f39c12")))
         add_shading(fig); yaxis_k(fig)
+        fig.update_layout(
+    title=dict(text=title_range("Loans: Adv vs Eme"), x=0.5),
+    height=520,
+    legend=dict(
+        orientation="h",
+        yanchor="top",
+        y=-0.25,   # alta indir
+        xanchor="center",
+        x=0.5
+    )
+)
+
         st.plotly_chart(fig, use_container_width=True)
 
         yoy = df.copy()
@@ -213,6 +225,18 @@ def adv_vs_eme():
         fig.add_trace(go.Scatter(x=df["Time"], y=df["EmeBankLoans"], mode="lines",
                                  name="Eme Loans", line=dict(width=3, color="#e74c3c")))
         add_shading(fig); yaxis_k(fig)
+        fig.update_layout(
+    title=dict(text=title_range("Loans: Adv vs Eme"), x=0.5),
+    height=520,
+    legend=dict(
+        orientation="h",
+        yanchor="top",
+        y=-0.25,   # alta indir
+        xanchor="center",
+        x=0.5
+    )
+)
+
         st.plotly_chart(fig, use_container_width=True)
 
         yoy = df.copy()
@@ -243,6 +267,18 @@ def adv_vs_eme():
         fig.add_trace(go.Scatter(x=df["Time"], y=df["EmeDebt"], mode="lines",
                                  name="Emerging", line=dict(width=3, color="#27ae60")))
         add_shading(fig); yaxis_k(fig)
+        fig.update_layout(
+    title=dict(text=title_range("Loans: Adv vs Eme"), x=0.5),
+    height=520,
+    legend=dict(
+        orientation="h",
+        yanchor="top",
+        y=-0.25,   # alta indir
+        xanchor="center",
+        x=0.5
+    )
+)
+
         st.plotly_chart(fig, use_container_width=True)
 
         yoy = df.copy()
