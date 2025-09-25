@@ -499,7 +499,6 @@ with st.expander("🔎 Click to expand methodology details", expanded=False):
 - 🌎 Latin America: Argentina, Brazil, Chile, Mexico  
     """)
 
-
 # ---------- Footer ----------
 st.markdown(
     """
