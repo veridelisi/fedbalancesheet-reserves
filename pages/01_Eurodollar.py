@@ -105,6 +105,12 @@ def yaxis_k(fig, tickvals=None):
 def title_range(prefix):
     return f"<b>{prefix} ({df['Time'].min().year}–{df['Time'].max().year})</b>"
 
+
+
+def legend_bottom():
+    return dict(orientation="h", yanchor="top", y=-0.25, xanchor="center", x=0.5)
+
+
 # ---------- Classic Charts ----------
 def total_credit():
     fig = go.Figure()
@@ -345,9 +351,101 @@ def adv_vs_eme():
         st.plotly_chart(fig2, use_container_width=True)
 
 
+# ---------- Emerging Area (regional totals only) ----------
+REGIONS = [
+    ("Africa & Middle East", "AfricaMiddleEast", "#e74c3c"),
+    ("Emerging Asia",        "EmergingAsia",      "#8e44ad"),
+    ("Emerging Europe",      "EmergingEurope",    "#27ae60"),
+    ("Latin America",        "LatinAmerica",      "#f39c12"),
+]
+
+def emerging_area():
+    tabs = st.tabs([r[0] for r in REGIONS])
+
+    for (tab, (title, col, color)) in zip(tabs, REGIONS):
+        with tab:
+            if col not in df.columns or df[col].isna().all():
+                st.info(f"ℹ️ {title} verisi bulunamadı (kolon: {col}).")
+                continue
+
+            # Üst: seviye (line)
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(
+                x=df["Time"], y=df[col], mode="lines", name=title,
+                line=dict(width=4, color=color)
+            ))
+            add_shading(fig); yaxis_k(fig)
+            fig.update_layout(
+                title=dict(text=title_range(f"{title} — Eurodollar Total"), x=0.5),
+                height=520, legend=legend_bottom()
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+            # Alt: YoY (4Q)
+            yoy = df[col].pct_change(4)*100
+            fig2 = go.Figure()
+            fig2.add_trace(go.Bar(x=df["Time"], y=yoy, name=f"{title} YoY", marker_color=color, opacity=0.85))
+            fig2.add_hline(y=0, line_dash="dash", line_color="black", opacity=0.6)
+            fig2.update_layout(
+                title=dict(text=f"{title}: YoY Growth (%)", x=0.5),
+                barmode="group", height=420, legend=legend_bottom()
+            )
+            st.plotly_chart(fig2, use_container_width=True)
+# ---------- Emerging Countries (multi-select) ----------
+COUNTRIES = ['SaudiArabia','SouthAfrica','China','Taipei','India','Indonesia','Korea','Malaysia',
+             'Russia','Turkey','Argentina','Brazil','Chile','Mexico']
+
+COLOR_CYCLE = ["#e74c3c", "#f39c12", "#8e44ad", "#27ae60", "#d35400", "#c0392b",
+               "#9b59b6", "#16a085", "#7f8c8d", "#95a5a6", "#2ecc71", "#e67e22",
+               "#bdc3c7", "#34495e"]
+
+def emerging_countries():
+    available = [c for c in COUNTRIES if c in df.columns and not df[c].isna().all()]
+    if not available:
+        st.info("ℹ️ Ülke kolonları bulunamadı.")
+        return
+
+    picked = st.multiselect("Select countries", available, default=available[:4])
+    if not picked:
+        st.warning("En az bir ülke seçin.")
+        return
+
+    # Üst: seçili ülkeler seviye (tek grafikte)
+    fig = go.Figure()
+    for i, c in enumerate(picked):
+        fig.add_trace(go.Scatter(
+            x=df["Time"], y=pd.to_numeric(df[c], errors="coerce"),
+            mode="lines", name=c, line=dict(width=3, color=COLOR_CYCLE[i % len(COLOR_CYCLE)])
+        ))
+    add_shading(fig); yaxis_k(fig)
+    fig.update_layout(
+        title=dict(text=title_range("Emerging Countries — Eurodollar Totals"), x=0.5),
+        height=520, legend=legend_bottom()
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Alt: YoY grouped bar
+    fig2 = go.Figure()
+    for i, c in enumerate(picked):
+        yoy = pd.to_numeric(df[c], errors="coerce").pct_change(4)*100
+        fig2.add_trace(go.Bar(
+            x=df["Time"], y=yoy, name=f"{c} YoY",
+            marker_color=COLOR_CYCLE[i % len(COLOR_CYCLE)], opacity=0.85
+        ))
+    fig2.add_hline(y=0, line_dash="dash", line_color="black", opacity=0.6)
+    fig2.update_layout(
+        title=dict(text="Emerging Countries: YoY Growth (%)", x=0.5),
+        barmode="group", height=420, legend=legend_bottom()
+    )
+    st.plotly_chart(fig2, use_container_width=True)
+
+
+
 # ---------- Layout ----------
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "Total Credit", "Debt Securities", "Loans", "Comparison", "Advanced vs Emerging"
+# ---------- Layout ----------
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    "Total Credit", "Debt Securities", "Loans", "Comparison",
+    "Advanced vs Emerging", "Emerging Area", "Emerging Countries"
 ])
 
 with tab1: total_credit()
@@ -355,6 +453,9 @@ with tab2: debt_securities()
 with tab3: loans()
 with tab4: comparison()
 with tab5: adv_vs_eme()
+with tab6: emerging_area()
+with tab7: emerging_countries()
+
 
 # ---------- Methodology ----------
 st.markdown("### 📋 Methodology")
