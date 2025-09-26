@@ -442,7 +442,7 @@ def _fmtB(x, pos):
     return f"{x:,.1f}B" if abs(x) < 10 else f"{x:,.0f}B"
 fmtB = FuncFormatter(_fmtB)
 
-def plot_barh_billions(df, col, title, xlabel):
+def plot_barh_billions(df, col, title, xlabel, top_n=6):
     if df.empty or df[col].abs().max() == 0:
         return
     dd = df.copy()
