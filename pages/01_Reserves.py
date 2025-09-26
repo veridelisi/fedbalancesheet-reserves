@@ -49,17 +49,62 @@ def badge(text, bg="#E5E7EB", fg="#111827", br="#D1D5DB"):
 # --- Styling extras for enhanced tables ---
 st.markdown("""
 <style>
-  .assets-table {background:linear-gradient(135deg,#f8fafc 0%,#e2e8f0 100%);border-radius:12px;padding:16px;border:1px solid #cbd5e1;margin:16px 0;}
-  .liabilities-table {background:linear-gradient(135deg,#fef2f2 0%,#fee2e2 100%);border-radius:12px;padding:16px;border:1px solid #fca5a5;margin:16px 0;}
-  .table-header,.liab-table-header{font-weight:600;font-size:1.1rem;margin-bottom:12px;display:flex;align-items:center;gap:8px}
-  .liab-table-header{color:#7f1d1d}
-  .summary-card{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;padding:20px;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,.1);margin:8px 0;position:relative;overflow:hidden}
-  .summary-card::before{content:'';position:absolute;inset:0;background:rgba(255,255,255,.1);backdrop-filter:blur(10px);z-index:0}
-  .card-content{position:relative;z-index:1}.card-title{font-size:.9rem;opacity:.9;margin-bottom:8px}
-  .card-value{font-size:1.8rem;font-weight:700;margin-bottom:4px}.card-subtitle{font-size:.8rem;opacity:.8}
-  .positive{background:linear-gradient(135deg,#10b981 0%,#059669 100%)}
-  .negative{background:linear-gradient(135deg,#ef4444 0%,#dc2626 100%)}
-  .neutral{background:linear-gradient(135deg,#6b7280 0%,#4b5563 100%)}
+/* Daha modern ve şık tablo container'ları */
+.assets-table {
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f8fafc 100%);
+    border-radius: 16px;
+    padding: 24px;
+    border: 2px solid #0ea5e9;
+    margin: 20px 0;
+    box-shadow: 0 10px 25px rgba(14, 165, 233, 0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.assets-table::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #0ea5e9, #3b82f6, #6366f1);
+}
+
+.liabilities-table {
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 50%, #fef7f7 100%);
+    border-radius: 16px;
+    padding: 24px;
+    border: 2px solid #ef4444;
+    margin: 20px 0;
+    box-shadow: 0 10px 25px rgba(239, 68, 68, 0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.liabilities-table::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #ef4444, #dc2626, #b91c1c);
+}
+
+/* Hover efektleri için */
+.assets-table:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 15px 35px rgba(14, 165, 233, 0.15);
+    transition: all 0.3s ease;
+}
+
+.liabilities-table:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 15px 35px rgba(239, 68, 68, 0.15);
+    transition: all 0.3s ease;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
