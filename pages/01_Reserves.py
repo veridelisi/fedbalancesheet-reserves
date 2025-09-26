@@ -448,7 +448,7 @@ def plot_barh_billions(df, col, title, xlabel):
     dd = df.copy()
     dd['val_b'] = dd[col] / 1000.0
     dd = dd.sort_values('val_b')
-    colors = ['#1f77b4' if x >= 0 else 'red' for x in dd['val_b']]
+    colors = ["#1fb44c" if x >= 0 else 'red' for x in dd['val_b']]
 
     fig, ax = plt.subplots(figsize=(12, max(4, 0.45*len(dd)+2)))
     ax.barh(dd['name'], dd['val_b'], color=colors, alpha=0.85)
