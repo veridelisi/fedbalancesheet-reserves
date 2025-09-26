@@ -64,6 +64,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------- Enhanced table helpers ----------
+
 def format_millions(value):
     if pd.isna(value) or value == 0: return "—"
     abs_val = abs(value)
