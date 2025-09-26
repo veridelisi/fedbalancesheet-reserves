@@ -167,14 +167,60 @@ def loans():
     st.plotly_chart(fig2, use_container_width=True)
 
 def comparison():
+    # --- LEVELS (üstte) ---
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=df["Time"], y=df["AllCredit"], mode="lines", name="Total", line=dict(width=3, color="#e74c3c")))
-    fig.add_trace(go.Scatter(x=df["Time"], y=df["DebtSecurities"], mode="lines", name="Debt", line=dict(width=3, color="#8e44ad")))
-    fig.add_trace(go.Scatter(x=df["Time"], y=df["Loans"], mode="lines", name="Loans", line=dict(width=3, color="#f39c12")))
+    fig.add_trace(go.Scatter(x=df["Time"], y=df["AllCredit"], mode="lines",
+                             name="Total", line=dict(width=3, color="#e74c3c")))
+    fig.add_trace(go.Scatter(x=df["Time"], y=df["DebtSecurities"], mode="lines",
+                             name="Debt", line=dict(width=3, color="#8e44ad")))
+    fig.add_trace(go.Scatter(x=df["Time"], y=df["Loans"], mode="lines",
+                             name="Loans", line=dict(width=3, color="#f39c12")))
     add_shading(fig); yaxis_k(fig)
     fig.update_layout(title=dict(text=title_range("Comparison"), x=0.5),
                       height=620, legend=dict(orientation="h"))
     st.plotly_chart(fig, use_container_width=True)
+
+    # --- YoY (altta: tek grafik, 3 seri) ---
+    d = df.sort_values("Time").copy()
+
+    # Aylık/çeyreklik lag algıla (≈30 gün -> 12; ≈90 gün -> 4)
+    try:
+        delta_days = (d["Time"].diff().median()).days
+    except Exception:
+        delta_days = 30
+    lag = 4 if (pd.notnull(delta_days) and delta_days >= 80) else 12
+
+    d["TotalYoY"] = d["AllCredit"].pct_change(lag) * 100
+    d["DebtYoY"]  = d["DebtSecurities"].pct_change(lag) * 100
+    d["LoansYoY"] = d["Loans"].pct_change(lag) * 100
+    yoy_plot = d.dropna(subset=["TotalYoY","DebtYoY","LoansYoY"])
+
+    # (İsteğe bağlı: aylık çok sık ise çeyrek sonlarını göster)
+    # if lag == 12:
+    #     yoy_plot = yoy_plot[yoy_plot["Time"].dt.is_quarter_end]
+
+    fig2 = go.Figure()
+    fig2.add_trace(go.Bar(x=yoy_plot["Time"], y=yoy_plot["TotalYoY"], name="Total YoY",
+                          marker_color="#e74c3c",
+                          hovertemplate="%{y:.1f}%<extra>Total</extra>"))
+    fig2.add_trace(go.Bar(x=yoy_plot["Time"], y=yoy_plot["DebtYoY"], name="Debt YoY",
+                          marker_color="#8e44ad",
+                          hovertemplate="%{y:.1f}%<extra>Debt</extra>"))
+    fig2.add_trace(go.Bar(x=yoy_plot["Time"], y=yoy_plot["LoansYoY"], name="Loans YoY",
+                          marker_color="#f39c12",
+                          hovertemplate="%{y:.1f}%<extra>Loans</extra>"))
+
+    fig2.add_hline(y=0, line_dash="dash", line_color="black")
+    add_shading(fig2)
+    fig2.update_yaxes(title="YoY (%)", ticksuffix="%", tickformat=".1f")
+    fig2.update_layout(
+        title=dict(text=title_range("YoY Growth — Total vs Debt vs Loans"), x=0.5),
+        barmode="group",
+        height=420,
+        legend=dict(orientation="h", yanchor="top", y=-0.25, xanchor="center", x=0.5)
+    )
+    st.plotly_chart(fig2, use_container_width=True)
+
 
 # ---------- Advanced vs Emerging ----------
 def adv_vs_eme():
