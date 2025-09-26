@@ -167,43 +167,14 @@ def loans():
     st.plotly_chart(fig2, use_container_width=True)
 
 def comparison():
-    # --- LEVELS (mevcut grafik) ---
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=df["Time"], y=df["AllCredit"], mode="lines",
-                             name="Total", line=dict(width=3, color="#e74c3c")))
-    fig.add_trace(go.Scatter(x=df["Time"], y=df["DebtSecurities"], mode="lines",
-                             name="Debt", line=dict(width=3, color="#8e44ad")))
-    fig.add_trace(go.Scatter(x=df["Time"], y=df["Loans"], mode="lines",
-                             name="Loans", line=dict(width=3, color="#f39c12")))
+    fig.add_trace(go.Scatter(x=df["Time"], y=df["AllCredit"], mode="lines", name="Total", line=dict(width=3, color="#e74c3c")))
+    fig.add_trace(go.Scatter(x=df["Time"], y=df["DebtSecurities"], mode="lines", name="Debt", line=dict(width=3, color="#8e44ad")))
+    fig.add_trace(go.Scatter(x=df["Time"], y=df["Loans"], mode="lines", name="Loans", line=dict(width=3, color="#f39c12")))
     add_shading(fig); yaxis_k(fig)
     fig.update_layout(title=dict(text=title_range("Comparison"), x=0.5),
                       height=620, legend=dict(orientation="h"))
     st.plotly_chart(fig, use_container_width=True)
-
-    # --- YoY (yüzde değişim) ---
-    d = df.sort_values("Time").copy()
-    d["Total_yoy"] = d["AllCredit"].pct_change(12) * 100
-    d["Debt_yoy"]  = d["DebtSecurities"].pct_change(12) * 100
-    d["Loans_yoy"] = d["Loans"].pct_change(12) * 100
-
-    fig_yoy = go.Figure()
-    fig_yoy.add_trace(go.Scatter(x=d["Time"], y=d["Total_yoy"], mode="lines",
-                                 name="Total YoY", line=dict(width=2, color="#e74c3c")))
-    fig_yoy.add_trace(go.Scatter(x=d["Time"], y=d["Debt_yoy"], mode="lines",
-                                 name="Debt YoY", line=dict(width=2, color="#8e44ad")))
-    fig_yoy.add_trace(go.Scatter(x=d["Time"], y=d["Loans_yoy"], mode="lines",
-                                 name="Loans YoY", line=dict(width=2, color="#f39c12")))
-
-    # sıfır çizgisi ve gölgelendirme
-    fig_yoy.add_hline(y=0, line_width=1, line_dash="dot", line_color="gray")
-    add_shading(fig_yoy)
-
-    fig_yoy.update_yaxes(title="YoY (%)", tickformat=".1f", ticksuffix="%",
-                         zeroline=True, zerolinewidth=1, zerolinecolor="gray")
-    fig_yoy.update_layout(title=dict(text=title_range("Comparison — YoY (%)"), x=0.5),
-                          height=420, legend=dict(orientation="h"))
-    st.plotly_chart(fig_yoy, use_container_width=True)
-
 
 # ---------- Advanced vs Emerging ----------
 def adv_vs_eme():
