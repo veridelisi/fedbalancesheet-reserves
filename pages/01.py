@@ -93,7 +93,7 @@ end_year   = st.sidebar.text_input("Bitiş yılı (boş = son)", value="")
 try:
     dfs = []
     for name, key in SERIES.items():
-        s = bis_series_json(key, start=str(start_year), end=(end_year or None))
+        s = bis_series_json(key, start=str(start_year), end=(2025))
         s = s.rename(columns={"Val": name})
         dfs.append(s)
 
