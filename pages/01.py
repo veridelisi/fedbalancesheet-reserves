@@ -44,7 +44,7 @@ SERIES = {
 }
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def bis_series_json(key: str, start="2000", end=None) -> pd.DataFrame:
+def bis_series_json(key: str, start="2000", end=2025) -> pd.DataFrame:
     """
     BIS SDMX-JSON -> DataFrame[Time, Val]
     - Time: çeyrek sonu timestamp
