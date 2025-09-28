@@ -95,12 +95,16 @@ def add_shading(fig):
                   fillcolor="orange",opacity=.08,line_width=0,
                   annotation_text="Fed Tightening",annotation_position="top left")
 
-def yaxis_k(fig, tickvals=None):
+def yaxis_k(fig, tickvals=None, decimals=0):
+    # 1,250B stili: binlik ayraç + B son ek
     if tickvals is not None:
-        fig.update_yaxes(tickformat="~s", tickvals=tickvals,
-                         ticktext=[f"{int(v/1000)}k" for v in tickvals], showexponent="none")
-    else:
-        fig.update_yaxes(tickformat="~s", showexponent="none")
+        fig.update_yaxes(tickvals=tickvals)
+    fig.update_yaxes(
+        tickformat=f",.{decimals}f",  # ",.0f" → 1,250   ",.1f" → 1,250.5
+        ticksuffix="B",
+        separatethousands=True,
+        showexponent="none"
+    )
 
 def title_range(prefix):
     return f"<b>{prefix} ({df['Time'].min().year}–{df['Time'].max().year})</b>"
