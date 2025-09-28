@@ -1,3 +1,4 @@
+# pages/01_Eurodollar.py
 import requests
 import pandas as pd
 import numpy as np
@@ -28,28 +29,25 @@ with cols[7]:
 
 # --- Sol menü gizle ---
 st.markdown("""
-<style>
-  [data-testid="stSidebarNav"]{display:none;}
-  section[data-testid="stSidebar"][aria-expanded="true"]{display:none;}
-</style>
-""", unsafe_allow_html=True)
+    <style>
+        [data-testid="stSidebarNav"] {display: none;}
+        section[data-testid="stSidebar"][aria-expanded="true"]{display: none;}
+    </style>
+    """, unsafe_allow_html=True)
 
 # ======================= BIS LOADER (GENERIC XML) =======================
-FLOW_PATH = "dataflow/BIS/WS_GLI/1.0"  # sabit
+FLOW_PATH = "dataflow/BIS/WS_GLI/1.0"
 HEADERS   = {"Accept": "application/vnd.sdmx.genericdata+xml;version=2.1"}
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def bis_series_xml(key: str, start="2000", end="2025") -> pd.DataFrame:
     """
-    BIS SDMX-XML (genericdata 2.1) -> DataFrame[Time, Val]
-    - Endpoint: https://stats.bis.org/api/v2/data/dataflow/BIS/WS_GLI/1.0/{key}/all?detail=full&startPeriod=...&endPeriod=...
-    - Dönen Val: ham değer (çoğunlukla USD milyon). Aşağıda milyara ölçekleyeceğiz.
+    BIS SDMX-XML (genericdata v2.1) -> DataFrame[Time, Val]
+    Endpoint kalıbı:
+      https://stats.bis.org/api/v2/data/dataflow/BIS/WS_GLI/1.0/{KEY}/all?detail=full&startPeriod=YYYY&endPeriod=YYYY
     """
-    base = f"https://stats.bis.org/api/v2/data/{FLOW_PATH}/{key}/all?detail=full"
-    if start: base += f"&startPeriod={start}"
-    if end:   base += f"&endPeriod={end}"
-
-    r = requests.get(base, headers=HEADERS, timeout=60)
+    url = f"https://stats.bis.org/api/v2/data/{FLOW_PATH}/{key}/all?detail=full&startPeriod={start}&endPeriod={end}"
+    r = requests.get(url, headers=HEADERS, timeout=60)
     r.raise_for_status()
 
     root = ET.fromstring(r.content)
@@ -60,7 +58,7 @@ def bis_series_xml(key: str, start="2000", end="2025") -> pd.DataFrame:
         for obs in series.findall('.//g:Obs', ns):
             dim = obs.find('g:ObsDimension', ns)
             val = obs.find('g:ObsValue', ns)
-            if val is None: 
+            if val is None:
                 continue
             period = dim.get('value') if dim is not None else None
             value  = val.get('value')
@@ -80,10 +78,9 @@ def bis_series_xml(key: str, start="2000", end="2025") -> pd.DataFrame:
         except: return pd.to_datetime(s, errors="coerce")
     out["Time"] = out["period"].apply(to_q_end)
 
-    out = out.dropna(subset=["Time","Val"]).sort_values("Time").reset_index(drop=True)
-    return out[["Time","Val"]]
+    return out.dropna(subset=["Time","Val"]).sort_values("Time")[["Time","Val"]].reset_index(drop=True)
 
-# --- Seriler (senin anahtarların) ---
+# --- Seriler (senin KEY'lerin) ---
 SERIES = {
     "AllCredit":      "Q.USD.3P.N.A.I.B.USD",
     "DebtSecurities": "Q.USD.3P.N.A.I.D.USD",
@@ -92,9 +89,9 @@ SERIES = {
 
 st.sidebar.header("BIS WS_GLI (XML)")
 start_year = st.sidebar.number_input("Başlangıç yılı", min_value=1980, max_value=2025, value=2000, step=1)
-end_year   = st.sidebar.text_input("Bitiş yılı (boş=2025)", value="2025")
+end_year   = st.sidebar.text_input("Bitiş yılı", value="2025")
 
-# --- Çek & Birleştir ---
+# ---------- Veri yükleme ----------
 try:
     dfs = []
     for name, key in SERIES.items():
@@ -106,18 +103,19 @@ try:
     for s in dfs[1:]:
         df = df.merge(s, on="Time", how="outer")
 
+    # ---------- Hazırlık ----------
     df = df.sort_values("Time").reset_index(drop=True)
     df["Year"] = df["Time"].dt.year
 
-    # Birimler: (BIS çoğunlukla USD milyon) → milyar
-    for name in SERIES.keys():
-        df[name] = pd.to_numeric(df[name], errors="coerce") / 1000.0
+    # BIS birimleri: çoğunlukla milyon USD → milyar USD
+    for col in ["AllCredit","DebtSecurities","Loans"]:
+        df[col] = pd.to_numeric(df[col], errors="coerce") / 1000.0
 
 except Exception as e:
-    st.error(f"BIS verisi çekilemedi: {e}")
+    st.error(f"Veri yüklenemedi: {e}")
     st.stop()
 
-# ============================ HELPERS =============================
+# ---------- Helpers ----------
 def add_shading(fig):
     crisis = [
         (pd.to_datetime("2007-12-01"), pd.to_datetime("2009-06-01"), "Financial Crisis"),
@@ -144,9 +142,7 @@ def title_range(prefix):
 def legend_bottom():
     return dict(orientation="h", yanchor="top", y=-0.25, xanchor="center", x=0.5)
 
-# ============================ CHARTS ==============================
-st.title("Eurodollar Market Evolution — 2000-2025")
-
+# ---------- Classic Charts ----------
 def total_credit():
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=df["Time"], y=df["AllCredit"], mode="lines",
@@ -154,11 +150,9 @@ def total_credit():
     add_shading(fig)
     fig.update_layout(title=dict(text=title_range("Total Eurodollar Credit"), x=0.5),
                       height=520)
-    yaxis_k(fig)
-    st.plotly_chart(fig, use_container_width=True)
+    yaxis_k(fig); st.plotly_chart(fig, use_container_width=True)
 
-    yoy = df.copy()
-    yoy["YoY"] = yoy["AllCredit"].pct_change(4)*100
+    yoy = df.copy(); yoy["YoY"] = yoy["AllCredit"].pct_change(4)*100
     fig2 = go.Figure()
     fig2.add_trace(go.Bar(x=yoy["Time"], y=yoy["YoY"],
                           marker_color=np.where(yoy["YoY"]>=0,"#27ae60","#e74c3c")))
@@ -176,8 +170,7 @@ def debt_securities():
                       height=520)
     st.plotly_chart(fig, use_container_width=True)
 
-    yoy = df.copy()
-    yoy["YoY"] = yoy["DebtSecurities"].pct_change(4)*100
+    yoy = df.copy(); yoy["YoY"] = yoy["DebtSecurities"].pct_change(4)*100
     fig2 = go.Figure()
     fig2.add_trace(go.Bar(x=yoy["Time"], y=yoy["YoY"],
                           marker_color=np.where(yoy["YoY"]>=0,"#27ae60","#e74c3c")))
@@ -195,8 +188,7 @@ def loans():
                       height=520)
     st.plotly_chart(fig, use_container_width=True)
 
-    yoy = df.copy()
-    yoy["YoY"] = yoy["Loans"].pct_change(4)*100
+    yoy = df.copy(); yoy["YoY"] = yoy["Loans"].pct_change(4)*100
     fig2 = go.Figure()
     fig2.add_trace(go.Bar(x=yoy["Time"], y=yoy["YoY"],
                           marker_color=np.where(yoy["YoY"]>=0,"#27ae60","#e74c3c")))
@@ -216,24 +208,38 @@ def comparison():
                              name="Loans", line=dict(width=3, color="#f39c12")))
     add_shading(fig); yaxis_k(fig)
     fig.update_layout(title=dict(text=title_range("Comparison"), x=0.5),
-                      height=620, legend=legend_bottom())
+                      height=620, legend=dict(orientation="h"))
     st.plotly_chart(fig, use_container_width=True)
 
     # --- YoY (altta: tek grafik, 3 seri) ---
     d = df.sort_values("Time").copy()
-    lag = 4  # çeyrek verisi
+
+    # Aylık/çeyreklik lag algıla (≈30 gün -> 12; ≈90 gün -> 4)
+    try:
+        delta_days = (d["Time"].diff().median()).days
+    except Exception:
+        delta_days = 30
+    lag = 4 if (pd.notnull(delta_days) and delta_days >= 80) else 12
+
     d["TotalYoY"] = d["AllCredit"].pct_change(lag) * 100
     d["DebtYoY"]  = d["DebtSecurities"].pct_change(lag) * 100
     d["LoansYoY"] = d["Loans"].pct_change(lag) * 100
     yoy_plot = d.dropna(subset=["TotalYoY","DebtYoY","LoansYoY"])
 
+    # (İsteğe bağlı: aylık çok sık ise çeyrek sonlarını göster)
+    # if lag == 12:
+    #     yoy_plot = yoy_plot[yoy_plot["Time"].dt.is_quarter_end]
+
     fig2 = go.Figure()
     fig2.add_trace(go.Bar(x=yoy_plot["Time"], y=yoy_plot["TotalYoY"], name="Total YoY",
-                          marker_color="#e74c3c", hovertemplate="%{y:.1f}%<extra>Total</extra>"))
+                          marker_color="#e74c3c",
+                          hovertemplate="%{y:.1f}%<extra>Total</extra>"))
     fig2.add_trace(go.Bar(x=yoy_plot["Time"], y=yoy_plot["DebtYoY"], name="Debt YoY",
-                          marker_color="#8e44ad", hovertemplate="%{y:.1f}%<extra>Debt</extra>"))
+                          marker_color="#8e44ad",
+                          hovertemplate="%{y:.1f}%<extra>Debt</extra>"))
     fig2.add_trace(go.Bar(x=yoy_plot["Time"], y=yoy_plot["LoansYoY"], name="Loans YoY",
-                          marker_color="#f39c12", hovertemplate="%{y:.1f}%<extra>Loans</extra>"))
+                          marker_color="#f39c12",
+                          hovertemplate="%{y:.1f}%<extra>Loans</extra>"))
 
     fig2.add_hline(y=0, line_dash="dash", line_color="black")
     add_shading(fig2)
@@ -242,19 +248,13 @@ def comparison():
         title=dict(text=title_range("YoY Growth — Total vs Debt vs Loans"), x=0.5),
         barmode="group",
         height=420,
-        legend=legend_bottom()
+        legend=dict(orientation="h", yanchor="top", y=-0.25, xanchor="center", x=0.5)
     )
     st.plotly_chart(fig2, use_container_width=True)
 
 # ========================== ÇAĞIR =========================
-st.subheader("Total Credit")
-total_credit()
-
-st.subheader("Debt Securities")
-debt_securities()
-
-st.subheader("Loans")
-loans()
-
-st.subheader("Comparison")
-comparison()
+st.title("Eurodollar Market Evolution — 2000-2025")
+st.subheader("Total Credit");        total_credit()
+st.subheader("Debt Securities");     debt_securities()
+st.subheader("Loans");               loans()
+st.subheader("Comparison");          comparison()
