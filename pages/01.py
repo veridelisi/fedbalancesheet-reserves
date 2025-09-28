@@ -173,7 +173,7 @@ def comparison():
     fig.add_trace(go.Scatter(x=df["Time"], y=df["Loans"], mode="lines",
                              name="Loans", line=dict(width=3, color="#f39c12")))
     add_shading(fig); yaxis_k(fig)
-    fig.update_layout(title=dict(text=title_range("Comparison"), x=0.5),
+    fig.update_layout(title=dict(text=title_range("Comparison($bn)"), x=0.5),
                       height=620, legend=dict(orientation="h"))
     st.plotly_chart(fig, use_container_width=True)
 
