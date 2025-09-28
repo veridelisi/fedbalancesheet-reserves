@@ -130,10 +130,10 @@ def total_credit():
 
 def debt_securities():
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=df["Time"], y=df["DebtSecurities($bn)"], mode="lines",
+    fig.add_trace(go.Scatter(x=df["Time"], y=df["DebtSecurities"], mode="lines",
                              line=dict(width=3, color="#8e44ad")))
     add_shading(fig); yaxis_k(fig)
-    fig.update_layout(title=dict(text=title_range("Debt Securities"), x=0.5),
+    fig.update_layout(title=dict(text=title_range("Debt Securities($bn)"), x=0.5),
                       height=520)
     st.plotly_chart(fig, use_container_width=True)
 
@@ -148,10 +148,10 @@ def debt_securities():
 
 def loans():
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=df["Time"], y=df["Loans($bn)"], mode="lines",
+    fig.add_trace(go.Scatter(x=df["Time"], y=df["Loans"], mode="lines",
                              line=dict(width=3, color="#f39c12")))
     add_shading(fig); yaxis_k(fig)
-    fig.update_layout(title=dict(text=title_range("Loans"), x=0.5),
+    fig.update_layout(title=dict(text=title_range("Loans($bn)"), x=0.5),
                       height=520)
     st.plotly_chart(fig, use_container_width=True)
 
