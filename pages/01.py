@@ -58,11 +58,17 @@ def bis_series_xml(key: str, start="2000", end="2025") -> pd.DataFrame:
     df["Time"] = per.to_timestamp(how="end")
     return df.dropna(subset=["Time","Val"]).sort_values("Time")[["Time","Val"]].reset_index(drop=True)
 
+# --- Seriler (EKLE) ---
 SERIES = {
     "AllCredit":      "Q.USD.3P.N.A.I.B.USD",
     "DebtSecurities": "Q.USD.3P.N.A.I.D.USD",
     "Loans":          "Q.USD.3P.N.B.I.G.USD",
+
+    # NEW: Emerging economy serileri
+    "EmeDebt":       "Q.USD.4T.N.A.I.D.USD",
+    "EmeBankLoans":  "Q.USD.4T.N.B.I.G.USD",
 }
+
 
 st.sidebar.header("BIS WS_GLI")
 start_year = st.sidebar.number_input("Start", 1980, 2025, 2000)
@@ -80,6 +86,9 @@ try:
     df = df.sort_values("Time").reset_index(drop=True)
     df["Year"] = df["Time"].dt.year
     for c in SERIES.keys(): df[c] = pd.to_numeric(df[c], errors="coerce") / 1000.0  # M$ → B$
+    # NEW: Advanced serileri (Advanced = Total − Emerging)
+    df["AdvancedDebtSecurities"] = df["DebtSecurities"] - df["EmeDebt"]
+    df["AdvancedLoans"]          = df["Loans"]          - df["EmeBankLoans"]
 except Exception as e:
     st.error(f"BIS verisi çekilemedi: {e}"); st.stop()
 
@@ -108,6 +117,43 @@ def yaxis_k(fig, tickvals=None, decimals=0):
 
 def title_range(prefix):
     return f"<b>{prefix} ({df['Time'].min().year}–{df['Time'].max().year})</b>"
+
+
+def two_series_panels(left_name, left_series, right_name, right_series,
+                      title_top, title_yoy,
+                      color_left="#8e44ad", color_right="#f39c12"):
+    d = df[["Time", left_series, right_series]].sort_values("Time").copy()
+
+    # --- Seviye (üst) ---
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=d["Time"], y=d[left_series], mode="lines",
+                             name=left_name, line=dict(width=3, color=color_left)))
+    fig.add_trace(go.Scatter(x=d["Time"], y=d[right_series], mode="lines",
+                             name=right_name, line=dict(width=3, color=color_right)))
+    add_shading(fig); yaxis_k(fig)
+    fig.update_layout(title=dict(text=title_range(title_top), x=0.5),
+                      height=560, legend=dict(orientation="h"))
+    st.plotly_chart(fig, use_container_width=True)
+
+    # --- YoY (alt) ---
+    lag = 4  # çeyrek
+    d[f"{left_series}_YoY"]  = d[left_series].pct_change(lag)*100
+    d[f"{right_series}_YoY"] = d[right_series].pct_change(lag)*100
+    d2 = d.dropna(subset=[f"{left_series}_YoY", f"{right_series}_YoY"])
+
+    fig2 = go.Figure()
+    fig2.add_trace(go.Bar(x=d2["Time"], y=d2[f"{left_series}_YoY"], name=f"{left_name} YoY",
+                          marker_color=color_left, hovertemplate="%{y:.1f}%<extra></extra>"))
+    fig2.add_trace(go.Bar(x=d2["Time"], y=d2[f"{right_series}_YoY"], name=f"{right_name} YoY",
+                          marker_color=color_right, hovertemplate="%{y:.1f}%<extra></extra>"))
+    fig2.add_hline(y=0, line_dash="dash", line_color="black")
+    add_shading(fig2)
+    fig2.update_yaxes(title="YoY (%)", ticksuffix="%", tickformat=".1f")
+    fig2.update_layout(title=dict(text=title_range(title_yoy), x=0.5),
+                       barmode="group", height=420,
+                       legend=dict(orientation="h", yanchor="top", y=-0.25, xanchor="center", x=0.5))
+    st.plotly_chart(fig2, use_container_width=True)
+
 
 # --------------------- charts (senin düzen) ---------------------
 def total_credit():
@@ -197,10 +243,58 @@ def comparison():
                        legend=dict(orientation="h", yanchor="top", y=-0.25, xanchor="center", x=0.5))
     st.plotly_chart(fig2, use_container_width=True)
 
-# --------------------- LAYOUT: TABS ---------------------
-st.title("Eurodollar Market Evolution — 2000-2025")
-t1, t2, t3, t4 = st.tabs(["Total Credit", "Debt Securities", "Loans", "Comparison"])
+tabs = st.tabs([
+    "Total Credit", "Debt Securities", "Loans", "Comparison",
+    "Advanced vs Emerging"
+])
+t1, t2, t3, t4, tAE = tabs
+
 with t1: total_credit()
 with t2: debt_securities()
 with t3: loans()
 with t4: comparison()
+
+# --- Advanced vs Emerging (ALT SEKME) ---
+sub1, sub2, sub3, sub4 = st.tabs([
+    "Advanced Debt vs Loans",
+    "Emerging Debt vs Loans",
+    "Debt Comparison",
+    "Loans Comparison"
+])
+
+with sub1:
+    two_series_panels(
+        "Advanced Debt", "AdvancedDebtSecurities",
+        "Advanced Loans", "AdvancedLoans",
+        "Advanced Economies — Debt vs Loans (USD bn)",
+        "Advanced — YoY (Debt vs Loans)",
+        color_left="#8e44ad", color_right="#f39c12"
+    )
+
+with sub2:
+    two_series_panels(
+        "Emerging Debt", "EmeDebt",
+        "Emerging Bank Loans", "EmeBankLoans",
+        "Emerging Economies — Debt vs Bank Loans (USD bn)",
+        "Emerging — YoY (Debt vs Loans)",
+        color_left="#8e44ad", color_right="#27ae60"
+    )
+
+with sub3:
+    two_series_panels(
+        "Advanced Debt", "AdvancedDebtSecurities",
+        "Emerging Debt", "EmeDebt",
+        "Debt Securities — Advanced vs Emerging (USD bn)",
+        "Debt — YoY (Adv vs Eme)",
+        color_left="#8e44ad", color_right="#27ae60"
+    )
+
+with sub4:
+    two_series_panels(
+        "Advanced Loans", "AdvancedLoans",
+        "Emerging Bank Loans", "EmeBankLoans",
+        "Loans — Advanced vs Emerging (USD bn)",
+        "Loans — YoY (Adv vs Eme)",
+        color_left="#f39c12", color_right="#27ae60"
+    )
+
