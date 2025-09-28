@@ -1,40 +1,3 @@
-# pages/01_Eurodollar.py  (veya senin sayfa dosyan)
-import requests
-import pandas as pd
-import numpy as np
-import streamlit as st
-import plotly.graph_objects as go
-from pathlib import Path
-
-st.set_page_config(page_title="Eurodollar Market Evolution — 2000-2025", layout="wide")
-
-# --- Gezinme Barı ---
-cols = st.columns(8)
-with cols[0]:
-    st.page_link("streamlit_app.py", label="🏠 Home")
-with cols[1]:
-    st.page_link("pages/01_Reserves.py", label="🌍 Reserves")
-with cols[2]:
-    st.page_link("pages/01_Repo.py", label="♻️ Repo")
-with cols[3]:
-    st.page_link("pages/01_TGA.py", label="🌐 TGA")
-with cols[4]:
-    st.page_link("pages/01_PublicBalance.py", label="💹 Public Balance")
-with cols[5]:
-    st.page_link("pages/01_Interest.py", label="✈️ Reference Rates")
-with cols[6]:
-    st.page_link("pages/01_Desk.py", label="📡 Desk")
-with cols[7]:
-    st.page_link("pages/01_Eurodollar.py", label="💡 Eurodollar")
-
-# --- Sol menü gizle ---
-st.markdown("""
-<style>
-  [data-testid="stSidebarNav"]{display:none;}
-  section[data-testid="stSidebar"][aria-expanded="true"]{display:none;}
-</style>
-""", unsafe_allow_html=True)
-
 import requests
 import pandas as pd
 import numpy as np
@@ -135,7 +98,7 @@ end_year   = st.sidebar.text_input("Bitiş yılı (boş=2025)", value="2025")
 try:
     dfs = []
     for name, key in SERIES.items():
-        s = bis_series_json(key, start=str(start_year), end=(2025))
+        s = bis_series_xml(key, start=str(start_year), end=(end_year or "2025"))
         s = s.rename(columns={"Val": name})
         dfs.append(s)
 
@@ -143,11 +106,10 @@ try:
     for s in dfs[1:]:
         df = df.merge(s, on="Time", how="outer")
 
-    # Hazırlık
     df = df.sort_values("Time").reset_index(drop=True)
     df["Year"] = df["Time"].dt.year
 
-    # Birimler: milyon USD → milyar USD
+    # Birimler: (BIS çoğunlukla USD milyon) → milyar
     for name in SERIES.keys():
         df[name] = pd.to_numeric(df[name], errors="coerce") / 1000.0
 
@@ -254,19 +216,12 @@ def comparison():
                              name="Loans", line=dict(width=3, color="#f39c12")))
     add_shading(fig); yaxis_k(fig)
     fig.update_layout(title=dict(text=title_range("Comparison"), x=0.5),
-                      height=620, legend=dict(orientation="h"))
+                      height=620, legend=legend_bottom())
     st.plotly_chart(fig, use_container_width=True)
 
     # --- YoY (altta: tek grafik, 3 seri) ---
     d = df.sort_values("Time").copy()
-
-    # Aylık/çeyreklik lag algıla (≈30 gün -> 12; ≈90 gün -> 4)
-    try:
-        delta_days = (d["Time"].diff().median()).days
-    except Exception:
-        delta_days = 30
-    lag = 4 if (pd.notnull(delta_days) and delta_days >= 80) else 12
-
+    lag = 4  # çeyrek verisi
     d["TotalYoY"] = d["AllCredit"].pct_change(lag) * 100
     d["DebtYoY"]  = d["DebtSecurities"].pct_change(lag) * 100
     d["LoansYoY"] = d["Loans"].pct_change(lag) * 100
@@ -274,14 +229,11 @@ def comparison():
 
     fig2 = go.Figure()
     fig2.add_trace(go.Bar(x=yoy_plot["Time"], y=yoy_plot["TotalYoY"], name="Total YoY",
-                          marker_color="#e74c3c",
-                          hovertemplate="%{y:.1f}%<extra>Total</extra>"))
+                          marker_color="#e74c3c", hovertemplate="%{y:.1f}%<extra>Total</extra>"))
     fig2.add_trace(go.Bar(x=yoy_plot["Time"], y=yoy_plot["DebtYoY"], name="Debt YoY",
-                          marker_color="#8e44ad",
-                          hovertemplate="%{y:.1f}%<extra>Debt</extra>"))
+                          marker_color="#8e44ad", hovertemplate="%{y:.1f}%<extra>Debt</extra>"))
     fig2.add_trace(go.Bar(x=yoy_plot["Time"], y=yoy_plot["LoansYoY"], name="Loans YoY",
-                          marker_color="#f39c12",
-                          hovertemplate="%{y:.1f}%<extra>Loans</extra>"))
+                          marker_color="#f39c12", hovertemplate="%{y:.1f}%<extra>Loans</extra>"))
 
     fig2.add_hline(y=0, line_dash="dash", line_color="black")
     add_shading(fig2)
@@ -290,7 +242,7 @@ def comparison():
         title=dict(text=title_range("YoY Growth — Total vs Debt vs Loans"), x=0.5),
         barmode="group",
         height=420,
-        legend=dict(orientation="h", yanchor="top", y=-0.25, xanchor="center", x=0.5)
+        legend=legend_bottom()
     )
     st.plotly_chart(fig2, use_container_width=True)
 
