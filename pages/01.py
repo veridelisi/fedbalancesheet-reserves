@@ -368,7 +368,7 @@ with tEC:
     }
 
     st.markdown("### Select countries")
-    default_countries = ["SaudiArabia","SouthAfrica","China","Taipei"]
+    default_countries = ["Mexico","Indonesia","China","Turkey"]
     sel = st.multiselect("", list(COUNTRY_KEYS.keys()), default=default_countries)
 
     if not sel:
@@ -395,18 +395,26 @@ with tEC:
                           height=560, legend=dict(orientation="h"))
         st.plotly_chart(fig, use_container_width=True)
 
-        # Alt: YoY (çoklu çizgi, %)
-        fig2 = go.Figure()
-        for i, c in enumerate(sel):
-            yo = dfc[[ "Time", c ]].copy()
-            yo[c] = pd.to_numeric(yo[c], errors="coerce")
-            yo["YoY"] = yo[c].pct_change(4)*100
-            fig2.add_trace(go.Scatter(x=yo["Time"], y=yo["YoY"], mode="lines",
-                                      name=f"{c} YoY", line=dict(width=2, color=palette[i % len(palette)]),
-                                      hovertemplate="%{y:.1f}%<extra>"+c+"</extra>"))
-        fig2.add_hline(y=0, line_dash="dash", line_color="black")
-        add_shading(fig2)
-        fig2.update_yaxes(title="YoY (%)", tickformat=".1f", ticksuffix="%")
-        fig2.update_layout(title=dict(text=title_range("Emerging Countries — YoY"), x=0.5),
-                           height=420, legend=dict(orientation="h", yanchor="top", y=-0.25, xanchor="center", x=0.5))
-        st.plotly_chart(fig2, use_container_width=True)
+        # Alt: YoY (çoklu BAR, %)
+fig2 = go.Figure()
+for i, c in enumerate(sel):
+    yo = dfc[["Time", c]].copy()
+    yo[c] = pd.to_numeric(yo[c], errors="coerce")
+    yo["YoY"] = yo[c].pct_change(4)*100
+
+    fig2.add_trace(go.Bar(
+        x=yo["Time"], y=yo["YoY"], name=c,
+        marker_color=palette[i % len(palette)],
+        hovertemplate="%{y:.1f}%<extra>"+c+"</extra>"
+    ))
+
+fig2.add_hline(y=0, line_dash="dash", line_color="black")
+add_shading(fig2)
+fig2.update_yaxes(title="YoY (%)", tickformat=".1f", ticksuffix="%")
+fig2.update_layout(
+    title=dict(text=title_range("Emerging Countries — YoY"), x=0.5),
+    barmode="group",   # yan yana barlar
+    height=420,
+    legend=dict(orientation="h", yanchor="top", y=-0.25, xanchor="center", x=0.5)
+)
+st.plotly_chart(fig2, use_container_width=True)
