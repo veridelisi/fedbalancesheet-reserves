@@ -35,59 +35,101 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ========================== BIS YÜKLEYİCİ ==========================
-FLOW = "WS_GLI"
+import requests
+import pandas as pd
+import numpy as np
+import streamlit as st
+import plotly.graph_objects as go
+import xml.etree.ElementTree as ET
+
+st.set_page_config(page_title="Eurodollar Market Evolution — 2000-2025", layout="wide")
+
+# --- Gezinme Barı ---
+cols = st.columns(8)
+with cols[0]:
+    st.page_link("streamlit_app.py", label="🏠 Home")
+with cols[1]:
+    st.page_link("pages/01_Reserves.py", label="🌍 Reserves")
+with cols[2]:
+    st.page_link("pages/01_Repo.py", label="♻️ Repo")
+with cols[3]:
+    st.page_link("pages/01_TGA.py", label="🌐 TGA")
+with cols[4]:
+    st.page_link("pages/01_PublicBalance.py", label="💹 Public Balance")
+with cols[5]:
+    st.page_link("pages/01_Interest.py", label="✈️ Reference Rates")
+with cols[6]:
+    st.page_link("pages/01_Desk.py", label="📡 Desk")
+with cols[7]:
+    st.page_link("pages/01_Eurodollar.py", label="💡 Eurodollar")
+
+# --- Sol menü gizle ---
+st.markdown("""
+<style>
+  [data-testid="stSidebarNav"]{display:none;}
+  section[data-testid="stSidebar"][aria-expanded="true"]{display:none;}
+</style>
+""", unsafe_allow_html=True)
+
+# ======================= BIS LOADER (GENERIC XML) =======================
+FLOW_PATH = "dataflow/BIS/WS_GLI/1.0"  # sabit
+HEADERS   = {"Accept": "application/vnd.sdmx.genericdata+xml;version=2.1"}
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def bis_series_xml(key: str, start="2000", end="2025") -> pd.DataFrame:
+    """
+    BIS SDMX-XML (genericdata 2.1) -> DataFrame[Time, Val]
+    - Endpoint: https://stats.bis.org/api/v2/data/dataflow/BIS/WS_GLI/1.0/{key}/all?detail=full&startPeriod=...&endPeriod=...
+    - Dönen Val: ham değer (çoğunlukla USD milyon). Aşağıda milyara ölçekleyeceğiz.
+    """
+    base = f"https://stats.bis.org/api/v2/data/{FLOW_PATH}/{key}/all?detail=full"
+    if start: base += f"&startPeriod={start}"
+    if end:   base += f"&endPeriod={end}"
+
+    r = requests.get(base, headers=HEADERS, timeout=60)
+    r.raise_for_status()
+
+    root = ET.fromstring(r.content)
+    ns = {'g': 'http://www.sdmx.org/resources/sdmxml/schemas/v2_1/data/generic'}
+
+    rows = []
+    for series in root.findall('.//g:Series', ns):
+        for obs in series.findall('.//g:Obs', ns):
+            dim = obs.find('g:ObsDimension', ns)
+            val = obs.find('g:ObsValue', ns)
+            if val is None: 
+                continue
+            period = dim.get('value') if dim is not None else None
+            value  = val.get('value')
+            rows.append({'period': period, 'Val': value})
+
+    out = pd.DataFrame(rows)
+    if out.empty:
+        return out
+
+    out["Val"] = pd.to_numeric(out["Val"], errors="coerce")
+
+    # 'YYYY-Qn' -> çeyrek sonu timestamp
+    def to_q_end(s):
+        s = str(s)
+        if "-Q" in s: s = s.replace("-Q","Q")
+        try: return pd.Period(s, freq="Q").to_timestamp(how="end")
+        except: return pd.to_datetime(s, errors="coerce")
+    out["Time"] = out["period"].apply(to_q_end)
+
+    out = out.dropna(subset=["Time","Val"]).sort_values("Time").reset_index(drop=True)
+    return out[["Time","Val"]]
+
+# --- Seriler (senin anahtarların) ---
 SERIES = {
     "AllCredit":      "Q.USD.3P.N.A.I.B.USD",
     "DebtSecurities": "Q.USD.3P.N.A.I.D.USD",
     "Loans":          "Q.USD.3P.N.B.I.G.USD",
 }
 
-@st.cache_data(ttl=3600, show_spinner=False)
-def bis_series_json(key: str, start="2000", end=2025) -> pd.DataFrame:
-    """
-    BIS SDMX-JSON -> DataFrame[Time, Val]
-    - Time: çeyrek sonu timestamp
-    - Val: ham değer (BIS çoğunlukla milyon USD)
-    """
-    url = f"https://stats.bis.org/api/v2/data/{FLOW}/{key}?format=sdmx-json"
-    if start: url += f"&startPeriod={start}"
-    if end:   url += f"&endPeriod={end}"
-
-    r = requests.get(url, timeout=60)
-    r.raise_for_status()
-    js = r.json()
-
-    # TIME_PERIOD etiketleri
-    obs_dims = js["structure"]["dimensions"]["observation"]
-    time_vals = []
-    for d in obs_dims:
-        if d.get("id","").upper() in ("TIME_PERIOD","TIME"):
-            time_vals = [v.get("id") or v.get("name") for v in d.get("values", [])]
-            break
-
-    rows = []
-    series = js["dataSets"][0]["series"]
-    for _, sobj in series.items():
-        for ok, arr in sobj.get("observations", {}).items():
-            t = int(ok)
-            rows.append({
-                "_period": time_vals[t] if t < len(time_vals) else None,
-                "Val": arr[0]
-            })
-
-    out = pd.DataFrame(rows)
-    out["Val"] = pd.to_numeric(out["Val"], errors="coerce")
-
-    # 'YYYY-Qn' -> çeyrek sonu timestamp
-    per = pd.PeriodIndex(out["_period"].astype(str).str.replace("-Q","Q"), freq="Q")
-    out["Time"] = per.to_timestamp(how="end")
-    return out[["Time", "Val"]].dropna().sort_values("Time").reset_index(drop=True)
-
-# --- Kullanıcı seçenekleri (isteğe bağlı) ---
-st.sidebar.header("Veri Kaynağı: BIS WS_GLI")
+st.sidebar.header("BIS WS_GLI (XML)")
 start_year = st.sidebar.number_input("Başlangıç yılı", min_value=1980, max_value=2025, value=2000, step=1)
-end_year   = st.sidebar.text_input("Bitiş yılı (boş = son)", value="")
+end_year   = st.sidebar.text_input("Bitiş yılı (boş=2025)", value="2025")
 
 # --- Çek & Birleştir ---
 try:
