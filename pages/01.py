@@ -18,7 +18,7 @@ with cols[5]: st.page_link("pages/01_Interest.py", label="✈️ Reference Rates
 with cols[6]: st.page_link("pages/01_Desk.py", label="📡 Desk")
 with cols[7]: st.page_link("pages/01_Eurodollar.py", label="💡 Eurodollar")
 
-# --- Hide sidebar + tab style (eski görünüm) ---
+# --- Hide sidebar + tab style ---
 st.markdown("""
 <style>
   [data-testid="stSidebarNav"]{display:none;}
@@ -58,23 +58,22 @@ def bis_series_xml(key: str, start="2000", end="2025") -> pd.DataFrame:
     df["Time"] = per.to_timestamp(how="end")
     return df.dropna(subset=["Time","Val"]).sort_values("Time")[["Time","Val"]].reset_index(drop=True)
 
-# --- Seriler (EKLE) ---
+# --- Seriler ---
 SERIES = {
     "AllCredit":      "Q.USD.3P.N.A.I.B.USD",
     "DebtSecurities": "Q.USD.3P.N.A.I.D.USD",
     "Loans":          "Q.USD.3P.N.B.I.G.USD",
 
-    # NEW: Emerging economy serileri
+    # Emerging economy serileri (total)
     "EmeDebt":       "Q.USD.4T.N.A.I.D.USD",
     "EmeBankLoans":  "Q.USD.4T.N.B.I.G.USD",
 }
-
 
 st.sidebar.header("BIS WS_GLI")
 start_year = st.sidebar.number_input("Start", 1980, 2025, 2000)
 end_year   = st.sidebar.text_input("End", "2025")
 
-# --- Pull & merge ---
+# --- Pull & merge ana seriler ---
 try:
     dfs = []
     for name, key in SERIES.items():
@@ -86,7 +85,7 @@ try:
     df = df.sort_values("Time").reset_index(drop=True)
     df["Year"] = df["Time"].dt.year
     for c in SERIES.keys(): df[c] = pd.to_numeric(df[c], errors="coerce") / 1000.0  # M$ → B$
-    # NEW: Advanced serileri (Advanced = Total − Emerging)
+    # Advanced = Total − Emerging
     df["AdvancedDebtSecurities"] = df["DebtSecurities"] - df["EmeDebt"]
     df["AdvancedLoans"]          = df["Loans"]          - df["EmeBankLoans"]
 except Exception as e:
@@ -109,7 +108,7 @@ def yaxis_k(fig, tickvals=None, decimals=0):
     if tickvals is not None:
         fig.update_yaxes(tickvals=tickvals)
     fig.update_yaxes(
-        tickformat=f",.{decimals}f",  # ",.0f" → 1,250   ",.1f" → 1,250.5
+        tickformat=f",.{decimals}f",   # ",.0f" → 1,250   ",.1f" → 1,250.5
         ticksuffix="B",
         separatethousands=True,
         showexponent="none"
@@ -118,7 +117,7 @@ def yaxis_k(fig, tickvals=None, decimals=0):
 def title_range(prefix):
     return f"<b>{prefix} ({df['Time'].min().year}–{df['Time'].max().year})</b>"
 
-
+# --------------------- reusable panels ---------------------
 def two_series_panels(left_name, left_series, right_name, right_series,
                       title_top, title_yoy,
                       color_left="#8e44ad", color_right="#f39c12"):
@@ -154,6 +153,42 @@ def two_series_panels(left_name, left_series, right_name, right_series,
                        legend=dict(orientation="h", yanchor="top", y=-0.25, xanchor="center", x=0.5))
     st.plotly_chart(fig2, use_container_width=True)
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def load_series_billion(key: str) -> pd.DataFrame:
+    """Tek seriyi (M$) çek, B$'a çevir."""
+    s = bis_series_xml(key, start=str(start_year), end=(end_year or "2025"))
+    if s.empty: return s
+    s["Val"] = pd.to_numeric(s["Val"], errors="coerce") / 1000.0
+    return s.dropna()
+
+def one_series_panels(label: str, key: str, color="#e74c3c"):
+    """Emerging Area / Country için tek seri paneli (seviye + YoY)."""
+    s = load_series_billion(key)
+    if s.empty:
+        st.info(f"{label}: veri bulunamadı.")
+        return
+
+    # Üst: seviye
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=s["Time"], y=s["Val"], mode="lines",
+                             name=label, line=dict(width=3, color=color)))
+    add_shading(fig); yaxis_k(fig)
+    fig.update_traces(hovertemplate="$%{y:,.0f}B<extra></extra>")
+    fig.update_layout(title=dict(text=title_range(f"{label} — Total Credit (USD bn)"), x=0.5),
+                      height=560, legend=dict(orientation="h"))
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Alt: YoY (%)
+    s2 = s.copy()
+    s2["YoY"] = s2["Val"].pct_change(4)*100
+    fig2 = go.Figure()
+    fig2.add_trace(go.Bar(x=s2["Time"], y=s2["YoY"], marker_color=color))
+    fig2.add_hline(y=0, line_dash="dash", line_color="black")
+    add_shading(fig2)
+    fig2.update_yaxes(title="YoY (%)", tickformat=".1f", ticksuffix="%")
+    fig2.update_layout(title=dict(text=title_range(f"{label} — YoY"), x=0.5),
+                       height=420, showlegend=False)
+    st.plotly_chart(fig2, use_container_width=True)
 
 # --------------------- charts (senin düzen) ---------------------
 def total_credit():
@@ -161,7 +196,7 @@ def total_credit():
     fig.add_trace(go.Scatter(x=df["Time"], y=df["AllCredit"], mode="lines",
                              line=dict(width=3, color="#e74c3c")))
     add_shading(fig)
-    fig.update_layout(title=dict(text=title_range("Total Eurodollar Credit($bn)"), x=0.5),
+    fig.update_layout(title=dict(text=title_range("Total Eurodollar Credit (USD bn)"), x=0.5),
                       height=520)
     yaxis_k(fig); st.plotly_chart(fig, use_container_width=True)
 
@@ -179,7 +214,7 @@ def debt_securities():
     fig.add_trace(go.Scatter(x=df["Time"], y=df["DebtSecurities"], mode="lines",
                              line=dict(width=3, color="#8e44ad")))
     add_shading(fig); yaxis_k(fig)
-    fig.update_layout(title=dict(text=title_range("Debt Securities($bn)"), x=0.5),
+    fig.update_layout(title=dict(text=title_range("Debt Securities (USD bn)"), x=0.5),
                       height=520)
     st.plotly_chart(fig, use_container_width=True)
 
@@ -197,7 +232,7 @@ def loans():
     fig.add_trace(go.Scatter(x=df["Time"], y=df["Loans"], mode="lines",
                              line=dict(width=3, color="#f39c12")))
     add_shading(fig); yaxis_k(fig)
-    fig.update_layout(title=dict(text=title_range("Loans($bn)"), x=0.5),
+    fig.update_layout(title=dict(text=title_range("Loans (USD bn)"), x=0.5),
                       height=520)
     st.plotly_chart(fig, use_container_width=True)
 
@@ -219,7 +254,7 @@ def comparison():
     fig.add_trace(go.Scatter(x=df["Time"], y=df["Loans"], mode="lines",
                              name="Loans", line=dict(width=3, color="#f39c12")))
     add_shading(fig); yaxis_k(fig)
-    fig.update_layout(title=dict(text=title_range("Comparison($bn)"), x=0.5),
+    fig.update_layout(title=dict(text=title_range("Comparison (USD bn)"), x=0.5),
                       height=620, legend=dict(orientation="h"))
     st.plotly_chart(fig, use_container_width=True)
 
@@ -243,11 +278,13 @@ def comparison():
                        legend=dict(orientation="h", yanchor="top", y=-0.25, xanchor="center", x=0.5))
     st.plotly_chart(fig2, use_container_width=True)
 
+# =========================== LAYOUT: TABS ===========================
+st.title("Eurodollar Market Evolution — 2000-2025")
 tabs = st.tabs([
     "Total Credit", "Debt Securities", "Loans", "Comparison",
-    "Advanced vs Emerging"
+    "Advanced vs Emerging", "Emerging Area", "Emerging Countries"
 ])
-t1, t2, t3, t4, tAE = tabs
+t1, t2, t3, t4, tAE, tEA, tEC = tabs
 
 with t1: total_credit()
 with t2: debt_securities()
@@ -255,46 +292,121 @@ with t3: loans()
 with t4: comparison()
 
 # --- Advanced vs Emerging (ALT SEKME) ---
-sub1, sub2, sub3, sub4 = st.tabs([
-    "Advanced Debt vs Loans",
-    "Emerging Debt vs Loans",
-    "Debt Comparison",
-    "Loans Comparison"
-])
+with tAE:
+    sub1, sub2, sub3, sub4 = st.tabs([
+        "Advanced Debt vs Loans",
+        "Emerging Debt vs Loans",
+        "Debt Comparison",
+        "Loans Comparison"
+    ])
 
-with sub1:
-    two_series_panels(
-        "Advanced Debt", "AdvancedDebtSecurities",
-        "Advanced Loans", "AdvancedLoans",
-        "Advanced Economies — Debt vs Loans (USD bn)",
-        "Advanced — YoY (Debt vs Loans)",
-        color_left="#8e44ad", color_right="#f39c12"
-    )
+    with sub1:
+        two_series_panels(
+            "Advanced Debt", "AdvancedDebtSecurities",
+            "Advanced Loans", "AdvancedLoans",
+            "Advanced Economies — Debt vs Loans (USD bn)",
+            "Advanced — YoY (Debt vs Loans)",
+            color_left="#8e44ad", color_right="#f39c12"
+        )
 
-with sub2:
-    two_series_panels(
-        "Emerging Debt", "EmeDebt",
-        "Emerging Bank Loans", "EmeBankLoans",
-        "Emerging Economies — Debt vs Bank Loans (USD bn)",
-        "Emerging — YoY (Debt vs Loans)",
-        color_left="#8e44ad", color_right="#27ae60"
-    )
+    with sub2:
+        two_series_panels(
+            "Emerging Debt", "EmeDebt",
+            "Emerging Bank Loans", "EmeBankLoans",
+            "Emerging Economies — Debt vs Bank Loans (USD bn)",
+            "Emerging — YoY (Debt vs Loans)",
+            color_left="#8e44ad", color_right="#27ae60"
+        )
 
-with sub3:
-    two_series_panels(
-        "Advanced Debt", "AdvancedDebtSecurities",
-        "Emerging Debt", "EmeDebt",
-        "Debt Securities — Advanced vs Emerging (USD bn)",
-        "Debt — YoY (Adv vs Eme)",
-        color_left="#8e44ad", color_right="#27ae60"
-    )
+    with sub3:
+        two_series_panels(
+            "Advanced Debt", "AdvancedDebtSecurities",
+            "Emerging Debt", "EmeDebt",
+            "Debt Securities — Advanced vs Emerging (USD bn)",
+            "Debt — YoY (Adv vs Eme)",
+            color_left="#8e44ad", color_right="#27ae60"
+        )
 
-with sub4:
-    two_series_panels(
-        "Advanced Loans", "AdvancedLoans",
-        "Emerging Bank Loans", "EmeBankLoans",
-        "Loans — Advanced vs Emerging (USD bn)",
-        "Loans — YoY (Adv vs Eme)",
-        color_left="#f39c12", color_right="#27ae60"
-    )
+    with sub4:
+        two_series_panels(
+            "Advanced Loans", "AdvancedLoans",
+            "Emerging Bank Loans", "EmeBankLoans",
+            "Loans — Advanced vs Emerging (USD bn)",
+            "Loans — YoY (Adv vs Eme)",
+            color_left="#f39c12", color_right="#27ae60"
+        )
 
+# --- Emerging Area (ALT SEKME) ---
+with tEA:
+    area_tabs = st.tabs(["Africa & Middle East", "Emerging Asia", "Emerging Europe", "Latin America"])
+    with area_tabs[0]:
+        one_series_panels("Africa & Middle East", "Q.USD.4W.N.A.I.B.USD", color="#e74c3c")
+    with area_tabs[1]:
+        one_series_panels("Emerging Asia", "Q.USD.4Y.N.A.I.B.USD", color="#27ae60")
+    with area_tabs[2]:
+        one_series_panels("Emerging Europe", "Q.USD.3C.N.A.I.B.USD", color="#8e44ad")
+    with area_tabs[3]:
+        one_series_panels("Latin America", "Q.USD.4U.N.A.I.B.USD", color="#f39c12")
+
+# --- Emerging Countries (ALT SEKME) ---
+with tEC:
+    COUNTRY_KEYS = {
+        "SaudiArabia": "Q.USD.SA.N.A.I.B.USD",
+        "SouthAfrica": "Q.USD.ZA.N.A.I.B.USD",
+        "China":       "Q.USD.CN.N.A.I.B.USD",
+        "Taipei":      "Q.USD.TW.N.A.I.B.USD",
+        "India":       "Q.USD.IN.N.A.I.B.USD",
+        "Indonesia":   "Q.USD.ID.N.A.I.B.USD",
+        "Korea":       "Q.USD.KR.N.A.I.B.USD",
+        "Malaysia":    "Q.USD.MY.N.A.I.B.USD",
+        "Russia":      "Q.USD.RU.N.A.I.B.USD",
+        "Turkey":      "Q.USD.TR.N.A.I.B.USD",
+        "Argentina":   "Q.USD.AR.N.A.I.B.USD",
+        "Brazil":      "Q.USD.BR.N.A.I.B.USD",
+        "Chile":       "Q.USD.CL.N.A.I.B.USD",
+        "Mexico":      "Q.USD.MX.N.A.I.B.USD",
+    }
+
+    st.markdown("### Select countries")
+    default_countries = ["SaudiArabia","SouthAfrica","China","Taipei"]
+    sel = st.multiselect("", list(COUNTRY_KEYS.keys()), default=default_countries)
+
+    if not sel:
+        st.info("Ülke seçiniz.")
+    else:
+        # Birleştir
+        dfc = None
+        for i, c in enumerate(sel):
+            s = load_series_billion(COUNTRY_KEYS[c]).rename(columns={"Val": c})
+            dfc = s if dfc is None else dfc.merge(s, on="Time", how="outer")
+        dfc = dfc.sort_values("Time").reset_index(drop=True)
+
+        # Üst: seviye (çoklu çizgi)
+        palette = ["#e74c3c","#8e44ad","#f39c12","#27ae60","#2980b9","#d35400",
+                   "#2c3e50","#9b59b6","#16a085","#c0392b","#7f8c8d","#1abc9c",
+                   "#34495e","#f1c40f"]
+        fig = go.Figure()
+        for i, c in enumerate(sel):
+            fig.add_trace(go.Scatter(x=dfc["Time"], y=dfc[c], mode="lines",
+                                     name=c, line=dict(width=3, color=palette[i % len(palette)]),
+                                     hovertemplate="$%{y:,.0f}B<extra>"+c+"</extra>"))
+        add_shading(fig); yaxis_k(fig)
+        fig.update_layout(title=dict(text=title_range("Emerging Countries — Total Credit (USD bn)"), x=0.5),
+                          height=560, legend=dict(orientation="h"))
+        st.plotly_chart(fig, use_container_width=True)
+
+        # Alt: YoY (çoklu çizgi, %)
+        fig2 = go.Figure()
+        for i, c in enumerate(sel):
+            yo = dfc[[ "Time", c ]].copy()
+            yo[c] = pd.to_numeric(yo[c], errors="coerce")
+            yo["YoY"] = yo[c].pct_change(4)*100
+            fig2.add_trace(go.Scatter(x=yo["Time"], y=yo["YoY"], mode="lines",
+                                      name=f"{c} YoY", line=dict(width=2, color=palette[i % len(palette)]),
+                                      hovertemplate="%{y:.1f}%<extra>"+c+"</extra>"))
+        fig2.add_hline(y=0, line_dash="dash", line_color="black")
+        add_shading(fig2)
+        fig2.update_yaxes(title="YoY (%)", tickformat=".1f", ticksuffix="%")
+        fig2.update_layout(title=dict(text=title_range("Emerging Countries — YoY"), x=0.5),
+                           height=420, legend=dict(orientation="h", yanchor="top", y=-0.25, xanchor="center", x=0.5))
+        st.plotly_chart(fig2, use_container_width=True)
