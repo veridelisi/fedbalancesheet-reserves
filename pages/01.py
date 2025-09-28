@@ -418,3 +418,56 @@ fig2.update_layout(
     legend=dict(orientation="h", yanchor="top", y=-0.25, xanchor="center", x=0.5)
 )
 st.plotly_chart(fig2, use_container_width=True)
+
+# ---------- Methodology ----------
+st.markdown("### 📋 Methodology")
+with st.expander("🔎 Click to expand methodology details", expanded=False):
+    st.markdown("""
+**🌍 Data Source**
+- BIS Global Liquidity Indicators (GLI) — [link](https://data.bis.org/topics/GLI)  
+- Coverage: USD-denominated *cross-border credit* to non-bank borrowers  
+
+**📏 Units & Scaling**
+- Raw data: millions of USD → converted to **billions** (÷1000)  
+- Time frequency: **quarterly** observations  
+
+**📈 Metrics**
+- **YoY Growth (%):** 4-quarter percent change  
+- **Comparison logic:**  
+  - *AllCredit ≈ Loans + Debt Securities*  
+  - Advanced vs Emerging, Regional Areas, Individual Countries  
+
+**🎨 Visual Conventions**
+- 📈 Line charts → stock levels  
+- 📊 Bar charts → YoY growth  
+- ✅ Green = positive growth, ❌ Red = negative growth  
+- 🟪 Advanced = purple, 🟧 Loans = orange, 🟥 Emerging = red, 🟩 Regions = green  
+
+**🕑 Shaded Periods**
+- 2007–09: Financial Crisis  
+- 2020: COVID-19 Shock  
+- 2022– : Fed Tightening Cycle  
+
+**🧩 Structure**
+- Tabs: Total, Debt, Loans, Comparison  
+- Advanced vs Emerging (aggregate)  
+- Emerging Area (regional totals: 🌍 Africa & ME, Asia, Europe, LatAm)  
+- Emerging Countries (country-level drilldown)  
+
+**🌐 Country Coverage**
+- 🌍 Africa & Middle East: Saudi Arabia, South Africa  
+- 🌏 Emerging Asia: China, Taipei, India, Indonesia, Korea, Malaysia  
+- 🌍 Emerging Europe: Russia, Turkey  
+- 🌎 Latin America: Argentina, Brazil, Chile, Mexico  
+    """)
+
+# ---------- Footer ----------
+st.markdown(
+    """
+    <div style="text-align:center;color:#64748b;font-size:0.95rem;padding:20px 0;">
+        <a href="https://veridelisi.substack.com/">Veri Delisi</a>🚀 <br>
+        <em>Engin Yılmaz • Amherst • September 2025 </em>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
