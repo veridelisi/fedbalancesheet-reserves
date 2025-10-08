@@ -518,7 +518,7 @@ with tEC:
 
 
     st.markdown("### Select countries")
-    default_countries = ["Mexico","Indonesia","Turkey"]
+    default_countries = ["Mexico","China","Turkey"]
     sel = st.multiselect("", list(COUNTRY_KEYS.keys()), default=default_countries)
     
     
