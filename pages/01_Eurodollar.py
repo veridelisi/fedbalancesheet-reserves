@@ -406,18 +406,13 @@ with tEA:
                 marker=dict(colors=COLORS)
             ))
             fig_pie.update_layout(
-                title=dict(text=title_range(f"Regional Shares in Emerging Total — {title_suffix}"), x=0.5),
+                title=dict(text=title_range(f"Shares in Emerging Total"), x=0.5),
                 height=480,
                 legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5)
             )
             st.plotly_chart(fig_pie, use_container_width=True)
 
-            # TABLO + METRİK
-            col1, col2 = st.columns([2,1])
-            with col1:
-                st.dataframe(df_pie.rename(columns={"Region":"Region", "Value":"USD bn"}), use_container_width=True)
-            with col2:
-                st.metric("Emerging Total (USD bn)", f"{df_pie['Value'].sum():,.0f}")
+
 
             # 4️⃣ ZAMAN SERİSİ — 4 bölgenin gelişimi
             fig_line = go.Figure()
