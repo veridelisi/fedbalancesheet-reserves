@@ -459,6 +459,60 @@ with tEC:
     st.markdown("### Select countries")
     default_countries = ["Mexico","Indonesia","Turkey"]
     sel = st.multiselect("", list(COUNTRY_KEYS.keys()), default=default_countries)
+    
+            # --- PIE: Emerging total içinde ülke payları (Selected vs Top 10) ---
+        # Tüm ülkeler için en son değerleri topla
+        latest_list = []
+        latest_date = None
+        for cname, ckey in COUNTRY_KEYS.items():
+            s = load_series_billion(ckey)  # cols: Time, Val
+            if s.empty: 
+                continue
+            s = s.dropna().sort_values("Time")
+            latest_val = float(s["Val"].iloc[-1])
+            latest_time = s["Time"].iloc[-1]
+            latest_date = latest_time if (latest_date is None or latest_time > latest_date) else latest_date
+            latest_list.append((cname, latest_val))
+
+        df_latest = pd.DataFrame(latest_list, columns=["Country","Value"]).sort_values("Value", ascending=False)
+
+        # Kullanıcı seçimi: Seçili ülkeler mi Top 10 mu?
+        pie_mode = st.radio("Pie scope", ["Selected countries", "Top 10 (latest)"], horizontal=True)
+
+        if pie_mode == "Top 10 (latest)":
+            pie_countries = df_latest.head(10)["Country"].tolist()
+            # Aşağıdaki line/YoY için de aynı seti kullanmak istiyorsan bu satırı aç:
+            # sel = pie_countries
+        else:
+            pie_countries = sel
+
+        df_pie = df_latest[df_latest["Country"].isin(pie_countries)]
+        if df_pie.empty:
+            st.info("Seçilen kapsam için veri bulunamadı.")
+        else:
+            # Renk paleti (mavi yok)
+            pie_colors = ["#e74c3c","#8e44ad","#f39c12","#27ae60","#d35400","#c0392b",
+                          "#9b59b6","#16a085","#7f8c8d","#1abc9c","#bdc3c7","#34495e"]
+
+            fig_pie = go.Figure(go.Pie(
+                labels=df_pie["Country"],
+                values=df_pie["Value"],
+                hole=0.45,
+                textinfo="label+percent",
+                hovertemplate="%{label}: $%{value:,.0f}B<extra></extra>",
+                marker=dict(colors=pie_colors[:len(df_pie)])
+            ))
+            subtitle = f"{latest_date.date() if latest_date is not None else ''}"
+            fig_pie.update_layout(
+                title=dict(text=title_range(f"Share within Emerging Total — {subtitle}"), x=0.5),
+                height=440,
+                legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5)
+            )
+            st.plotly_chart(fig_pie, use_container_width=True)
+
+
+
+
 
     if not sel:
         st.info("Ülke seçiniz.")
