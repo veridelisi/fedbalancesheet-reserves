@@ -349,9 +349,9 @@ with tEA:
         one_series_panels("Emerging Europe", "Q.USD.3C.N.A.I.B.USD", color="#8e44ad")
     with area_tabs[3]:
         one_series_panels("Latin America", "Q.USD.4U.N.A.I.B.USD", color="#f39c12")
-            # --- Comparison: Regional Shares ---
+      # --- Comparison: Regional Shares (with Year picker) ---
     with area_tabs[4]:
-        st.markdown("### 🌍 Emerging Areas — Share in Total (Latest Available Quarter)")
+        st.markdown("### 🌍 Emerging Areas — Share in Total")
 
         AREA_KEYS = {
             "Africa & Middle East": "Q.USD.4W.N.A.I.B.USD",
@@ -359,35 +359,66 @@ with tEA:
             "Emerging Europe":      "Q.USD.3C.N.A.I.B.USD",
             "Latin America":        "Q.USD.4U.N.A.I.B.USD"
         }
+        COLORS = ["#e74c3c", "#27ae60", "#8e44ad", "#f39c12"]
 
-        data = []
+        # 1) Serileri çek ve tek tabloda birleştir
+        merged = None
         for name, key in AREA_KEYS.items():
-            s = load_series_billion(key)
-            if not s.empty:
-                val = s["Val"].iloc[-1]
-                data.append((name, val))
+            s = load_series_billion(key).rename(columns={"Val": name})  # cols: Time, <name>
+            merged = s if merged is None else merged.merge(s, on="Time", how="outer")
 
-        if not data:
+        if merged is None or merged.empty:
             st.warning("No area data found.")
+            st.stop()
+
+        merged = merged.sort_values("Time").reset_index(drop=True)
+        merged["Year"] = merged["Time"].dt.year
+
+        # 2) Yıl seçici (Latest / Select year)
+        years_avail = sorted(merged["Year"].dropna().unique().tolist())
+        mode = st.radio("Select period", ["Latest", "Select year"], horizontal=True)
+        if mode == "Select year":
+            year_sel = st.selectbox("Year", years_avail, index=len(years_avail)-1)
+            # o yılın en son çeyreği
+            snap = merged[merged["Year"] == year_sel].iloc[-1]
+            title_suffix = f"{year_sel}"
         else:
-            df_pie = pd.DataFrame(data, columns=["Region", "Value"])
-            fig = go.Figure(
-                go.Pie(
-                    labels=df_pie["Region"],
-                    values=df_pie["Value"],
-                    hole=0.4,
-                    textinfo="label+percent",
-                    marker=dict(colors=["#e74c3c","#27ae60","#8e44ad","#f39c12"])
-                )
-            )
+            snap = merged.iloc[-1]
+            title_suffix = f"{snap['Time'].date()}"
+
+        # 3) Pie için veri hazırla
+        parts = []
+        for name in AREA_KEYS.keys():
+            val = pd.to_numeric(snap.get(name), errors="coerce")
+            if pd.notna(val):
+                parts.append((name, float(val)))
+
+        if not parts:
+            st.warning("No values for the selected period.")
+        else:
+            df_pie = pd.DataFrame(parts, columns=["Region", "Value"]).sort_values("Region")
+
+            fig = go.Figure(go.Pie(
+                labels=df_pie["Region"],
+                values=df_pie["Value"],
+                hole=0.45,
+                textinfo="label+percent",
+                hovertemplate="%{label}: $%{value:,.0f}B<extra></extra>",
+                marker=dict(colors=COLORS)
+            ))
             fig.update_layout(
-                title=dict(text=title_range("Regional Shares in Emerging Total"), x=0.5),
-                height=520
+                title=dict(text=title_range(f"Regional Shares in Emerging Total — {title_suffix}"), x=0.5),
+                height=520,
+                legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5)
             )
             st.plotly_chart(fig, use_container_width=True)
 
-            # Optional: küçük tablo
-            st.dataframe(df_pie.rename(columns={"Region":"Region","Value":"USD bn"}))
+            # Opsiyonel tablo
+            col1, col2 = st.columns([2,1])
+            with col1:
+                st.dataframe(df_pie.rename(columns={"Region":"Region", "Value":"USD bn"}), use_container_width=True)
+            with col2:
+                st.metric("Emerging Total (USD bn)", f"{df_pie['Value'].sum():,.0f}")
 
 
 # --- Emerging Countries (ALT SEKME) ---
