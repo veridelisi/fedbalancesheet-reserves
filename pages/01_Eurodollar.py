@@ -349,9 +349,9 @@ with tEA:
         one_series_panels("Emerging Europe", "Q.USD.3C.N.A.I.B.USD", color="#8e44ad")
     with area_tabs[3]:
         one_series_panels("Latin America", "Q.USD.4U.N.A.I.B.USD", color="#f39c12")
-      # --- Comparison: Regional Shares (with Year picker) ---
+     # --- Comparison: Regional Shares + Time Evolution ---
     with area_tabs[4]:
-        st.markdown("### 🌍 Emerging Areas — Share in Total")
+        st.markdown("### 🌍 Emerging Areas — Regional Shares & Evolution")
 
         AREA_KEYS = {
             "Africa & Middle East": "Q.USD.4W.N.A.I.B.USD",
@@ -361,12 +361,11 @@ with tEA:
         }
         COLORS = ["#e74c3c", "#27ae60", "#8e44ad", "#f39c12"]
 
-        # 1) Serileri çek ve tek tabloda birleştir
+        # 1️⃣ Serileri çek ve birleştir
         merged = None
         for name, key in AREA_KEYS.items():
-            s = load_series_billion(key).rename(columns={"Val": name})  # cols: Time, <name>
+            s = load_series_billion(key).rename(columns={"Val": name})
             merged = s if merged is None else merged.merge(s, on="Time", how="outer")
-
         if merged is None or merged.empty:
             st.warning("No area data found.")
             st.stop()
@@ -374,19 +373,18 @@ with tEA:
         merged = merged.sort_values("Time").reset_index(drop=True)
         merged["Year"] = merged["Time"].dt.year
 
-        # 2) Yıl seçici (Latest / Select year)
+        # 2️⃣ Yıl seçimi
         years_avail = sorted(merged["Year"].dropna().unique().tolist())
         mode = st.radio("Select period", ["Latest", "Select year"], horizontal=True)
         if mode == "Select year":
             year_sel = st.selectbox("Year", years_avail, index=len(years_avail)-1)
-            # o yılın en son çeyreği
             snap = merged[merged["Year"] == year_sel].iloc[-1]
             title_suffix = f"{year_sel}"
         else:
             snap = merged.iloc[-1]
             title_suffix = f"{snap['Time'].date()}"
 
-        # 3) Pie için veri hazırla
+        # 3️⃣ Pie veri
         parts = []
         for name in AREA_KEYS.keys():
             val = pd.to_numeric(snap.get(name), errors="coerce")
@@ -398,7 +396,8 @@ with tEA:
         else:
             df_pie = pd.DataFrame(parts, columns=["Region", "Value"]).sort_values("Region")
 
-            fig = go.Figure(go.Pie(
+            # PIE
+            fig_pie = go.Figure(go.Pie(
                 labels=df_pie["Region"],
                 values=df_pie["Value"],
                 hole=0.45,
@@ -406,19 +405,41 @@ with tEA:
                 hovertemplate="%{label}: $%{value:,.0f}B<extra></extra>",
                 marker=dict(colors=COLORS)
             ))
-            fig.update_layout(
+            fig_pie.update_layout(
                 title=dict(text=title_range(f"Regional Shares in Emerging Total — {title_suffix}"), x=0.5),
-                height=520,
+                height=480,
                 legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5)
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig_pie, use_container_width=True)
 
-            # Opsiyonel tablo
+            # TABLO + METRİK
             col1, col2 = st.columns([2,1])
             with col1:
                 st.dataframe(df_pie.rename(columns={"Region":"Region", "Value":"USD bn"}), use_container_width=True)
             with col2:
                 st.metric("Emerging Total (USD bn)", f"{df_pie['Value'].sum():,.0f}")
+
+            # 4️⃣ ZAMAN SERİSİ — 4 bölgenin gelişimi
+            fig_line = go.Figure()
+            for i, name in enumerate(AREA_KEYS.keys()):
+                if name in merged.columns:
+                    fig_line.add_trace(go.Scatter(
+                        x=merged["Time"],
+                        y=merged[name],
+                        mode="lines",
+                        name=name,
+                        line=dict(width=3, color=COLORS[i]),
+                        hovertemplate="$%{y:,.0f}B<extra>"+name+"</extra>"
+                    ))
+
+            add_shading(fig_line)
+            yaxis_k(fig_line)
+            fig_line.update_layout(
+                title=dict(text=title_range("Emerging Areas — Time Evolution (USD bn)"), x=0.5),
+                height=520,
+                legend=dict(orientation="h", yanchor="top", y=-0.25, xanchor="center", x=0.5)
+            )
+            st.plotly_chart(fig_line, use_container_width=True)
 
 
 # --- Emerging Countries (ALT SEKME) ---
