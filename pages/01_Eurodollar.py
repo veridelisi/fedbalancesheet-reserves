@@ -338,7 +338,9 @@ with tAE:
 
 # --- Emerging Area (ALT SEKME) ---
 with tEA:
-    area_tabs = st.tabs(["Africa & Middle East", "Emerging Asia", "Emerging Europe", "Latin America"])
+    area_tabs = st.tabs(["Africa & Middle East", "Emerging Asia", "Emerging Europe", "Latin America", "Comparison"])
+
+
     with area_tabs[0]:
         one_series_panels("Africa & Middle East", "Q.USD.4W.N.A.I.B.USD", color="#e74c3c")
     with area_tabs[1]:
@@ -347,6 +349,46 @@ with tEA:
         one_series_panels("Emerging Europe", "Q.USD.3C.N.A.I.B.USD", color="#8e44ad")
     with area_tabs[3]:
         one_series_panels("Latin America", "Q.USD.4U.N.A.I.B.USD", color="#f39c12")
+            # --- Comparison: Regional Shares ---
+    with area_tabs[4]:
+        st.markdown("### 🌍 Emerging Areas — Share in Total (Latest Available Quarter)")
+
+        AREA_KEYS = {
+            "Africa & Middle East": "Q.USD.4W.N.A.I.B.USD",
+            "Emerging Asia":        "Q.USD.4Y.N.A.I.B.USD",
+            "Emerging Europe":      "Q.USD.3C.N.A.I.B.USD",
+            "Latin America":        "Q.USD.4U.N.A.I.B.USD"
+        }
+
+        data = []
+        for name, key in AREA_KEYS.items():
+            s = load_series_billion(key)
+            if not s.empty:
+                val = s["Val"].iloc[-1]
+                data.append((name, val))
+
+        if not data:
+            st.warning("No area data found.")
+        else:
+            df_pie = pd.DataFrame(data, columns=["Region", "Value"])
+            fig = go.Figure(
+                go.Pie(
+                    labels=df_pie["Region"],
+                    values=df_pie["Value"],
+                    hole=0.4,
+                    textinfo="label+percent",
+                    marker=dict(colors=["#e74c3c","#27ae60","#8e44ad","#f39c12"])
+                )
+            )
+            fig.update_layout(
+                title=dict(text=title_range("Regional Shares in Emerging Total"), x=0.5),
+                height=520
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+            # Optional: küçük tablo
+            st.dataframe(df_pie.rename(columns={"Region":"Region","Value":"USD bn"}))
+
 
 # --- Emerging Countries (ALT SEKME) ---
 with tEC:
