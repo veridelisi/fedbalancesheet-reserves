@@ -456,55 +456,72 @@ with tEC:
         "Mexico":      "Q.USD.MX.N.A.I.B.USD",
     }
 
-    st.markdown("### Select countries")
-    default_countries = ["Mexico","Indonesia","Turkey"]
-    sel = st.multiselect("", list(COUNTRY_KEYS.keys()), default=default_countries)
-    
-        # --- PIE: Emerging total içinde ülke payları (Selected vs Top 10) ---
-    latest_list = []
-    latest_date = None
+# ---------- (1) TOP-10 PIE: paylar (seçim gerektirmez) ----------
+    # Tüm ülke serilerini çek; aynı tarihe (snap_date) hizala ve son değeri al
+    series_cache = {}
+    last_dates = []
     for cname, ckey in COUNTRY_KEYS.items():
         s = load_series_billion(ckey)
-        if s.empty:
+        if s.empty: 
             continue
-        s = s.dropna().sort_values("Time")
-        latest_val = float(s["Val"].iloc[-1])
-        latest_time = s["Time"].iloc[-1]
-        latest_date = latest_time if (latest_date is None or latest_time > latest_date) else latest_date
-        latest_list.append((cname, latest_val))
+        series_cache[cname] = s.sort_values("Time")
+        last_dates.append(series_cache[cname]["Time"].iloc[-1])
 
-    df_latest = pd.DataFrame(latest_list, columns=["Country","Value"]).sort_values("Value", ascending=False)
+    # Emerging toplam (AllCredit, emerging economies)
+    EME_TOTAL_KEY = "Q.USD.4T.N.A.I.B.USD"
+    eme_total = load_series_billion(EME_TOTAL_KEY).sort_values("Time")
+    if not eme_total.empty:
+        last_dates.append(eme_total["Time"].iloc[-1])
 
-    pie_mode = st.radio("Pie scope", ["Selected countries", "Top 10 (latest)"], horizontal=True)
+    if last_dates:
+        snap_date = min(last_dates)  # hepsi için ortak alınabilecek en son tarih
+        latest_rows = []
+        for cname, s in series_cache.items():
+            s_cut = s[s["Time"] <= snap_date]
+            if not s_cut.empty:
+                latest_rows.append((cname, float(s_cut["Val"].iloc[-1])))
+        df_latest = pd.DataFrame(latest_rows, columns=["Country","Value"]).sort_values("Value", ascending=False)
 
-    if pie_mode == "Top 10 (latest)":
-        pie_countries = df_latest.head(10)["Country"].tolist()
-    else:
-        pie_countries = sel
+        # Emerging toplamı aynı tarihte al
+        eme_cut = eme_total[eme_total["Time"] <= snap_date]
+        eme_total_val = float(eme_cut["Val"].iloc[-1]) if not eme_cut.empty else df_latest["Value"].sum()
 
-    df_pie = df_latest[df_latest["Country"].isin(pie_countries)]
-    if df_pie.empty:
-        st.info("Seçilen kapsam için veri bulunamadı.")
-    else:
+        # Top-10 + Others
+        df_top = df_latest.head(10)
+        others_val = max(eme_total_val - df_top["Value"].sum(), 0.0)
+        if others_val > 0:
+            df_top = pd.concat([df_top, pd.DataFrame([["Others", others_val]], columns=["Country","Value"])])
+
         pie_colors = ["#e74c3c","#8e44ad","#f39c12","#27ae60","#d35400","#c0392b",
-                      "#9b59b6","#16a085","#7f8c8d","#1abc9c","#bdc3c7","#34495e"]
+                      "#9b59b6","#16a085","#7f8c8d","#1abc9c","#bdc3c7"]  # en sondaki gri Others
 
         fig_pie = go.Figure(go.Pie(
-            labels=df_pie["Country"],
-            values=df_pie["Value"],
+            labels=df_top["Country"],
+            values=df_top["Value"],
             hole=0.45,
             textinfo="label+percent",
             hovertemplate="%{label}: $%{value:,.0f}B<extra></extra>",
-            marker=dict(colors=pie_colors[:len(df_pie)])
+            marker=dict(colors=pie_colors[:len(df_top)])
         ))
-        subtitle = f"{latest_date.date() if latest_date is not None else ''}"
         fig_pie.update_layout(
-            title=dict(text=title_range(f"Share within Emerging Total — {subtitle}"), x=0.5),
+            title=dict(text=title_range(f"Top 10 Emerging Countries — Share in Emerging Total (as of {snap_date.date()})"), x=0.5),
             height=440,
             legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5)
         )
         st.plotly_chart(fig_pie, use_container_width=True)
+    else:
+        st.info("Country series not available for the pie chart.")
 
+    st.markdown("---")
+
+
+
+
+    st.markdown("### Select countries")
+    default_countries = ["Mexico","Indonesia","Turkey"]
+    sel = st.multiselect("", list(COUNTRY_KEYS.keys()), default=default_countries)
+    
+    
 
 
 
