@@ -124,7 +124,7 @@ def dynamic_y_domain(levels_df: pd.DataFrame, pad_pp: float = 0.04):
         hi += pad_pp
     return (lo, hi)
 
-def checkbox_row(default_selected=("EFFR",)):
+def checkbox_row(default_selected=("SOFR",)):
     """5 kutucuk yan yana döndürür, seçilen serileri listeler."""
     series = ["EFFR","OBFR","SOFR","BGCR","TGCR"]
     cols = st.columns(5)
@@ -202,7 +202,7 @@ COLOR_RANGE  = [COLOR_MAP[s] for s in COLOR_DOMAIN]
 # =========================================================
 st.markdown("### ⏱️ Last 7 Days — Levels")
 st.session_state["chart_scope"] = "7d"  # unique keys for checkboxes
-sel7 = checkbox_row(default_selected=("EFFR",))
+sel7 = checkbox_row(default_selected=("SOFR",))
 last_all = levels_long["date"].max()
 lvl7 = levels_long[(levels_long["date"] >= (last_all - timedelta(days=7))) & (levels_long["series"].isin(sel7))]
 domain7 = dynamic_y_domain(lvl7)
