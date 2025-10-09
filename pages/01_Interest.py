@@ -222,7 +222,7 @@ st.altair_chart(chart7, use_container_width=True)
 # =========================================================
 st.markdown("### 📅 Since 01-01-2025 — Levels")
 st.session_state["chart_scope"] = "ytd"
-selytd = checkbox_row(default_selected=("EFFR",))
+selytd = checkbox_row(default_selected=("SOFR",))
 lvl_ytd = levels_long[(levels_long["date"] >= pd.to_datetime(date(2025,1,1))) & (levels_long["series"].isin(selytd))]
 domain_ytd = dynamic_y_domain(lvl_ytd)
 
@@ -320,7 +320,7 @@ V_COLOR_RANGE  = [COLOR_MAP[s] for s in V_COLOR_DOMAIN]
 # ---------------------------------------------------------
 st.markdown("### ⏱️ Last 7 Days — Levels volume amount")
 st.session_state["chart_scope"] = "vol7d"
-sel_vol_7 = checkbox_row(default_selected=("EFFR",))  # 5 kutucuk, EFFR varsayılan
+sel_vol_7 = checkbox_row(default_selected=("SOFR",))  # 5 kutucuk, EFFR varsayılan
 if not volumes_long.empty:
     last_vol_date = volumes_long["date"].max()
     vol7 = volumes_long[
@@ -347,7 +347,7 @@ st.altair_chart(chart_vol7, use_container_width=True)
 # ---------------------------------------------------------
 st.markdown("### 📅 Since 01-01-2025 — Levels volume amount")
 st.session_state["chart_scope"] = "volytd"
-sel_vol_ytd = checkbox_row(default_selected=("EFFR",))  # 5 kutucuk, EFFR varsayılan
+sel_vol_ytd = checkbox_row(default_selected=("SOFR",))  # 5 kutucuk, EFFR varsayılan
 if not volumes_long.empty:
     vol_ytd = volumes_long[
         (volumes_long["date"] >= pd.to_datetime(date(2025,1,1))) &
