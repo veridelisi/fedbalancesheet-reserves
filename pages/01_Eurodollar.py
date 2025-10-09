@@ -530,10 +530,11 @@ with tEC:
             ),
             height=440,
             legend=dict(
-                orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5,
-                # Dilersen dilim gizlemeyi kapalı tut:
-                itemclick=False, itemdoubleclick=False
-            )
+    orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5,
+    itemclick="toggle",           # single click: o dilimi gizle/göster
+    itemdoubleclick="toggleothers"  # double click: sadece o dilim kalsın
+)
+
         )
         st.plotly_chart(fig_pie, use_container_width=True)
 
