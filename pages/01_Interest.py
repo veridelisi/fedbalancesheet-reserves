@@ -388,8 +388,8 @@ with st.expander("🔎 Click to expand methodology details", expanded=False):
 ---
 
 ### 🎛️ Series selection & defaults
-- ✅ Default: **EFFR** only.  
-- ⬜ Inline checkboxes let you add **SOFR**, **OBFR**, **BGCR**, **TGCR** dynamically.
+- ✅ Default: **SOFR** only.  
+- ⬜ Inline checkboxes let you add **EFFR**, **OBFR**, **BGCR**, **TGCR** dynamically.
 
 ---
 
