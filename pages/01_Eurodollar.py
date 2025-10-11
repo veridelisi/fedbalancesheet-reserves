@@ -402,7 +402,8 @@ with tEA:
                 values=df_pie["Value"],
                 hole=0.45,
                 textinfo="label+percent",
-                hovertemplate="%{label}: $%{value:,.0f}B<extra></extra>",
+                hovertemplate=f"{col}: %{{y:.1f}}%<extra></extra>",
+
                 marker=dict(colors=COLORS)
             ))
             fig_pie.update_layout(
