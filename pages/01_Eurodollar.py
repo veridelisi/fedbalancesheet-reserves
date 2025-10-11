@@ -486,58 +486,57 @@ with tEC:
         eme_cut = eme_total[eme_total["Time"] <= snap_date]
         eme_total_val = float(eme_cut["Val"].iloc[-1]) if not eme_cut.empty else df_latest["Value"].sum()
 
-                 # Top–10 + Others
-        df_top = df_latest.head(10)
+        # ========= TOP-14 + OTHERS (fixed shares vs Emerging total) =========
+        N_TOP = 14
+        df_top = df_latest.head(N_TOP).copy()
         others_val = max(eme_total_val - df_top["Value"].sum(), 0.0)
         if others_val > 0:
             df_top = pd.concat(
-                [df_top, pd.DataFrame([["Others", others_val]], columns=["Country", "Value"])],
+                [df_top, pd.DataFrame([["Others", others_val]], columns=["Country","Value"])],
                 ignore_index=True
             )
 
-        # Sabit yüzdeler (hep Emerging total'e göre)
-        total_ref = max(eme_total_val, 1e-9)                # 0'a bölmeyi önle
-        df_top["ShareTotal"] = df_top["Value"] / total_ref  # 0–1 arası pay
-        # Dilim üstü metin: ÜLKE + % (sabit)
-        df_top["Text"] = (df_top["Country"] + "\n" +
-                          (df_top["ShareTotal"] * 100).round(1).astype(str) + "%")
+        # Sabit yüzdeler (her zaman Emerging toplamına göre)
+        total_ref = max(eme_total_val, 1e-9)
+        df_top["ShareTotal"] = df_top["Value"] / total_ref
+        df_top["Text"] = df_top["Country"] + "\n" + (df_top["ShareTotal"]*100).round(1).astype(str) + "%"
 
-        pie_colors = [
-            "#e74c3c", "#8e44ad", "#f39c12", "#27ae60", "#d35400",
-            "#c0392b", "#9b59b6", "#16a085", "#7f8c8d", "#1abc9c", "#bdc3c7"  # son: Others (gri)
+        # Renk paleti (yeterince uzun)
+        base_colors = [
+            "#e74c3c","#8e44ad","#f39c12","#27ae60","#d35400",
+            "#c0392b","#9b59b6","#16a085","#7f8c8d","#1abc9c",
+            "#2ecc71","#d35400","#7f8c8d","#9b59b6","#bdc3c7"  # son: Others gri
         ]
+        colors = base_colors[:len(df_top)]
 
         fig_pie = go.Figure(go.Pie(
-            labels=df_top["Country"],            # legend / hover label
-            values=df_top["Value"],              # dilim büyüklüğü
+            labels=df_top["Country"],
+            values=df_top["Value"],
             hole=0.45,
             sort=False,
-            text=df_top["Text"],                 # ÜLKE + % (sabit)
-            textinfo="text",                     # Plotly’nin kendi % hesabını kapat
+            text=df_top["Text"],           # Ülke + % (sabit)
+            textinfo="text",
             textposition="inside",
             insidetextorientation="radial",
-            customdata=(df_top["ShareTotal"] * 100),  # hover'da % göstermek için
+            customdata=(df_top["ShareTotal"]*100),
             hovertemplate="%{label}: $%{value:,.0f}B"
                           "<br>Share of Emerging Total: %{customdata:.1f}%<extra></extra>",
-            marker=dict(colors=pie_colors[:len(df_top)])
+            marker=dict(colors=colors)
         ))
         fig_pie.update_layout(
             title=dict(
                 text=title_range(
-                    f"Top 10 Emerging Countries — Share in Emerging Total (as of {snap_date.date()})"
+                    f"Top {N_TOP} Emerging Countries — Share in Emerging Total (as of {snap_date.date()})"
                 ),
                 x=0.5
             ),
-            height=440,
+            height=520,
             legend=dict(
-    orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5,
-    itemclick="toggle",           # single click: o dilimi gizle/göster
-    itemdoubleclick="toggleothers"  # double click: sadece o dilim kalsın
-)
-
+                orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5,
+                itemclick="toggle", itemdoubleclick="toggleothers"
+            )
         )
         st.plotly_chart(fig_pie, use_container_width=True)
-
 
 
 
