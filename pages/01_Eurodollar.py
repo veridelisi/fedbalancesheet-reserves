@@ -402,8 +402,7 @@ with tEA:
                 values=df_pie["Value"],
                 hole=0.45,
                 textinfo="label+percent",
-                hovertemplate=f"{col}: %{{y:.1f}}%<extra></extra>",
-
+                hovertemplate="%{label}: $%{value:,.0f}B<extra></extra>",
                 marker=dict(colors=COLORS)
             ))
             fig_pie.update_layout(
@@ -599,79 +598,6 @@ with tEC:
         )
         st.plotly_chart(fig2, use_container_width=True)
 
-
-# =====================  Share Evolution (ALL countries + Others)  =====================
-st.markdown("### Share in Emerging Total — 2000–2025 (All countries)")
-
-# Emerging toplam (All credit to EM non-banks)
-EME_TOTAL_KEY = "Q.USD.4T.N.A.I.B.USD"
-eme_total = load_series_billion(EME_TOTAL_KEY).sort_values("Time")
-
-# 14 ülke serilerini çek
-series_cache = {}
-for cname, ckey in COUNTRY_KEYS.items():
-    s = load_series_billion(ckey).sort_values("Time")
-    if not s.empty:
-        series_cache[cname] = s
-
-if eme_total.empty or not series_cache:
-    st.info("Pay grafiği için yeterli veri yok.")
-else:
-    # Ortak tarih kesişimi
-    common = set(eme_total["Time"])
-    for s in series_cache.values():
-        common = common.intersection(set(s["Time"]))
-    common = sorted(common)
-
-    if not common:
-        st.info("Ülkeler ile Emerging toplama ait ortak tarih bulunamadı.")
-    else:
-        base = pd.DataFrame({"Time": common}).sort_values("Time")
-        base = base.merge(eme_total.rename(columns={"Val": "EmergingTotal"}), on="Time", how="left")
-        for cname, s in series_cache.items():
-            base = base.merge(s.rename(columns={"Val": cname}), on="Time", how="left")
-
-        # Others ve paylar (%)
-        countries = list(COUNTRY_KEYS.keys())
-        vals = base[countries].clip(lower=0)
-        base["Others"] = (base["EmergingTotal"] - vals.sum(axis=1)).clip(lower=0)
-
-        share = vals.copy()
-        share["Others"] = base["Others"]
-        share = share.div(base["EmergingTotal"].replace(0, np.nan), axis=0) * 100.0
-
-        # Renk paleti (son renk Others = gri)
-        palette = [
-            "#e74c3c","#8e44ad","#f39c12","#27ae60","#d35400",
-            "#c0392b","#9b59b6","#16a085","#7f8c8d","#1abc9c",
-            "#2ecc71","#d35400","#7f8c8d","#9b59b6","#bdc3c7"  # Others
-        ]
-        cols_plot = countries + ["Others"]
-
-        # Son tarihte büyükten küçüğe sırala (legend anlamlı olsun)
-        order = share.iloc[-1][cols_plot].sort_values(ascending=False).index.tolist()
-
-        # Plotly stacked area
-        fig_share = go.Figure()
-        for i, col in enumerate(order):
-            fig_share.add_trace(go.Scatter(
-                x=base["Time"], y=share[col],
-                mode="lines",
-                line=dict(width=0.6, color=palette[i % len(palette)]),
-                stackgroup="one",
-                name=col,
-                hovertemplate=f"{col}: %{y:.1f}%<extra></extra>"
-            ))
-
-        fig_share.update_layout(
-            title=dict(text="Emerging Countries — Share in Eurodollar Credit (2000–2025)", x=0.5),
-            yaxis=dict(title="Share of Emerging Total (%)", rangemode="tozero"),
-            xaxis=dict(title=None),
-            height=520,
-            legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5),
-            margin=dict(t=60, b=60, l=40, r=40)
-        )
-        st.plotly_chart(fig_share, use_container_width=True)
 
 
 
