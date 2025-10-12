@@ -598,6 +598,64 @@ with tEC:
         )
         st.plotly_chart(fig2, use_container_width=True)
 
+# ---------------- Country Decomposition (Debt / X-border / Local FX) ----------------
+st.markdown("### Country decomposition — Debt, Cross-border loans, Local FX loans")
+
+# GLI country keys (USD)
+def gli_country_total_key(cc):  # Total credit to non-banks (loans + debt)
+    return f"Q.USD.{cc}.N.A.I.B.USD"
+
+def gli_country_debt_key(cc):   # Debt securities to non-banks
+    return f"Q.USD.{cc}.N.A.I.D.USD"
+
+def gli_country_xbl_key(cc):    # Cross-border bank loans to non-banks
+    return f"Q.USD.{cc}.N.B.I.G.USD"
+
+COUNTRY_LABELS = {
+    "SA": "SaudiArabia", "ZA": "SouthAfrica", "CN": "China", "TW": "Taipei",
+    "IN": "India", "ID": "Indonesia", "KR": "Korea", "MY": "Malaysia",
+    "RU": "Russia", "TR": "Turkey", "AR": "Argentina", "BR": "Brazil",
+    "CL": "Chile", "MX": "Mexico",
+}
+
+# Tek seçim — default Mexico
+col_sel1, col_sel2 = st.columns([1.1, 2.5])
+with col_sel1:
+    cc_display = st.selectbox(
+        "Select country",
+        options=[COUNTRY_LABELS[c] for c in COUNTRY_LABELS],
+        index=list(COUNTRY_LABELS.values()).index("Mexico")
+    )
+# ISO kodunu bul
+cc_iso = [k for k,v in COUNTRY_LABELS.items() if v == cc_display][0]
+
+# Serileri çek
+tot = load_series_billion(gli_country_total_key(cc_iso)).rename(columns={"Val": "Total"})
+debt = load_series_billion(gli_country_debt_key(cc_iso)).rename(columns={"Val": "Debt"})
+xbl  = load_series_billion(gli_country_xbl_key(cc_iso)).rename(columns={"Val": "CrossBorder"})
+
+# Merge & LLFX = residual
+dm = tot.merge(debt, on="Time", how="outer").merge(xbl, on="Time", how="outer").sort_values("Time")
+for c in ["Total","Debt","CrossBorder"]:
+    dm[c] = pd.to_numeric(dm[c], errors="coerce")
+dm["LocalFX"] = dm["Total"] - (dm["Debt"] + dm["CrossBorder"])
+
+# Çizim
+fig = go.Figure()
+fig.add_trace(go.Scatter(x=dm["Time"], y=dm["Debt"],        mode="lines", name="Debt securities",        line=dict(width=3, color="#8e44ad")))
+fig.add_trace(go.Scatter(x=dm["Time"], y=dm["CrossBorder"], mode="lines", name="Cross-border bank loans", line=dict(width=3, color="#2980b9")))
+fig.add_trace(go.Scatter(x=dm["Time"], y=dm["LocalFX"],     mode="lines", name="Local FX loans (residual)", line=dict(width=3, color="#16a085")))
+add_shading(fig); yaxis_k(fig)
+fig.update_traces(hovertemplate="$%{y:,.0f}B<extra></extra>")
+fig.update_layout(
+    title=dict(text=title_range(f"{cc_display} — Debt vs Cross-border vs Local FX (USD bn)"), x=0.5),
+    height=520,
+    legend=dict(orientation="h", yanchor="top", y=-0.18, xanchor="center", x=0.5)
+)
+st.plotly_chart(fig, use_container_width=True)
+
+# Küçük not
+st.caption("Local FX loans GLI metodolojisine göre toplam krediden (Debt + Cross-border bank loans) çıkarılarak bulunur (rezidüel).")
 
 
 
