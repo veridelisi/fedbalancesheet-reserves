@@ -692,7 +692,7 @@ def load_lbs_crossborder_usd(iso: str, start="2000", end="2025") -> pd.DataFrame
 def load_lbs_local_fx_usd(iso: str, start="2000", end="2025") -> pd.DataFrame:
     return _bis_series("BIS/WS_LBS_D_PUB/1.0", _lbs_local_fx_key(iso), start, end)
 
-# ---------------------- Ülke listesi / renk paleti ----------------------
+# 1) Ülke seçimi — yatay radio, benzersiz key
 COUNTRY_ISO = {
     "Mexico":"MX","China":"CN","Turkey":"TR","SaudiArabia":"SA","Indonesia":"ID","Brazil":"BR",
     "Korea":"KR","Chile":"CL","India":"IN","Argentina":"AR","Taipei":"TW","Russia":"RU",
@@ -704,29 +704,43 @@ PALETTE = {
     "Taipei":"#2ecc71","Russia":"#d35400","SouthAfrica":"#7f8c8d","Malaysia":"#9b59b6","Others":"#bdc3c7"
 }
 
-# ---------------------- UI: Başlık & seçim & legend ----------------------
-st.title("Country decomposition — Debt, Cross-border Loans, Local FX Loans")
-
 sel_country = st.radio(
     "Select country",
     options=list(COUNTRY_ISO.keys()),
     index=list(COUNTRY_ISO.keys()).index("Mexico"),
-    horizontal=True
+    horizontal=True,
+    key="cd_country_radio",
 )
 
+# 2) SADECE İKİNCİ PALET (legend görünümü) — tıklanmaz, görsel referans
 st.markdown(
-    " ".join([f"<span style='display:inline-flex;align-items:center;margin-right:18px'>"
-              f"<span style='width:14px;height:14px;border-radius:4px;background:{PALETTE[k]};display:inline-block;margin-right:8px'></span>"
-              f"<span style='font-weight:500;color:#2b2f36'>{k}</span></span>"
-              for k in COUNTRY_ISO.keys()] +
-             [f"<span style='display:inline-flex;align-items:center;margin-right:18px'>"
-              f"<span style='width:14px;height:14px;border-radius:4px;background:#bdc3c7;display:inline-block;margin-right:8px'></span>"
-              f"<span style='font-weight:500;color:#2b2f36'>Others</span></span>"]),
+    " ".join([
+        f"<span style='display:inline-flex;align-items:center;margin-right:18px'>"
+        f"<span style='width:14px;height:14px;border-radius:4px;background:{PALETTE[k]};display:inline-block;margin-right:8px'></span>"
+        f"<span style='font-weight:500;color:#2b2f36'>{k}</span></span>"
+        for k in ["Mexico","China","Turkey","SaudiArabia","Indonesia","Brazil","Korea",
+                  "Chile","India","Argentina","Taipei","Russia","SouthAfrica","Malaysia"]
+    ] + [
+        "<span style='display:inline-flex;align-items:center;margin-right:18px'>"
+        "<span style='width:14px;height:14px;border-radius:4px;background:#bdc3c7;display:inline-block;margin-right:8px'></span>"
+        "<span style='font-weight:500;color:#2b2f36'>Others</span></span>"
+    ]),
     unsafe_allow_html=True
 )
 
-start_year = st.sidebar.number_input("Start", 1980, 2025, 2000)
-end_year   = st.sidebar.text_input("End", "2025")
+# 3) Başlangıç–Bitiş: Sayfada önceden varsa onları kullan; yoksa benzersiz key’lerle oluştur
+if "start_year" in st.session_state and "end_year" in st.session_state:
+    start_used = st.session_state.start_year
+    end_used   = st.session_state.end_year
+else:
+    col_a, col_b = st.sidebar.columns(2)
+    with col_a:
+        start_used = st.number_input("Start", 1980, 2025, 2000, key="cd_start_input")
+    with col_b:
+        end_used = st.text_input("End", "2025", key="cd_end_input")
+
+
+
 
 # ---------------------- Veri çek / birleştir ----------------------
 iso = COUNTRY_ISO[sel_country]
