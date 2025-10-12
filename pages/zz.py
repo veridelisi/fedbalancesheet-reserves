@@ -48,60 +48,83 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # -------------------------
-# 0) Utilities
+# 0) Utilities (robust BIS fetcher)
 # -------------------------
 
 API_BASE = "https://stats.bis.org/api/v1"   # BIS Data Portal API v1
 
-def _q_to_period(dt: pd.Timestamp) -> str:
-    # 2005Q1 tarzı başlıklar için
-    return f"{dt.year}Q{((dt.month-1)//3)+1}"
+def _parse_bis_json(j):
+    """BIS JSON -> tidy DataFrame (Time, Val). YYYY-Qn ve YYYY-MM destekli."""
+    rows = []
+    try:
+        for s in j.get("data", {}).get("series", []):
+            for o in s.get("observations", []):
+                p = o.get("period")
+                v = o.get("value")
+                if p is None:
+                    continue
+                rows.append((p, None if v is None else float(v)))
+    except Exception:
+        pass
+
+    df = pd.DataFrame(rows, columns=["Time", "Val"])
+    if df.empty:
+        return df
+
+    # Tarihi parse et (önce quarter, sonra yyyy-mm)
+    def _to_ts(x: str):
+        # 2005-Q1 gibi ise
+        if "Q" in x:
+            try:
+                y, q = x.split("Q")
+                m = (int(q) - 1) * 3 + 1
+                return pd.Timestamp(int(y), m, 1)
+            except Exception:
+                return pd.NaT
+        # 2005-03 gibi ise
+        try:
+            return pd.to_datetime(x + "-01")
+        except Exception:
+            return pd.NaT
+
+    df["Time"] = df["Time"].apply(_to_ts)
+    df = df.dropna(subset=["Time"]).sort_values("Time")
+    return df
 
 @st.cache_data(ttl=86400)  # 1 gün
 def bis_series(dataset: str, key: str, start: str | None, end: str | None) -> pd.DataFrame:
     """
-    Generic BIS fetcher (JSON).
-    dataset examples:
-      - BIS/WS_DEBT_SEC2_PUB/1.0
-      - BIS/WS_LBS_D_PUB/1.0
-    key examples:
-      - IDS: Q.MX.3P.1.1.C.A.F.USD.A.A.A.A.A.I
-      - LBS cross-border: Q.S.C.G.USD.A.5J.A.5A.A.MX.N
-      - LBS local FX:     Q.S.C.A.USD.F.5J.A.MX.A.5J.R
+    dataset örn: 'WS_DEBT_SEC2_PUB/1.0' veya 'WS_LBS_D_PUB/1.0'
+    key     örn: 'Q.MX.3P.1.1.C.A.F.USD.A.A.A.A.A.I'
     """
-    url = f"{API_BASE}/{dataset}/{key}"
     params = {"contentType": "json"}
-    if start:
-        params["startPeriod"] = start
-    if end:
-        params["endPeriod"] = end
+    if start: params["startPeriod"] = start
+    if end:   params["endPeriod"] = end
 
-    r = requests.get(url, params=params, timeout=30)
-    r.raise_for_status()
-    data = r.json()
+    # Çeşitli yol varyantlarını dene
+    variants = [
+        f"{API_BASE}/bis/{dataset}/{key}",
+        f"{API_BASE}/BIS/{dataset}/{key}",
+        f"{API_BASE}/{dataset}/{key}",
+    ]
 
-    # JSON -> tidy
-    # Expected shape: {"structure":..., "data":{"series":[{"observations":[...]}], "attributes":...}}
-    try:
-        obs = data["data"]["series"][0]["observations"]
-        times = [pd.to_datetime(o["period"] + "-01") for o in obs]  # quarterly period-end
-        vals = [float(o["value"]) if o["value"] is not None else None for o in obs]
-        df = pd.DataFrame({"Time": times, "Val": vals}).sort_values("Time")
-    except Exception:
-        # Fallback for alternate shape
-        rows = []
-        for s in data.get("data", {}).get("series", []):
-            for o in s.get("observations", []):
-                rows.append((o.get("period"), o.get("value")))
-        df = pd.DataFrame(rows, columns=["Time", "Val"])
-        if not df.empty:
-            df["Time"] = pd.to_datetime(df["Time"] + "-01")
-            df = df.sort_values("Time")
+    last_err = None
+    for url in variants:
+        try:
+            r = requests.get(url, params=params, timeout=30)
+            r.raise_for_status()
+            df = _parse_bis_json(r.json())
+            if not df.empty:
+                return df
+        except Exception as e:
+            last_err = (url, e)
+            continue
 
-    return df
+    url, e = last_err if last_err else ("<unknown>", Exception("no response"))
+    raise requests.HTTPError(f"BIS API request failed at {url} : {e}")
 
 # -------------------------
-# 1) Country map & color map
+# 1) Country map & color map (seninkiler aynen kalsın)
 # -------------------------
 
 COUNTRIES = {
@@ -116,45 +139,41 @@ PALETTE = {
     "Indonesia": "#d35400", "Brazil": "#c0392b", "Korea": "#9b59b6", "Chile": "#16a085",
     "India": "#7f8c8d", "Argentina": "#1abc9c", "Taipei": "#2ecc71", "Russia": "#d35400",
     "SouthAfrica": "#95a5a6", "Malaysia": "#9b59b6", "Others": "#bdc3c7",
-    # fixed series colors:
     "_IDS": "#c0392b", "_XBL": "#2980b9", "_LLFX": "#27ae60"
 }
 
 # -------------------------
-# 2) Key builders for BIS
+# 2) Key builders for BIS (seninkilerle aynı)
 # -------------------------
-# Not: Bu anahtarlar BIS portalındaki filtrelerin bire bir kod karşılığıdır.
-# IDS (debt securities, residents, foreign currencies, USD, total maturity, total rates)
+
 def ids_key(iso3: str) -> str:
-    # format: Q.<CC>.3P.1.1.C.A.F.USD.A.A.A.A.A.I
     return f"Q.{iso3}.3P.1.1.C.A.F.USD.A.A.A.A.A.I"
 
-# LBS cross-border claims (all reporting countries -> residents of <country>), USD,
-# all instruments, amount outstanding, all sectors
 def lbs_cross_border_key(iso3: str) -> str:
-    # format: Q.S.C.G.USD.A.5J.A.5A.A.<CC>.N
     return f"Q.S.C.G.USD.A.5J.A.5A.A.{iso3}.N"
 
-# LBS local claims (reporting country = <country>, position = Local [R]),
-# currency type = foreign (ie currencies foreign to bank location country), USD
 def lbs_local_fx_key(iso3: str) -> str:
-    # format: Q.S.C.A.USD.F.5J.A.<CC>.A.5J.R
     return f"Q.S.C.A.USD.F.5J.A.{iso3}.A.5J.R"
+
+# -------------------------
+# 3) Loaders (dataset adlarında 'BIS/' ÖNEK YOK!)
+# -------------------------
 
 @st.cache_data(ttl=86400)
 def load_ids_usd(iso3: str, start: str | None, end: str | None) -> pd.DataFrame:
-    df = bis_series("BIS/WS_DEBT_SEC2_PUB/1.0", ids_key(iso3), start, end)
+    df = bis_series("WS_DEBT_SEC2_PUB/1.0", ids_key(iso3), start, end)
     return df.rename(columns={"Val": "Debt"})
 
 @st.cache_data(ttl=86400)
 def load_lbs_xborder_usd(iso3: str, start: str | None, end: str | None) -> pd.DataFrame:
-    df = bis_series("BIS/WS_LBS_D_PUB/1.0", lbs_cross_border_key(iso3), start, end)
+    df = bis_series("WS_LBS_D_PUB/1.0", lbs_cross_border_key(iso3), start, end)
     return df.rename(columns={"Val": "CrossBorder"})
 
 @st.cache_data(ttl=86400)
 def load_lbs_localfx_usd(iso3: str, start: str | None, end: str | None) -> pd.DataFrame:
-    df = bis_series("BIS/WS_LBS_D_PUB/1.0", lbs_local_fx_key(iso3), start, end)
+    df = bis_series("WS_LBS_D_PUB/1.0", lbs_local_fx_key(iso3), start, end)
     return df.rename(columns={"Val": "LocalFX"})
+
 
 # -------------------------
 # 3) UI
