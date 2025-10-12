@@ -598,65 +598,155 @@ with tEC:
         )
         st.plotly_chart(fig2, use_container_width=True)
 
-# ---------------- Country Decomposition (Debt / X-border / Local FX) ----------------
-st.markdown("### Country decomposition — Debt, Cross-border loans, Local FX loans")
+# ======================== COUNTRY DECOMPOSITION (IDS + LBS) ========================
+st.markdown("## Country decomposition — Debt, Cross-border loans, Local FX loans")
 
-# GLI country keys (USD)
-def gli_country_total_key(cc):  # Total credit to non-banks (loans + debt)
-    return f"Q.USD.{cc}.N.A.I.B.USD"
-
-def gli_country_debt_key(cc):   # Debt securities to non-banks
-    return f"Q.USD.{cc}.N.A.I.D.USD"
-
-def gli_country_xbl_key(cc):    # Cross-border bank loans to non-banks
-    return f"Q.USD.{cc}.N.B.I.G.USD"
-
-COUNTRY_LABELS = {
-    "SA": "SaudiArabia", "ZA": "SouthAfrica", "CN": "China", "TW": "Taipei",
-    "IN": "India", "ID": "Indonesia", "KR": "Korea", "MY": "Malaysia",
-    "RU": "Russia", "TR": "Turkey", "AR": "Argentina", "BR": "Brazil",
-    "CL": "Chile", "MX": "Mexico",
+# --- Renk paleti (ülke legend'i için) ---
+PALETTE = {
+    "Mexico":"#e74c3c","China":"#8e44ad","Turkey":"#f39c12","SaudiArabia":"#27ae60",
+    "Indonesia":"#d35400","Brazil":"#c0392b","Korea":"#9b59b6","Chile":"#16a085",
+    "India":"#7f8c8d","Argentina":"#1abc9c","Taipei":"#2ecc71","Russia":"#e67e22",
+    "SouthAfrica":"#95a5a6","Malaysia":"#8e6cc6","Others":"#bdc3c7"
 }
 
-# Tek seçim — default Mexico
-col_sel1, col_sel2 = st.columns([1.1, 2.5])
-with col_sel1:
-    cc_display = st.selectbox(
-        "Select country",
-        options=[COUNTRY_LABELS[c] for c in COUNTRY_LABELS],
-        index=list(COUNTRY_LABELS.values()).index("Mexico")
-    )
-# ISO kodunu bul
-cc_iso = [k for k,v in COUNTRY_LABELS.items() if v == cc_display][0]
+# --- Görünen isim → BIS ISO kodu ---
+COUNTRY_ISO = {
+    "Mexico":"MX","China":"CN","Turkey":"TR","SaudiArabia":"SA","Indonesia":"ID",
+    "Brazil":"BR","Korea":"KR","Chile":"CL","India":"IN","Argentina":"AR","Taipei":"TW",
+    "Russia":"RU","SouthAfrica":"ZA","Malaysia":"MY"
+}
 
-# Serileri çek
-tot = load_series_billion(gli_country_total_key(cc_iso)).rename(columns={"Val": "Total"})
-debt = load_series_billion(gli_country_debt_key(cc_iso)).rename(columns={"Val": "Debt"})
-xbl  = load_series_billion(gli_country_xbl_key(cc_iso)).rename(columns={"Val": "CrossBorder"})
+# --- IDS/LBS API yardımcıları (BIS generic SDMX 2.1) ---
+_BIS_HEADERS = {"Accept": "application/vnd.sdmx.genericdata+xml;version=2.1"}
 
-# Merge & LLFX = residual
-dm = tot.merge(debt, on="Time", how="outer").merge(xbl, on="Time", how="outer").sort_values("Time")
-for c in ["Total","Debt","CrossBorder"]:
-    dm[c] = pd.to_numeric(dm[c], errors="coerce")
-dm["LocalFX"] = dm["Total"] - (dm["Debt"] + dm["CrossBorder"])
+def _bis_series(flow_path: str, key: str, start="2000", end="2025") -> pd.DataFrame:
+    """BIS dataflow + key ile generic xml serisi çek (Time, Val)."""
+    if not key:
+        return pd.DataFrame(columns=["Time","Val"])
+    url = f"https://stats.bis.org/api/v2/data/{flow_path}/{key}/all?detail=full&startPeriod={start}&endPeriod={end}"
+    r = requests.get(url, headers=_BIS_HEADERS, timeout=60)
+    r.raise_for_status()
+    root = ET.fromstring(r.content)
+    ns = {'g': 'http://www.sdmx.org/resources/sdmxml/schemas/v2_1/data/generic'}
+    rows = []
+    for series in root.findall('.//g:Series', ns):
+        for obs in series.findall('.//g:Obs', ns):
+            dim = obs.find('g:ObsDimension', ns)
+            val = obs.find('g:ObsValue', ns)
+            if val is None: 
+                continue
+            rows.append({
+                'period': (dim.get('value') if dim is not None else None),
+                'Val': val.get('value')
+            })
+    df = pd.DataFrame(rows)
+    if df.empty:
+        return df
+    df["Val"] = pd.to_numeric(df["Val"], errors="coerce")
+    per = pd.PeriodIndex(df["period"].astype(str).str.replace("-Q","Q"), freq="Q")
+    df["Time"] = per.to_timestamp(how="end")
+    return df.dropna(subset=["Time","Val"]).sort_values("Time")[["Time","Val"]].reset_index(drop=True)
 
-# Çizim
+def _ids_key(iso: str) -> str:
+    # International Debt Securities (BIS-compiled), USD, tüm vade/faiz, residents of <iso>, foreign curr.
+    # Ör: Mexico → Q.MX.3P.1.1.C.A.F.USD.A.A.A.A.A.I
+    return f"Q.{iso}.3P.1.1.C.A.F.USD.A.A.A.A.A.I"
+
+def _lbs_xb_key(iso: str) -> str:
+    # LBS cross-border total claims of all reporting banks on residents of <iso>, USD
+    # Ör: Mexico → Q.S.C.G.USD.A.5J.A.5A.A.MX.N
+    return f"Q.S.C.G.USD.A.5J.A.5A.A.{iso}.N"
+
+def _lbs_local_fx_key(iso: str) -> str:
+    # LBS local claims of banks in <iso>, in foreign currency (ie currencies foreign to bank location), USD, Local position
+    # Ör: Mexico → Q.S.C.A.USD.F.5J.A.MX.A.5J.R
+    return f"Q.S.C.A.USD.F.5J.A.{iso}.A.5J.R"
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def load_ids_usd(iso: str, start="2000", end="2025"):
+    return _bis_series("BIS/WS_DEBT_SEC2_PUB/1.0", _ids_key(iso), start, end)
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def load_lbs_crossborder_usd(iso: str, start="2000", end="2025"):
+    return _bis_series("BIS/WS_LBS_D_PUB/1.0", _lbs_xb_key(iso), start, end)
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def load_lbs_local_fx_usd(iso: str, start="2000", end="2025"):
+    return _bis_series("BIS/WS_LBS_D_PUB/1.0", _lbs_local_fx_key(iso), start, end)
+
+# --- Mexico varsayılan, yatay radio ---
+ordered_countries = ["Mexico"] + [c for c in COUNTRY_ISO.keys() if c != "Mexico"]
+selected_country = st.radio("Select country", ordered_countries, index=0, horizontal=True)
+
+# --- Üstte legend-görünümlü ülke şeritleri (sadece görsel kolaylık) ---
+legend_html = '<div style="margin:6px 0 12px 0;display:flex;flex-wrap:wrap;gap:20px;align-items:center;">'
+for c in ordered_countries + ["Others"]:
+    color = PALETTE.get(c, "#999")
+    style = "font-weight:700;" if c == selected_country else "font-weight:500;"
+    legend_html += f'''
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="display:inline-block;width:14px;height:14px;border-radius:4px;background:{color};"></span>
+        <span style="{style}color:#374151">{c}</span>
+      </div>
+    '''
+legend_html += '</div>'
+st.markdown(legend_html, unsafe_allow_html=True)
+
+# --- Serileri çek (USD milyar olarak göster) ---
+iso = COUNTRY_ISO[selected_country]
+ids = load_ids_usd(iso, start=str(start_year), end=(end_year or "2025")).rename(columns={"Val":"Debt"})
+xb  = load_lbs_crossborder_usd(iso, start=str(start_year), end=(end_year or "2025")).rename(columns={"Val":"CrossBorderLoans"})
+lfx = load_lbs_local_fx_usd(iso, start=str(start_year), end=(end_year or "2025")).rename(columns={"Val":"LocalFXLoans"})
+
+# Merge ve B$'a dönüştür
+dd = None
+for s in (ids, xb, lfx):
+    if s.empty: 
+        continue
+    s = s.copy()
+    s["Val"] = pd.to_numeric(s.iloc[:,1], errors="coerce")
+    dd = s if dd is None else dd.merge(s, on="Time", how="outer")
+if dd is None or dd.empty:
+    st.info("Seçilen ülke için IDS/LBS verisi bulunamadı.")
+    st.stop()
+
+# İsimleri düzgünle ve milyar USD
+dd = dd.sort_values("Time").reset_index(drop=True)
+for col in ["Debt","CrossBorderLoans","LocalFXLoans"]:
+    if col in dd.columns:
+        dd[col] = pd.to_numeric(dd[col], errors="coerce")/1000.0  # M$ → B$
+
+# --- Çiz (3 çizgi tek grafikte) ---
 fig = go.Figure()
-fig.add_trace(go.Scatter(x=dm["Time"], y=dm["Debt"],        mode="lines", name="Debt securities",        line=dict(width=3, color="#8e44ad")))
-fig.add_trace(go.Scatter(x=dm["Time"], y=dm["CrossBorder"], mode="lines", name="Cross-border bank loans", line=dict(width=3, color="#2980b9")))
-fig.add_trace(go.Scatter(x=dm["Time"], y=dm["LocalFX"],     mode="lines", name="Local FX loans (residual)", line=dict(width=3, color="#16a085")))
-add_shading(fig); yaxis_k(fig)
-fig.update_traces(hovertemplate="$%{y:,.0f}B<extra></extra>")
+if "Debt" in dd:
+    fig.add_trace(go.Scatter(x=dd["Time"], y=dd["Debt"], mode="lines",
+                             name="Debt (IDS, USD bn)", line=dict(width=3, color="#8e44ad"),
+                             hovertemplate="$%{y:,.0f}B<extra>Debt</extra>"))
+if "CrossBorderLoans" in dd:
+    fig.add_trace(go.Scatter(x=dd["Time"], y=dd["CrossBorderLoans"], mode="lines",
+                             name="Cross-border loans (LBS, USD bn)", line=dict(width=3, color="#2980b9"),
+                             hovertemplate="$%{y:,.0f}B<extra>Cross-border</extra>"))
+if "LocalFXLoans" in dd:
+    fig.add_trace(go.Scatter(x=dd["Time"], y=dd["LocalFXLoans"], mode="lines",
+                             name="Local FX loans (LBS-local, USD bn)", line=dict(width=3, color="#27ae60"),
+                             hovertemplate="$%{y:,.0f}B<extra>Local FX</extra>"))
+
+add_shading(fig)
+yaxis_k(fig)
 fig.update_layout(
-    title=dict(text=title_range(f"{cc_display} — Debt vs Cross-border vs Local FX (USD bn)"), x=0.5),
-    height=520,
-    legend=dict(orientation="h", yanchor="top", y=-0.18, xanchor="center", x=0.5)
+    title=dict(text=title_range(f"{selected_country} — Debt vs Cross-border vs Local FX (USD bn)"), x=0.5),
+    height=560, legend=dict(orientation="h", yanchor="top", y=-0.18, xanchor="center", x=0.5)
 )
 st.plotly_chart(fig, use_container_width=True)
 
-# Küçük not
-st.caption("Local FX loans GLI metodolojisine göre toplam krediden (Debt + Cross-border bank loans) çıkarılarak bulunur (rezidüel).")
-
+# --- Küçük tablo (son değerler) ---
+latest_row = dd.dropna().iloc[-1].copy()
+last_date  = dd["Time"].dropna().iloc[-1].date()
+vals = {k: latest_row.get(k, float("nan")) for k in ["Debt","CrossBorderLoans","LocalFXLoans"]}
+st.markdown(
+    f"**As of {last_date}:**  "
+    + " • ".join([f"{label} **${vals[label]:,.0f}B**" for label in vals if pd.notna(vals[label])])
+)
 
 
 
