@@ -599,16 +599,14 @@ with tEC:
         st.plotly_chart(fig2, use_container_width=True)
 
 
-    # ===================== IDS (Debt) — All issuers & Breakdown =====================
-    st.markdown("## USD Debt (IDS) — All Issuers & Breakdown (2000–2025)")
+    # ===================== IDS (Debt) — Sector Breakdown =====================
+    st.markdown("## USD Debt (IDS) — Sector Breakdown (2000–2025)")
 
-    # ---- BIS IDS (WS_DEBT_SEC2_PUB) ayarları ----
     IDS_FLOW = "dataflow/BIS/WS_DEBT_SEC2_PUB/1.0"
     IDS_HEADERS = {"Accept":"application/vnd.sdmx.genericdata+xml;version=2.1"}
 
-    # Sektör/token haritası (USD cinsi borçlanma senetleri)
+    # "All issuers" KALDIRILDI
     IDS_SECTORS = {
-        "All issuers": ("1.1", "#2c3e50"),
         "Financial corporations": ("B.1", "#2980b9"),
         "General government": ("2.1", "#8e44ad"),
         "Non-financial corporations": ("J.1", "#e74c3c"),
@@ -619,12 +617,10 @@ with tEC:
     }
 
     def ids_key(cc: str, token: str) -> str:
-        # Q.{cc}.3P.{token}.C.A.F.USD.A.A.A.A.A.I
         return f"Q.{cc}.3P.{token}.C.A.F.USD.A.A.A.A.A.I"
 
     @st.cache_data(ttl=3600, show_spinner=False)
     def fetch_ids_series_full(key: str, start="2000", end="2025") -> pd.DataFrame:
-        """GenericData 2.1 XML → tam zaman serisi (Bn USD). 404/boş → empty DF."""
         url = f"https://stats.bis.org/api/v2/data/{IDS_FLOW}/{key}/all"
         params = {"detail":"full","startPeriod":start,"endPeriod":end}
         try:
@@ -647,11 +643,10 @@ with tEC:
                 val = obs.find('g:ObsValue', ns)
                 if dim is None or val is None or not val.get('value'):
                     continue
-                t = dim.get('value')  # "YYYY-Qn"
+                t = dim.get('value')
                 v = pd.to_numeric(val.get('value'), errors="coerce")
                 if pd.isna(v): 
                     continue
-                # çeyrek sonu tarihle
                 if "Q" in t:
                     y, q = t.split("-Q")
                     m = {"1":3,"2":6,"3":9,"4":12}[q]
@@ -661,16 +656,11 @@ with tEC:
                 rows.append((dt, v/1000.0))  # M$ → B$
         if not rows:
             return pd.DataFrame(columns=["Time","Val"])
-        out = pd.DataFrame(rows, columns=["Time","Val"]).sort_values("Time").reset_index(drop=True)
-        return out
+        return pd.DataFrame(rows, columns=["Time","Val"]).sort_values("Time").reset_index(drop=True)
 
     @st.cache_data(ttl=3600, show_spinner=False)
     def load_ids_country_long(country_label: str) -> pd.DataFrame:
-        """Seçilen ülkenin tüm IDS alt kırılımlarını uzun tabloya çeker."""
-        # tEC üstündeki COUNTRY_KEYS ile aynı isimleri kullanıyoruz:
-        # COUNTRY_KEYS: {"Mexico": "Q.USD.MX.N.A.I.B.USD", ...}
-        # Bundan ülke kodunu (MX) türetelim:
-        cc_map = {  # COUNTRY_KEYS ile birebir eşleşsin
+        cc_map = {
             "SaudiArabia":"SA","SouthAfrica":"ZA","China":"CN","Taipei":"TW","India":"IN",
             "Indonesia":"ID","Korea":"KR","Malaysia":"MY","Russia":"RU","Turkey":"TR",
             "Argentina":"AR","Brazil":"BR","Chile":"CL","Mexico":"MX"
@@ -689,57 +679,36 @@ with tEC:
             frames.append(s)
         return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(columns=["Time","Sector","Val","Country"])
 
-    # ---- Ülke seçim UI (çip/segmented) ----
     st.markdown("#### Select a country")
     country_list = list(COUNTRY_KEYS.keys())
     default_country = "Mexico" if "Mexico" in country_list else country_list[0]
-
-    # Streamlit sürümüne göre segmented_control yoksa radio'ya düş
     try:
-        country_sel = st.segmented_control(
-            "Country", country_list, selection=default_country, help="Click to view USD debt breakdown."
-        )
+        country_sel = st.segmented_control("Country", country_list, selection=default_country)
     except Exception:
         country_sel = st.radio("Country", country_list, horizontal=True, index=country_list.index(default_country))
 
-    # ---- Veri & Grafik ----
     ids_long = load_ids_country_long(country_sel)
 
     if ids_long.empty:
-        st.info("Seçili ülke için IDS (USD debt) serileri bulunamadı.")
+        st.info("Seçili ülke için IDS (USD debt) sektörel seriler bulunamadı.")
     else:
-        # Sektör renkleri
         color_map = {k:v for k, (_t, v) in IDS_SECTORS.items()}
-
         fig = go.Figure()
         for sec in IDS_SECTORS.keys():
             sdf = ids_long[ids_long["Sector"] == sec]
             if sdf.empty:
                 continue
             fig.add_trace(go.Scatter(
-                x=sdf["Time"], y=sdf["Val"],
-                mode="lines", name=sec,
-                line=dict(width=3, color=color_map.get(sec, None)),
+                x=sdf["Time"], y=sdf["Val"], mode="lines", name=sec,
+                line=dict(width=3, color=color_map.get(sec)),
                 hovertemplate=f"{country_sel} — {sec}<br>%{{x|%Y-%m}}: $%{{y:,.1f}}B<extra></extra>"
             ))
-
-        add_shading(fig)
-        yaxis_k(fig)
+        add_shading(fig); yaxis_k(fig)
         fig.update_layout(
-            title=dict(text=title_range(f"{country_sel}: USD Debt Securities — All Issuers & Breakdown"), x=0.5),
-            height=560,
-            legend=dict(orientation="h")
+            title=dict(text=title_range(f"{country_sel}: USD Debt Securities — Sector Breakdown"), x=0.5),
+            height=560, legend=dict(orientation="h")
         )
         st.plotly_chart(fig, use_container_width=True)
-
-        # ---- İndir butonu (CSV) ----
-        csv_bytes = ids_long.sort_values(["Sector","Time"]).to_csv(index=False).encode("utf-8")
-        st.download_button(
-            "Download CSV (IDS — USD Debt Breakdown)",
-            data=csv_bytes,
-            file_name=f"ids_usd_debt_{country_sel}_2000_2025.csv",
-            mime="text/csv"
-        )
 
 
 # ---------- Methodology ----------
