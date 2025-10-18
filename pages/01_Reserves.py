@@ -569,7 +569,7 @@ with st.expander("🔎 Click to expand methodology details", expanded=False):
 
 **Data source**
 - 📡 Federal Reserve **H.4.1 Statistical Release** via FRED *release/tables* API  
-  • H.4.1 overview: <https://www.federalreserve.gov/releases/h41.htm>  
+  • H.4.1 overview: <https://fred.stlouisfed.org/release/tables?rid=20&eid=1193943>  
   • FRED API (Release Tables): <https://fred.stlouisfed.org/docs/api/fred/releasetables.html>  
   • Release/Element used: **rid=20**, **eid=1193943** (Wednesday level table)
 
