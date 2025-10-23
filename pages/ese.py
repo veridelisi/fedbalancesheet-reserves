@@ -439,7 +439,7 @@ with tEA:
 
 # --- Emerging Countries (ALT SEKME) ---
 with tEC:
-    st.markdown("## Emerging Countries")
+    
 
     # ALT SEKME ÇUBUĞU: Credits | Debts
     ec_tabs = st.tabs(["Credits", "Debts"])
