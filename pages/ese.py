@@ -441,7 +441,11 @@ with tEA:
 with tEC:
     st.markdown("## Emerging Countries")
 
-    # Ülke anahtarları (Credits & Debts bölümlerinde ortak kullanılacak)
+    # ALT SEKME ÇUBUĞU: Credits | Debts
+    ec_tabs = st.tabs(["Credits", "Debts"])
+    tabCredits, tabDebts = ec_tabs
+
+    # Ortak: Ülke anahtarları
     COUNTRY_KEYS = {
         "SaudiArabia": "Q.USD.SA.N.A.I.B.USD",
         "SouthAfrica": "Q.USD.ZA.N.A.I.B.USD",
@@ -459,31 +463,26 @@ with tEC:
         "Mexico":      "Q.USD.MX.N.A.I.B.USD",
     }
 
-    # ➜ İki sütun: Credits (sol) & Debts (sağ)
-    col_credits, col_debts = st.columns(2)
-
-    # ====================== CREDITS (sol sütun) ======================
-    with col_credits:
-        st.subheader("Credits")
-
-        # ---------- (1) TOP-14 PIE: paylar (emerging total referans) ----------
+    # ====================== TAB 1: Credits ======================
+    with tabCredits:
+        # (1) Top-14 pie (emerging total referans)
         series_cache = {}
         last_dates = []
         for cname, ckey in COUNTRY_KEYS.items():
             s = load_series_billion(ckey)
-            if s.empty:
+            if s.empty: 
                 continue
-            series_cache[cname] = s.sort_values("Time")
-            last_dates.append(series_cache[cname]["Time"].iloc[-1])
+            s = s.sort_values("Time")
+            series_cache[cname] = s
+            last_dates.append(s["Time"].iloc[-1])
 
-        # Emerging toplam (AllCredit, emerging economies)
         EME_TOTAL_KEY = "Q.USD.4T.N.A.I.B.USD"
         eme_total = load_series_billion(EME_TOTAL_KEY).sort_values("Time")
         if not eme_total.empty:
             last_dates.append(eme_total["Time"].iloc[-1])
 
         if last_dates:
-            snap_date = min(last_dates)  # ortak alınabilecek en son tarih
+            snap_date = min(last_dates)
             latest_rows = []
             for cname, s in series_cache.items():
                 s_cut = s[s["Time"] <= snap_date]
@@ -507,7 +506,7 @@ with tEC:
             base_colors = [
                 "#e74c3c","#8e44ad","#f39c12","#27ae60","#2980b9",
                 "#d35400","#2c3e50","#9b59b6","#16a085","#c0392b",
-                "#7f8c8d","#1abc9c","#34495e","#f1c40f","#bdc3c7"  # Others gri
+                "#7f8c8d","#1abc9c","#34495e","#f1c40f","#bdc3c7"
             ]
             colors = base_colors[:len(df_top)]
 
@@ -526,16 +525,13 @@ with tEC:
                 marker=dict(colors=colors)
             ))
             fig_pie.update_layout(
-                title=dict(
-                    text=title_range(f"Top {N_TOP} Emerging Countries — Share in Emerging Total (as of {snap_date.date()})"),
-                    x=0.5
-                ),
+                title=dict(text=title_range(f"Top {N_TOP} Emerging Countries — Share in Emerging Total (as of {snap_date.date()})"), x=0.5),
                 height=520,
                 legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5)
             )
             st.plotly_chart(fig_pie, use_container_width=True)
 
-        # ---------- (2) Select countries & çoklu çizgi + YoY ----------
+        # (2) Country selection + çoklu çizgi & YoY
         st.markdown("### Select countries")
         default_countries = ["Mexico","China","Turkey"]
         sel = st.multiselect("", list(COUNTRY_KEYS.keys()), default=default_countries)
@@ -552,6 +548,7 @@ with tEC:
             palette = ["#e74c3c","#8e44ad","#f39c12","#27ae60","#2980b9","#d35400",
                        "#2c3e50","#9b59b6","#16a085","#c0392b","#7f8c8d","#1abc9c",
                        "#34495e","#f1c40f"]
+
             # Seviye
             fig = go.Figure()
             for i, c in enumerate(sel):
@@ -587,23 +584,21 @@ with tEC:
             )
             st.plotly_chart(fig2, use_container_width=True)
 
-    # ======================= DEBTS (sağ sütun) =======================
-    with col_debts:
-        st.subheader("Debts")
-
+    # ====================== TAB 2: Debts ======================
+    with tabDebts:
         st.markdown("## USD Debt (IDS) — Sector Breakdown (2000–2025)")
 
         IDS_FLOW = "dataflow/BIS/WS_DEBT_SEC2_PUB/1.0"
         IDS_HEADERS = {"Accept":"application/vnd.sdmx.genericdata+xml;version=2.1"}
 
         IDS_SECTORS = {
-            "Financial corporations": ("B.1", "#2980b9"),
-            "General government":     ("2.1", "#8e44ad"),
+            "Financial corporations":     ("B.1", "#2980b9"),
+            "General government":         ("2.1", "#8e44ad"),
             "Non-financial corporations": ("J.1", "#e74c3c"),
-            "Private banks":          ("E.1", "#16a085"),
-            "Public banks":           ("I.1", "#27ae60"),
-            "Private other FIs":      ("G.1", "#f39c12"),
-            "Public other FIs":       ("K.1", "#d35400"),
+            "Private banks":              ("E.1", "#16a085"),
+            "Public banks":               ("I.1", "#27ae60"),
+            "Private other FIs":          ("G.1", "#f39c12"),
+            "Public other FIs":           ("K.1", "#d35400"),
         }
 
         def ids_key(cc: str, token: str) -> str:
@@ -669,7 +664,7 @@ with tEC:
                 frames.append(s)
             return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(columns=["Time","Sector","Val","Country"])
 
-        # Ülke seçimi (Debts tarafı)
+        # Ülke seçimi (Debts)
         st.markdown("#### Select a country")
         country_list = list(COUNTRY_KEYS.keys())
         default_country = "Mexico" if "Mexico" in country_list else country_list[0]
