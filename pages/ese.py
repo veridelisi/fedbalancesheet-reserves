@@ -904,12 +904,20 @@ Data are parsed from **SDMX GenericData 2.1 XML**.
 ## 1️⃣ Top Tabs
 ### • Total Credit / Debt Securities / Loans / Comparison
 - **Flow:** `BIS/WS_GLI/1.0`
-- **Keys (USD totals):**
+- **Keys (USD totals):**         
+                   
+- All sectors - US dollar cross-border & local in fcy credit vis-a-vis non-banks, total, in All countries excluding residents, 
+in terms of credit (loans & debt securities)
 - Total Credit → `Q.USD.3P.N.A.I.B.USD`  
-- Debt Securities → `Q.USD.3P.N.A.I.D.USD`  
+- Example: (https://data.bis.org/topics/GLI/BIS,WS_GLI,1.0/Q.USD.3P.N.A.I.B.USD) 
+                
+- Total Credit= Debt Securities + Loans
+                
+- Debt Securities → `Q.USD.3P.N.A.I.D.USD`
+- Example: (https://data.bis.org/topics/GLI/BIS,WS_GLI,1.0/Q.USD.3P.N.A.I.D.USD)
+                
 - Loans → `Q.USD.3P.N.B.I.G.USD`
-- Example:  
-[GLI – Total Credit](https://stats.bis.org/api/v2/data/dataflow/BIS/WS_GLI/1.0/Q.USD.3P.N.A.I.B.USD/all?detail=full&startPeriod=2000&endPeriod=2025)
+- Example: (https://data.bis.org/topics/GLI/BIS,WS_GLI,1.0/Q.USD.3P.N.B.I.G.USD)
 - The **Comparison** tab overlays these three (levels + YoY).
 
 ---
@@ -918,7 +926,9 @@ Data are parsed from **SDMX GenericData 2.1 XML**.
 - **Flow:** `BIS/WS_GLI/1.0`
 - **Emerging aggregates:**
 - Emerging Debt → `Q.USD.4T.N.A.I.D.USD`
+- Example:(https://data.bis.org/topics/GLI/BIS,WS_GLI,1.0/Q.USD.4T.P.A.I.D.USD)              
 - Emerging Bank Loans → `Q.USD.4T.N.B.I.G.USD`
+- Example: (https://data.bis.org/topics/GLI/BIS,WS_GLI,1.0/Q.USD.4T.N.B.I.G.USD)             
 - **Advanced** = Total − Emerging  
 Both plotted as level and YoY charts.
 
@@ -928,11 +938,13 @@ Both plotted as level and YoY charts.
 - **Flow:** `BIS/WS_GLI/1.0`
 - **Regional total credit (USD):**
 - 🌍 Africa & Middle East → `Q.USD.4W.N.A.I.B.USD`
+- Example: (https://data.bis.org/topics/GLI/BIS,WS_GLI,1.0/Q.USD.4W.N.A.I.B.USD)
 - 🌏 Emerging Asia → `Q.USD.4Y.N.A.I.B.USD`
+- Example: (https://data.bis.org/topics/GLI/BIS,WS_GLI,1.0/Q.USD.4Y.N.A.I.B.USD)               
 - 🌍 Emerging Europe → `Q.USD.3C.N.A.I.B.USD`
+- Example:(https://data.bis.org/topics/GLI/BIS,WS_GLI,1.0/Q.USD.3C.N.A.I.B.USD)              
 - 🌎 Latin America → `Q.USD.4U.N.A.I.B.USD`
-- Example:  
-[Emerging Asia](https://stats.bis.org/api/v2/data/dataflow/BIS/WS_GLI/1.0/Q.USD.4Y.N.A.I.B.USD/all?detail=full&startPeriod=2000&endPeriod=2025)
+- Example:(https://data.bis.org/topics/GLI/BIS,WS_GLI,1.0/Q.USD.4U.N.A.I.B.USD)               
 - **Comparison** shows a pie of latest regional shares + line chart for evolution (2000–2025).
 
 ---
