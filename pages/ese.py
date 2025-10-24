@@ -589,65 +589,6 @@ with tEC:
     with tabLoans:
         st.markdown("### USD Loans (LBS) — Cross-border (2000–2025)")
 
-
-                # ====================== COMBINED PIE: Cross-border vs Local (2025) ======================
-        st.markdown("### Share of Cross-border vs Local USD Loans — EME-14 (as of latest 2025 data)")
-
-        # Tüm ülkeleri aynı tarih aralığına çekelim
-        def sum_latest(df_dict):
-            """Her ülkenin en son değerini alıp toplar"""
-            total = 0.0
-            for cname, df in df_dict.items():
-                if not df.empty:
-                    val = df["Val"].dropna().iloc[-1]
-                    total += float(val)
-            return total
-
-        # Cross ve Local datasını yeniden çağır (tek defa, cache ile)
-        cross_data, local_data = {}, {}
-        for cname, cc in _cc_map.items():
-            k_cb = lbs_key_cross_border(cc)
-            k_lc = lbs_key_local_total(cc)
-            cb = lbs_series_xml(k_cb, start=str(start_year), end=(end_year or "2025"))
-            lc = lbs_series_xml(k_lc, start=str(start_year), end=(end_year or "2025"))
-            if not cb.empty:
-                cross_data[cname] = cb
-            if not lc.empty:
-                local_data[cname] = lc
-
-        # Son toplamlar
-        cross_total = sum_latest(cross_data)
-        local_total = sum_latest(local_data)
-        total_all = cross_total + local_total
-
-        # Pie için veri
-        parts = pd.DataFrame({
-            "Source": ["Cross-border loans", "Local loans"],
-            "Value": [cross_total, local_total],
-            "Share": [cross_total/total_all*100 if total_all>0 else 0,
-                      local_total/total_all*100 if total_all>0 else 0]
-        })
-
-        fig_pie_loans = go.Figure(go.Pie(
-            labels=parts["Source"],
-            values=parts["Value"],
-            hole=0.45,
-            text=[f"{s:.1f}%" for s in parts["Share"]],
-            textinfo="text",
-            textposition="inside",
-            insidetextorientation="radial",
-            hovertemplate="%{label}: $%{value:,.0f}B<br>Share: %{percent}<extra></extra>",
-            marker=dict(colors=["#2980b9", "#f39c12"])
-        ))
-
-        fig_pie_loans.update_layout(
-            title=dict(text="Cross-border vs Local USD Loans — EME-14 (2025Q4, billions)", x=0.5),
-            height=480,
-            legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5)
-        )
-        st.plotly_chart(fig_pie_loans, use_container_width=True)
-
-
         # ---- LBS fetcher ----
         LBS_FLOW = "dataflow/BIS/WS_LBS_D_PUB/1.0"
         LBS_HEADERS = {"Accept": "application/vnd.sdmx.genericdata+xml;version=2.1"}
@@ -832,6 +773,67 @@ with tEC:
                 legend=dict(orientation="h", yanchor="top", y=-0.25, xanchor="center", x=0.5)
             )
             st.plotly_chart(fig_lc_yoy, use_container_width=True)
+
+
+
+
+                    # ====================== COMBINED PIE: Cross-border vs Local (2025) ======================
+        st.markdown("### Share of Cross-border vs Local USD Loans — EME-14 (as of latest 2025 data)")
+
+        # Tüm ülkeleri aynı tarih aralığına çekelim
+        def sum_latest(df_dict):
+            """Her ülkenin en son değerini alıp toplar"""
+            total = 0.0
+            for cname, df in df_dict.items():
+                if not df.empty:
+                    val = df["Val"].dropna().iloc[-1]
+                    total += float(val)
+            return total
+
+        # Cross ve Local datasını yeniden çağır (tek defa, cache ile)
+        cross_data, local_data = {}, {}
+        for cname, cc in _cc_map.items():
+            k_cb = lbs_key_cross_border(cc)
+            k_lc = lbs_key_local_total(cc)
+            cb = lbs_series_xml(k_cb, start=str(start_year), end=(end_year or "2025"))
+            lc = lbs_series_xml(k_lc, start=str(start_year), end=(end_year or "2025"))
+            if not cb.empty:
+                cross_data[cname] = cb
+            if not lc.empty:
+                local_data[cname] = lc
+
+        # Son toplamlar
+        cross_total = sum_latest(cross_data)
+        local_total = sum_latest(local_data)
+        total_all = cross_total + local_total
+
+        # Pie için veri
+        parts = pd.DataFrame({
+            "Source": ["Cross-border loans", "Local loans"],
+            "Value": [cross_total, local_total],
+            "Share": [cross_total/total_all*100 if total_all>0 else 0,
+                      local_total/total_all*100 if total_all>0 else 0]
+        })
+
+        fig_pie_loans = go.Figure(go.Pie(
+            labels=parts["Source"],
+            values=parts["Value"],
+            hole=0.45,
+            text=[f"{s:.1f}%" for s in parts["Share"]],
+            textinfo="text",
+            textposition="inside",
+            insidetextorientation="radial",
+            hovertemplate="%{label}: $%{value:,.0f}B<br>Share: %{percent}<extra></extra>",
+            marker=dict(colors=["#2980b9", "#f39c12"])
+        ))
+
+        fig_pie_loans.update_layout(
+            title=dict(text="Cross-border vs Local USD Loans — EME-14 (2025Q4, billions)", x=0.5),
+            height=480,
+            legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5)
+        )
+        st.plotly_chart(fig_pie_loans, use_container_width=True)
+
 
         # ====================== TAB 2: Debts ======================
     with tabDebts:
