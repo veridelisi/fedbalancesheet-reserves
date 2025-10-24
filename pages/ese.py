@@ -602,7 +602,8 @@ with tEC:
         }
 
         def ids_key(cc: str, token: str) -> str:
-            return f"Q.{cc}.3P.{token}.C.A.F.USD.A.A.A.A.A.I"
+    # Match BIS web filter: International markets [C], USD, Foreign currency group [F]
+            return f"Q.{cc}.3P.{token}.C.A.F.USD.A.A.C.A.A.I"
 
         @st.cache_data(ttl=3600, show_spinner=False)
         def fetch_ids_series_full(key: str, start="2000", end="2025") -> pd.DataFrame:
@@ -957,8 +958,7 @@ Both plotted as level and YoY charts.
 - **Key pattern (country total credit, USD):**  
 `Q.USD.{CC}.N.A.I.B.USD`  
 `{CC}` = ISO-2 code (e.g., MX, CN, TR).  
-- Example (Mexico):  
-[Mexico Credit](https://stats.bis.org/api/v2/data/dataflow/BIS/WS_GLI/1.0/Q.USD.MX.N.A.I.B.USD/all?detail=full&startPeriod=2000&endPeriod=2025)
+- Example Mexico : (https://data.bis.org/topics/GLI/BIS,WS_GLI,1.0/Q.USD.MX.N.A.I.B.USD)
 - Uses Emerging Total (`Q.USD.4T.N.A.I.B.USD`) for Top-14 share pie.
 
 ---
@@ -975,8 +975,7 @@ Both plotted as level and YoY charts.
 - Public banks → `I.1`
 - Private other FIs → `G.1`
 - Public other FIs → `K.1`
-- Example (Turkey – Government):  
-[Turkey Gov Debt](https://stats.bis.org/api/v2/data/dataflow/BIS/WS_DEBT_SEC2_PUB/1.0/Q.TR.3P.2.1.C.A.F.USD.A.A.A.A.A.I/all?detail=full&startPeriod=2000&endPeriod=2025)
+- Example (Turkey – Government):
 - **Sector Share logic:**
 - Banks = Private + Public banks  
 - Government = General government  
