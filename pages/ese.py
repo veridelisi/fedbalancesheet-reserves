@@ -697,12 +697,12 @@ with tEC:
             st.plotly_chart(fig, use_container_width=True)
 
 
-            # ====================== EME-14: Sector shares (Banks / Government / Non-banks) ======================
-st.markdown("### EME-14 — Sector Shares (Year-end, 2000–2025)")
+# ====================== EME-14: Sector shares (Banks / Government / Non-banks) ======================
+st.markdown("### USD Debt Securities by Sector — Loading... (2000–2025)")
 
 YEAR_START, YEAR_END = int(start_year), int(end_year or 2025)
 
-# Sektör isimleri (IDS_SECTORS already defined above in Debts tab)
+# Sektör isimleri
 SECT_GOVT   = "General government"
 SECT_PBANK  = "Private banks"
 SECT_PUBANK = "Public banks"
@@ -768,11 +768,11 @@ else:
             x=years, y=shares[col].values,
             name=col, mode="lines",
             stackgroup="one",
-            hovertemplate=f"{col}<br>%{{x}}: %{ {':.1f'} }%<extra></extra>".replace(" {':.1f'} ", ".1f")
+            hovertemplate=f"{col}<br>%{{x}}: %{y:.1f}%<extra></extra>"
         ))
 
     fig_sh.update_layout(
-        title="<b>EME-14</b> — USD Debt Securities by Sector (Year-end Shares, 2000–2025)",
+        title="<b>USD Debt Securities by Sector (Year-end Shares, 2000–2025)</b>",
         xaxis_title="Year",
         yaxis_title="Share (%)",
         yaxis=dict(range=[0, 100]),
@@ -783,36 +783,6 @@ else:
         height=600
     )
     st.plotly_chart(fig_sh, use_container_width=True)
-
-    # (Opsiyonel) CSV butonu
-    csv_bytes = shares.round(2).to_csv().encode("utf-8")
-    st.download_button("⬇️ Download shares (CSV)", data=csv_bytes, file_name="eme14_shares_banks_govt_nonbanks_2000_2025.csv", mime="text/csv")
-
-
-            # ====================== TAB 3: Loans ======================
-    with tabLoans:
-        st.markdown("## USD Loans (LBS) —  (2000–2025)")
-                # Basit bir test içeriği: emerging loans toplamını çiz (çalıştığını gör)
-        # Toplam Loans (emerging) ana koddaki SERIES'te: "EmeBankLoans": "Q.USD.4T.N.B.I.G.USD"
-        try:
-            s_loans = load_series_billion("Q.USD.4T.N.B.I.G.USD")  # Emerging Bank Loans
-            if s_loans.empty:
-                st.info("Loans serisi bulunamadı.")
-            else:
-                fig_loans = go.Figure()
-                fig_loans.add_trace(go.Scatter(
-                    x=s_loans["Time"], y=s_loans["Val"], mode="lines",
-                    line=dict(width=3, color="#f39c12"),
-                    name="Emerging Bank Loans"
-                ))
-                add_shading(fig_loans); yaxis_k(fig_loans)
-                fig_loans.update_layout(
-                    title=dict(text=title_range("Emerging — Bank Loans (USD bn)"), x=0.5),
-                    height=520, showlegend=False
-                )
-                st.plotly_chart(fig_loans, use_container_width=True)
-        except Exception as e:
-            st.warning(f"Loans tabında hata: {e}")
 
        
 
