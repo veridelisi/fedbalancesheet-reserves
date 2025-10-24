@@ -697,18 +697,18 @@ with tEC:
             st.plotly_chart(fig, use_container_width=True)
 
 
-# ====================== TAB 3: Loans ======================
+# ====================== TAB 3: Loans (CROSS-BORDER only) ======================
 with tabLoans:
-    st.markdown("### USD Loans (LBS) — Cross-border vs Local (2000–2025)")
+    st.markdown("### USD Loans (LBS) — Cross-border (2000–2025)")
 
-    # ---- LBS fetcher (WS_LBS_D_PUB) ----
+    # ---- LBS fetcher ----
     LBS_FLOW = "dataflow/BIS/WS_LBS_D_PUB/1.0"
     LBS_HEADERS = {"Accept": "application/vnd.sdmx.genericdata+xml;version=2.1"}
 
     @st.cache_data(ttl=3600, show_spinner=False)
     def lbs_series_xml(key: str, start="2000", end="2025") -> pd.DataFrame:
         url = f"https://stats.bis.org/api/v2/data/{LBS_FLOW}/{key}/all"
-        params = {"detail": "full", "startPeriod": start, "endPeriod": end}
+        params = {"detail":"full", "startPeriod":start, "endPeriod":end}
         try:
             r = requests.get(url, params=params, headers=LBS_HEADERS, timeout=60)
             r.raise_for_status()
@@ -738,44 +738,40 @@ with tabLoans:
                 else:
                     dt = pd.Timestamp(int(t), 12, 1)
                 rows.append((dt, v/1000.0))  # M$ → B$
-        return (pd.DataFrame(rows, columns=["Time","Val"])
-                  .sort_values("Time").reset_index(drop=True))
+        return pd.DataFrame(rows, columns=["Time","Val"]).sort_values("Time").reset_index(drop=True)
 
-    # Ülke kodları (ISO-2) — COUNTRY_KEYS zaten üstte var; ondan map çıkaralım
+    # Ülke kodları
     _cc_map = {
         "SaudiArabia":"SA","SouthAfrica":"ZA","China":"CN","Taipei":"TW","India":"IN",
         "Indonesia":"ID","Korea":"KR","Malaysia":"MY","Russia":"RU","Turkey":"TR",
         "Argentina":"AR","Brazil":"BR","Chile":"CL","Mexico":"MX"
     }
 
-    # --- Key şablonları (senin verdiğin örneklerle birebir) ---
+    # Cross-border non-bank key (tam senin verdiğin şablon)
     def lbs_key_cross_border(cc: str) -> str:
         # Q.S.C.G.USD.A.5J.A.5A.N.{CC}.N
         return f"Q.S.C.G.USD.A.5J.A.5A.N.{cc}.N"
 
-    def lbs_key_local_total(cc: str) -> str:
-        # Q.S.C.A.TO1.F.5J.A.{CC}.N.5J.R
-        return f"Q.S.C.A.TO1.F.5J.A.{cc}.N.5J.R"
-
-    # ---------------- Select Countries ----------------
+    # ------------ Select countries (benzersiz key!) ------------
     st.markdown("### Select countries")
     default_countries = ["Mexico","China","Turkey"]
-    sel_loans = st.multiselect("", list(_cc_map.keys()), default=default_countries)
+    sel_loans = st.multiselect(
+        "", list(_cc_map.keys()),
+        default=default_countries,
+        key="loans_cb_country_select"   # <<<<< ÖNEMLİ: benzersiz key
+    )
 
     if not sel_loans:
         st.info("Ülke seçiniz.")
     else:
-        # ---------------- CROSS-BORDER (Non-bank, USD) ----------------
-        st.markdown("#### Cross-border claims on **non-banks** (USD)")
-
-        # Merge seçili ülkeler
+        # ---- Cross-border merge ----
         cb_df = None
-        for i, cname in enumerate(sel_loans):
+        for cname in sel_loans:
             cc = _cc_map[cname]
             key = lbs_key_cross_border(cc)
             s = lbs_series_xml(key, start=str(start_year), end=(end_year or "2025")).rename(columns={"Val": cname})
             cb_df = s if cb_df is None else cb_df.merge(s, on="Time", how="outer")
-        cb_df = (cb_df or pd.DataFrame(columns=["Time"])).sort_values("Time").reset_index(drop=True)
+        cb_df = cb_df.sort_values("Time").reset_index(drop=True)
 
         palette = ["#e74c3c","#8e44ad","#f39c12","#27ae60","#2980b9","#d35400",
                    "#2c3e50","#9b59b6","#16a085","#c0392b","#7f8c8d","#1abc9c",
@@ -819,56 +815,6 @@ with tabLoans:
             legend=dict(orientation="h", yanchor="top", y=-0.25, xanchor="center", x=0.5)
         )
         st.plotly_chart(fig_cb_yoy, use_container_width=True)
-
-        # ---------------- LOCAL TOTAL CLAIMS (USD) ----------------
-        st.markdown("#### Local total claims (USD)")
-
-        lc_df = None
-        for i, cname in enumerate(sel_loans):
-            cc = _cc_map[cname]
-            key = lbs_key_local_total(cc)
-            s = lbs_series_xml(key, start=str(start_year), end=(end_year or "2025")).rename(columns={"Val": cname})
-            lc_df = s if lc_df is None else lc_df.merge(s, on="Time", how="outer")
-        lc_df = (lc_df or pd.DataFrame(columns=["Time"])).sort_values("Time").reset_index(drop=True)
-
-        # Seviye
-        fig_lc = go.Figure()
-        for i, cname in enumerate(sel_loans):
-            if cname in lc_df.columns:
-                fig_lc.add_trace(go.Scatter(
-                    x=lc_df["Time"], y=pd.to_numeric(lc_df[cname], errors="coerce"),
-                    mode="lines", name=cname,
-                    line=dict(width=3, color=palette[i % len(palette)]),
-                    hovertemplate="$%{y:,.0f}B<extra>"+cname+"</extra>"
-                ))
-        add_shading(fig_lc); yaxis_k(fig_lc)
-        fig_lc.update_layout(
-            title=dict(text=title_range("Local Total Claims (BIS LBS, USD bn)"), x=0.5),
-            height=560, legend=dict(orientation="h")
-        )
-        st.plotly_chart(fig_lc, use_container_width=True)
-
-        # YoY
-        fig_lc_yoy = go.Figure()
-        for i, cname in enumerate(sel_loans):
-            if cname in lc_df.columns:
-                yo = lc_df[["Time", cname]].copy()
-                yo[cname] = pd.to_numeric(yo[cname], errors="coerce")
-                yo["YoY"] = yo[cname].pct_change(4)*100
-                fig_lc_yoy.add_trace(go.Bar(
-                    x=yo["Time"], y=yo["YoY"], name=cname,
-                    marker_color=palette[i % len(palette)],
-                    hovertemplate="%{y:.1f}%<extra>"+cname+"</extra>"
-                ))
-        fig_lc_yoy.add_hline(y=0, line_dash="dash", line_color="black")
-        add_shading(fig_lc_yoy)
-        fig_lc_yoy.update_yaxes(title="YoY (%)", tickformat=".1f", ticksuffix="%")
-        fig_lc_yoy.update_layout(
-            title=dict(text=title_range("Local Total Claims — YoY"), x=0.5),
-            barmode="group", height=420,
-            legend=dict(orientation="h", yanchor="top", y=-0.25, xanchor="center", x=0.5)
-        )
-        st.plotly_chart(fig_lc_yoy, use_container_width=True)
 
 
 # ---------- Methodology ----------
