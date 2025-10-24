@@ -584,31 +584,30 @@ with tEC:
             )
             st.plotly_chart(fig2, use_container_width=True)
 
-   # ====================== TAB 2: Debts (ULTIMATE borrower) ======================
-with tabDebts:
-    st.markdown("## USD Debt (IDS) — Sector Breakdown (Ultimate borrower, 2000–2025)")
+    # ====================== TAB 2: Debts ======================
+    with tabDebts:
+        st.markdown("## USD Debt (IDS) — Sector Breakdown (2000–2025)")
 
-    IDS_FLOW = "dataflow/BIS/WS_DEBT_SEC2_PUB/1.0"
-    IDS_HEADERS = {"Accept": "application/vnd.sdmx.genericdata+xml;version=2.1"}
+        IDS_FLOW = "dataflow/BIS/WS_DEBT_SEC2_PUB/1.0"
+    IDS_HEADERS = {"Accept":"application/vnd.sdmx.genericdata+xml;version=2.1"}
 
-    # 🔁 ULTIMATE borrower: token prefix '2.'  (immediate = '1.')
+    # "All issuers" KALDIRILDI
     IDS_SECTORS = {
-        "Financial corporations":     ("2.B", "#2980b9"),
-        "General government":         ("2.2", "#8e44ad"),
-        "Non-financial corporations": ("2.J", "#e74c3c"),
-        "Private banks":              ("2.E", "#16a085"),
-        "Public banks":               ("2.I", "#27ae60"),
-        "Private other FIs":          ("2.G", "#f39c12"),
-        "Public other FIs":           ("2.K", "#d35400"),
+        "Financial corporations": ("B.1", "#2980b9"),
+        "General government": ("2.1", "#8e44ad"),
+        "Non-financial corporations": ("J.1", "#e74c3c"),
+        "Private banks": ("E.1", "#16a085"),
+        "Public banks": ("I.1", "#27ae60"),
+        "Private other FIs": ("G.1", "#f39c12"),
+        "Public other FIs": ("K.1", "#d35400"),
     }
 
     def ids_key(cc: str, token: str) -> str:
-        # Match BIS portal ordering; Issuer residence=3P, Issue market=C, Curr group=F, Currency=USD, others=A, Measure=I
-        # Example (Mexico, General government ultimate): Q.3P.MX.2.2.C.A.F.USD.A.A.A.A.A.I
         return f"Q.3P.{cc}.{token}.C.A.F.USD.A.A.A.A.A.I"
+   
 
     @st.cache_data(ttl=3600, show_spinner=False)
-    def fetch_ids_series_full(key: str, start="2000", end="2025"):
+    def fetch_ids_series_full(key: str, start="2000", end="2025") -> pd.DataFrame:
         url = f"https://stats.bis.org/api/v2/data/{IDS_FLOW}/{key}/all"
         params = {"detail":"full","startPeriod":start,"endPeriod":end}
         try:
@@ -616,6 +615,9 @@ with tabDebts:
             if r.status_code == 404:
                 return pd.DataFrame(columns=["Time","Val"])
             r.raise_for_status()
+        except Exception:
+            return pd.DataFrame(columns=["Time","Val"])
+        try:
             root = ET.fromstring(r.content)
         except Exception:
             return pd.DataFrame(columns=["Time","Val"])
@@ -628,15 +630,19 @@ with tabDebts:
                 val = obs.find('g:ObsValue', ns)
                 if dim is None or val is None or not val.get('value'):
                     continue
-                t = dim.get('value'); v = pd.to_numeric(val.get('value'), errors="coerce")
+                t = dim.get('value')
+                v = pd.to_numeric(val.get('value'), errors="coerce")
                 if pd.isna(v): 
                     continue
                 if "Q" in t:
-                    y, q = t.split("-Q"); m = {"1":3,"2":6,"3":9,"4":12}[q]
+                    y, q = t.split("-Q")
+                    m = {"1":3,"2":6,"3":9,"4":12}[q]
                     dt = pd.Timestamp(int(y), m, 1)
                 else:
                     dt = pd.Timestamp(int(t), 12, 1)
                 rows.append((dt, v/1000.0))  # M$ → B$
+        if not rows:
+            return pd.DataFrame(columns=["Time","Val"])
         return pd.DataFrame(rows, columns=["Time","Val"]).sort_values("Time").reset_index(drop=True)
 
     @st.cache_data(ttl=3600, show_spinner=False)
@@ -651,7 +657,7 @@ with tabDebts:
             return pd.DataFrame(columns=["Time","Sector","Val","Country"])
         frames = []
         for sector, (token, _color) in IDS_SECTORS.items():
-            key = ids_key(cc, token)  # << ULTIMATE tokens (2.*)
+            key = ids_key(cc, token)
             s = fetch_ids_series_full(key, start=str(start_year), end=(end_year or "2025"))
             if s.empty:
                 continue
@@ -660,10 +666,8 @@ with tabDebts:
             frames.append(s)
         return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(columns=["Time","Sector","Val","Country"])
 
-    st.caption("Filters: Issuer residence=3P • Issue market=C (International) • Currency group=F • Currency=USD • Borrower basis=**Ultimate [2]** • Measure=I")
-
     st.markdown("#### Select a country")
-    country_list = ["SaudiArabia","SouthAfrica","China","Taipei","India","Indonesia","Korea","Malaysia","Russia","Turkey","Argentina","Brazil","Chile","Mexico"]
+    country_list = list(COUNTRY_KEYS.keys())
     default_country = "Mexico" if "Mexico" in country_list else country_list[0]
     try:
         country_sel = st.segmented_control("Country", country_list, selection=default_country)
@@ -673,13 +677,13 @@ with tabDebts:
     ids_long = load_ids_country_long(country_sel)
 
     if ids_long.empty:
-        st.info("Selected country has no IDS (USD debt) series (ultimate).")
+        st.info("Seçili ülke için IDS (USD debt) sektörel seriler bulunamadı.")
     else:
         color_map = {k:v for k, (_t, v) in IDS_SECTORS.items()}
         fig = go.Figure()
         for sec in IDS_SECTORS.keys():
             sdf = ids_long[ids_long["Sector"] == sec]
-            if sdf.empty: 
+            if sdf.empty:
                 continue
             fig.add_trace(go.Scatter(
                 x=sdf["Time"], y=sdf["Val"], mode="lines", name=sec,
@@ -688,11 +692,10 @@ with tabDebts:
             ))
         add_shading(fig); yaxis_k(fig)
         fig.update_layout(
-            title=dict(text=title_range(f"{country_sel}: USD Debt Securities — Sector Breakdown (Ultimate)"), x=0.5),
+            title=dict(text=title_range(f"{country_sel}: USD Debt Securities — Sector Breakdown"), x=0.5),
             height=560, legend=dict(orientation="h")
         )
         st.plotly_chart(fig, use_container_width=True)
-
 
 
 
