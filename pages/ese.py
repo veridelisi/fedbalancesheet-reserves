@@ -892,43 +892,11 @@ else:
 st.markdown("### 📋 Methodology")
 with st.expander("🔎 Click to expand methodology details", expanded=False):
     st.markdown("""
-**🌍 Data Source**
-- BIS Global Liquidity Indicators (GLI) — [link](https://data.bis.org/topics/GLI)  
-- Coverage: USD-denominated *cross-border credit* to non-bank borrowers  
-
-**📏 Units & Scaling**
-- Raw data: millions of USD → converted to **billions** (÷1000)  
-- Time frequency: **quarterly** observations  
-
-**📈 Metrics**
-- **YoY Growth (%):** 4-quarter percent change  
-- **Comparison logic:**  
-  - *AllCredit ≈ Loans + Debt Securities*  
-  - Advanced vs Emerging, Regional Areas, Individual Countries  
-
-**🎨 Visual Conventions**
-- 📈 Line charts → stock levels  
-- 📊 Bar charts → YoY growth  
-- ✅ Green = positive growth, ❌ Red = negative growth  
-- 🟪 Advanced = purple, 🟧 Loans = orange, 🟥 Emerging = red, 🟩 Regions = green  
-
-**🕑 Shaded Periods**
-- 2007–09: Financial Crisis  
-- 2020: COVID-19 Shock  
-- 2022– : Fed Tightening Cycle  
-
-**🧩 Structure**
-- Tabs: Total, Debt, Loans, Comparison  
-- Advanced vs Emerging (aggregate)  
-- Emerging Area (regional totals: 🌍 Africa & ME, Asia, Europe, LatAm)  
-- Emerging Countries (country-level drilldown)  
-
-**🌐 Country Coverage**
-- 🌍 Africa & Middle East: Saudi Arabia, South Africa  
-- 🌏 Emerging Asia: China, Taipei, India, Indonesia, Korea, Malaysia  
-- 🌍 Emerging Europe: Russia, Turkey  
-- 🌎 Latin America: Argentina, Brazil, Chile, Mexico  
-    """)
+**Basics**
+- 📦 Units: BIS returns **millions of USD** → converted to **billions (÷1000)** in code.  
+- 🗓️ Frequency: **Quarterly** (`YYYY-Qn`) → converted to end-of-quarter timestamps.  
+- 📈 Growth: **YoY (%) = 4-quarter change**.  
+- 🧭 API base pattern:
 
 # ---------- Footer ----------
 st.markdown(
