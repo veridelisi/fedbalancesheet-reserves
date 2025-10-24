@@ -696,6 +696,99 @@ with tEC:
             )
             st.plotly_chart(fig, use_container_width=True)
 
+
+            # ====================== EME-14: Sector shares (Banks / Government / Non-banks) ======================
+st.markdown("### EME-14 — Sector Shares (Year-end, 2000–2025)")
+
+YEAR_START, YEAR_END = int(start_year), int(end_year or 2025)
+
+# Sektör isimleri (IDS_SECTORS already defined above in Debts tab)
+SECT_GOVT   = "General government"
+SECT_PBANK  = "Private banks"
+SECT_PUBANK = "Public banks"
+SECT_FC     = "Financial corporations"
+SECT_NFC    = "Non-financial corporations"
+SECT_POFI   = "Private other FIs"
+SECT_UOFI   = "Public other FIs"
+
+# 1) 14 ülkenin TÜM sektörel serilerini tek uzun df'de topla (Time, Sector, Val, Country)
+eme14_long = []
+for c in COUNTRY_KEYS.keys():
+    s = load_ids_country_long(c)   # uses cache; columns: Time, Sector, Val, Country
+    if not s.empty:
+        eme14_long.append(s)
+eme14_long = pd.concat(eme14_long, ignore_index=True) if eme14_long else pd.DataFrame(columns=["Time","Sector","Val","Country"])
+
+if eme14_long.empty:
+    st.info("EME-14 sektörel veri bulunamadı.")
+else:
+    # 2) Yıl sonu (EOY) gözlemi: her (Country, Sector, Year) için SON tarih
+    eme14 = eme14_long.copy()
+    eme14["Year"] = eme14["Time"].dt.year
+    eoy = (
+        eme14.sort_values("Time")
+             .groupby(["Country","Sector","Year"], as_index=False)
+             .tail(1)  # year-end point
+    )
+
+    # 3) 14 ülke toplamı: Year x Sector (milyar USD)
+    annual = (
+        eoy.groupby(["Year","Sector"], as_index=False)["Val"]
+           .sum()
+           .rename(columns={"Val":"level"})
+    )
+    pivot = annual.pivot(index="Year", columns="Sector", values="level").fillna(0.0)
+
+    # 4) Üç kaba grup
+    banks  = pivot.get(SECT_PBANK, 0.0) + pivot.get(SECT_PUBANK, 0.0)
+    govt   = pivot.get(SECT_GOVT, 0.0)
+    nonbk  = (
+        pivot.get(SECT_NFC, 0.0)
+      + pivot.get(SECT_POFI, 0.0)
+      + pivot.get(SECT_UOFI, 0.0)
+      + pivot.get(SECT_FC,  0.0)
+    )
+    total_all = banks + govt + nonbk
+
+    # 5) Paylar (%)
+    shares = pd.DataFrame({
+        "Banks":      (banks  / total_all.replace(0, pd.NA)) * 100.0,
+        "Government": (govt   / total_all.replace(0, pd.NA)) * 100.0,
+        "Non-banks":  (nonbk  / total_all.replace(0, pd.NA)) * 100.0,
+    }).fillna(0.0)
+
+    # İstenen yıl aralığına kırp
+    shares = shares.loc[range(YEAR_START, min(YEAR_END, shares.index.max()))].copy()
+
+    # 6) Grafik (stacked %)
+    years = shares.index.tolist()
+    fig_sh = go.Figure()
+    for col in ["Banks","Government","Non-banks"]:
+        fig_sh.add_trace(go.Scatter(
+            x=years, y=shares[col].values,
+            name=col, mode="lines",
+            stackgroup="one",
+            hovertemplate=f"{col}<br>%{{x}}: %{ {':.1f'} }%<extra></extra>".replace(" {':.1f'} ", ".1f")
+        ))
+
+    fig_sh.update_layout(
+        title="<b>EME-14</b> — USD Debt Securities by Sector (Year-end Shares, 2000–2025)",
+        xaxis_title="Year",
+        yaxis_title="Share (%)",
+        yaxis=dict(range=[0, 100]),
+        hovermode="x unified",
+        template="plotly_white",
+        legend=dict(orientation="h", x=0.5, xanchor="center", y=-0.25, yanchor="top", bgcolor="rgba(0,0,0,0)"),
+        margin=dict(l=40, r=20, t=90, b=110),
+        height=600
+    )
+    st.plotly_chart(fig_sh, use_container_width=True)
+
+    # (Opsiyonel) CSV butonu
+    csv_bytes = shares.round(2).to_csv().encode("utf-8")
+    st.download_button("⬇️ Download shares (CSV)", data=csv_bytes, file_name="eme14_shares_banks_govt_nonbanks_2000_2025.csv", mime="text/csv")
+
+
             # ====================== TAB 3: Loans ======================
     with tabLoans:
         st.markdown("## USD Loans (LBS) —  (2000–2025)")
