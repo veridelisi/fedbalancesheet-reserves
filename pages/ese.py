@@ -764,12 +764,15 @@ else:
     years = shares.index.tolist()
     fig_sh = go.Figure()
     for col in ["Banks","Government","Non-banks"]:
-        fig_sh.add_trace(go.Scatter(
-            x=years, y=shares[col].values,
-            name=col, mode="lines",
-            stackgroup="one",
-            hovertemplate=f"{col}<br>%{{x}}: %{ {':.1f'} }%<extra></extra>".replace(" {':.1f'} ", ".1f")
-        ))
+    fig_sh.add_trace(go.Scatter(
+        x=years,
+        y=shares[col].astype(float).values,
+        name=col,
+        mode="lines",
+        stackgroup="one",
+        hovertemplate=col + "<br>%{x}: %{y:.1f}%<extra></extra>"  # ← DÜZ STRING
+    ))
+
 
     fig_sh.update_layout(
         title="<b>EME-14</b> — USD Debt Securities by Sector (Year-end Shares, 2000–2025)",
