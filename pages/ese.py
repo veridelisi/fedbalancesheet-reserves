@@ -697,7 +697,7 @@ with tEC:
             st.plotly_chart(fig, use_container_width=True)
 
 
-# ====================== TAB 3: Loans (CROSS-BORDER only) ======================
+    # ====================== TAB 3: Loans (CROSS-BORDER only) ======================
 with tabLoans:
     st.markdown("### USD Loans (LBS) — Cross-border (2000–2025)")
 
@@ -816,7 +816,7 @@ with tabLoans:
         )
         st.plotly_chart(fig_cb_yoy, use_container_width=True)
 
-# ---------------- LOCAL TOTAL CLAIMS (USD) ----------------
+    # ---------------- LOCAL TOTAL CLAIMS (USD) ----------------
 st.markdown("#### USD Loans (LBS) — Local total claims (USD)")
 
 # Eğer henüz yoksa local key şablonunu ekleyelim
@@ -896,6 +896,7 @@ with st.expander("🔎 Click to expand methodology details", expanded=False):
 - 📦 Units → BIS data are in *millions of USD* → converted to **billions (÷1000)**.  
 - 🗓️ Frequency → **Quarterly** (`YYYY-Qn`) → converted to end-of-quarter timestamps.  
 - 📈 Growth → **YoY (%) = 4-quarter change**.  
+- 🗓️ API Base Information: (https://stats.bis.org/api-doc/v2/)
 - 🧭 API base pattern: https://stats.bis.org/api/v2/data/%7BFLOW_PATH%7D/%7BKEY%7D/all?detail=full&startPeriod=YYYY&endPeriod=YYYY
 Data are parsed from **SDMX GenericData 2.1 XML**.
 
