@@ -816,6 +816,77 @@ with tabLoans:
         )
         st.plotly_chart(fig_cb_yoy, use_container_width=True)
 
+# ---------------- LOCAL TOTAL CLAIMS (USD) ----------------
+st.markdown("#### Local total claims (USD)")
+
+# Eğer henüz yoksa local key şablonunu ekleyelim
+def lbs_key_local_total(cc: str) -> str:
+    # Q.S.C.A.TO1.F.5J.A.{CC}.N.5J.R
+    return f"Q.S.C.A.TO1.F.5J.A.{cc}.N.5J.R"
+
+# Ayrı bir seçim kutusu (farklı key!)
+st.markdown("### Select countries (Local)")
+default_local = ["Turkey", "SaudiArabia", "Mexico", "Indonesia"]
+sel_local = st.multiselect(
+    "", list(_cc_map.keys()),
+    default=default_local,
+    key="loans_local_country_select"
+)
+
+if not sel_local:
+    st.info("Ülke seçiniz.")
+else:
+    # Veriyi birleştir
+    lc_df = None
+    for cname in sel_local:
+        cc = _cc_map[cname]
+        key = lbs_key_local_total(cc)
+        s = lbs_series_xml(key, start=str(start_year), end=(end_year or "2025")).rename(columns={"Val": cname})
+        lc_df = s if lc_df is None else lc_df.merge(s, on="Time", how="outer")
+    lc_df = lc_df.sort_values("Time").reset_index(drop=True)
+
+    palette = ["#e74c3c","#8e44ad","#f39c12","#27ae60","#2980b9","#d35400",
+               "#2c3e50","#9b59b6","#16a085","#c0392b","#7f8c8d","#1abc9c",
+               "#34495e","#f1c40f"]
+
+    # Seviye grafiği
+    fig_lc = go.Figure()
+    for i, cname in enumerate(sel_local):
+        if cname in lc_df.columns:
+            fig_lc.add_trace(go.Scatter(
+                x=lc_df["Time"], y=pd.to_numeric(lc_df[cname], errors="coerce"),
+                mode="lines", name=cname,
+                line=dict(width=3, color=palette[i % len(palette)]),
+                hovertemplate="$%{y:,.0f}B<extra>"+cname+"</extra>"
+            ))
+    add_shading(fig_lc); yaxis_k(fig_lc)
+    fig_lc.update_layout(
+        title=dict(text=title_range("Local Total Claims (BIS LBS, USD bn)"), x=0.5),
+        height=560, legend=dict(orientation="h")
+    )
+    st.plotly_chart(fig_lc, use_container_width=True)
+
+    # YoY grafiği
+    fig_lc_yoy = go.Figure()
+    for i, cname in enumerate(sel_local):
+        if cname in lc_df.columns:
+            yo = lc_df[["Time", cname]].copy()
+            yo[cname] = pd.to_numeric(yo[cname], errors="coerce")
+            yo["YoY"] = yo[cname].pct_change(4)*100
+            fig_lc_yoy.add_trace(go.Bar(
+                x=yo["Time"], y=yo["YoY"], name=cname,
+                marker_color=palette[i % len(palette)],
+                hovertemplate="%{y:.1f}%<extra>"+cname+"</extra>"
+            ))
+    fig_lc_yoy.add_hline(y=0, line_dash="dash", line_color="black")
+    add_shading(fig_lc_yoy)
+    fig_lc_yoy.update_yaxes(title="YoY (%)", tickformat=".1f", ticksuffix="%")
+    fig_lc_yoy.update_layout(
+        title=dict(text=title_range("Local Total Claims — YoY"), x=0.5),
+        barmode="group", height=420,
+        legend=dict(orientation="h", yanchor="top", y=-0.25, xanchor="center", x=0.5)
+    )
+    st.plotly_chart(fig_lc_yoy, use_container_width=True)
 
 # ---------- Methodology ----------
 st.markdown("### 📋 Methodology")
