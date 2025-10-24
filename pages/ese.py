@@ -583,7 +583,7 @@ with tEC:
             )
             st.plotly_chart(fig2, use_container_width=True)
 
-        # ===================== IDS (Debt) — Sector Breakdown =====================
+    # ====================== TAB 2: Debts ======================
     with tabDebts:
         st.markdown("## USD Debt (IDS) — Sector Breakdown (2000–2025)")
 
@@ -601,9 +601,11 @@ with tEC:
             "Public other FIs": ("K.1", "#d35400"),
         }
 
+       
+        
         def ids_key(cc: str, token: str) -> str:
-            # 🔧 DOĞRU SIRA: 3P ülke kodundan ÖNCE gelir
             return f"Q.{cc}.3P.{token}.C.A.F.USD.A.A.A.A.A.I"
+
 
         @st.cache_data(ttl=3600, show_spinner=False)
         def fetch_ids_series_full(key: str, start="2000", end="2025") -> pd.DataFrame:
@@ -631,7 +633,7 @@ with tEC:
                         continue
                     t = dim.get('value')
                     v = pd.to_numeric(val.get('value'), errors="coerce")
-                    if pd.isna(v): 
+                    if pd.isna(v):
                         continue
                     if "Q" in t:
                         y, q = t.split("-Q")
