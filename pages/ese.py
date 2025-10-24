@@ -442,8 +442,8 @@ with tEC:
     
 
     # ALT SEKME ÇUBUĞU: Credits | Debts
-    ec_tabs = st.tabs(["Credits", "Debts"])
-    tabCredits, tabDebts = ec_tabs
+    ec_tabs = st.tabs(["Credits", "Debts", "Loans"])
+    tabCredits, tabDebts, tabLoans = ec_tabs
 
     # Ortak: Ülke anahtarları
     COUNTRY_KEYS = {
@@ -695,6 +695,12 @@ with tEC:
                 height=560, legend=dict(orientation="h")
             )
             st.plotly_chart(fig, use_container_width=True)
+
+            # ====================== TAB 3: Loans ======================
+    with tabLoans:
+        st.markdown("## USD Loans (LBS) —  (2000–2025)")
+
+       
 
 
 # ---------- Methodology ----------
