@@ -817,7 +817,7 @@ with tabLoans:
         st.plotly_chart(fig_cb_yoy, use_container_width=True)
 
 # ---------------- LOCAL TOTAL CLAIMS (USD) ----------------
-st.markdown("#### Local total claims (USD)")
+st.markdown("#### USD Loans (LBS) — Local total claims (USD)")
 
 # Eğer henüz yoksa local key şablonunu ekleyelim
 def lbs_key_local_total(cc: str) -> str:
