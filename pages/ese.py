@@ -764,7 +764,7 @@ else:
     years = shares.index.tolist()
     fig_sh = go.Figure()
     for col in ["Banks","Government","Non-banks"]:
-    fig_sh.add_trace(go.Scatter(
+        fig_sh.add_trace(go.Scatter(
         x=years,
         y=shares[col].astype(float).values,
         name=col,
