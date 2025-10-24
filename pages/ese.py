@@ -778,7 +778,7 @@ with tEC:
 
 
                     # ====================== COMBINED PIE: Cross-border vs Local (2025) ======================
-        st.markdown("### Share of Cross-border vs Local USD Loans — EME-14 (as of latest 2025 data)")
+        st.markdown("### EME Cross-border vs Local USD Loans —  (as of latest 2025 data)")
 
         # Tüm ülkeleri aynı tarih aralığına çekelim
         def sum_latest(df_dict):
@@ -828,7 +828,7 @@ with tEC:
         ))
 
         fig_pie_loans.update_layout(
-            title=dict(text="Cross-border vs Local USD Loans — EME-14 (2025Q4, billions)", x=0.5),
+            title=dict(text="EME Cross-border vs Local USD Loans (2025, billions)", x=0.5),
             height=480,
             legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5)
         )
