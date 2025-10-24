@@ -601,9 +601,10 @@ with tEC:
             "Public other FIs": ("K.1", "#d35400"),
         }
 
+       
+        
         def ids_key(cc: str, token: str) -> str:
-    # Doğru sıra: Q.3P.{CC}.{TOKEN}.C.A.F.USD.A.A.A.A.A.I
-            return f"Q.3P.{cc}.{token}.C.A.F.USD.A.A.A.A.A.I"
+            return f"Q.{cc}.3P.{token}.C.A.F.USD.A.A.A.A.A.I"
 
 
         @st.cache_data(ttl=3600, show_spinner=False)
