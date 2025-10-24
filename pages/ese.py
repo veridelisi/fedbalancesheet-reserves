@@ -697,97 +697,178 @@ with tEC:
             st.plotly_chart(fig, use_container_width=True)
 
 
-# ====================== EME-14: Sector shares (Banks / Government / Non-banks) ======================
-st.markdown("### Sector Shares (Year-end, 2000–2025)")
+# ====================== TAB 3: Loans ======================
+with tabLoans:
+    st.markdown("### USD Loans (LBS) — Cross-border vs Local (2000–2025)")
 
-YEAR_START, YEAR_END = int(start_year), int(end_year or 2025)
+    # ---- LBS fetcher (WS_LBS_D_PUB) ----
+    LBS_FLOW = "dataflow/BIS/WS_LBS_D_PUB/1.0"
+    LBS_HEADERS = {"Accept": "application/vnd.sdmx.genericdata+xml;version=2.1"}
 
-# Sektör isimleri (IDS_SECTORS already defined above in Debts tab)
-SECT_GOVT   = "General government"
-SECT_PBANK  = "Private banks"
-SECT_PUBANK = "Public banks"
-SECT_FC     = "Financial corporations"
-SECT_NFC    = "Non-financial corporations"
-SECT_POFI   = "Private other FIs"
-SECT_UOFI   = "Public other FIs"
+    @st.cache_data(ttl=3600, show_spinner=False)
+    def lbs_series_xml(key: str, start="2000", end="2025") -> pd.DataFrame:
+        url = f"https://stats.bis.org/api/v2/data/{LBS_FLOW}/{key}/all"
+        params = {"detail": "full", "startPeriod": start, "endPeriod": end}
+        try:
+            r = requests.get(url, params=params, headers=LBS_HEADERS, timeout=60)
+            r.raise_for_status()
+        except Exception:
+            return pd.DataFrame(columns=["Time","Val"])
+        try:
+            root = ET.fromstring(r.content)
+        except Exception:
+            return pd.DataFrame(columns=["Time","Val"])
 
-# 1) 14 ülkenin TÜM sektörel serilerini tek uzun df'de topla (Time, Sector, Val, Country)
-eme14_long = []
-for c in COUNTRY_KEYS.keys():
-    s = load_ids_country_long(c)   # uses cache; columns: Time, Sector, Val, Country
-    if not s.empty:
-        eme14_long.append(s)
-eme14_long = pd.concat(eme14_long, ignore_index=True) if eme14_long else pd.DataFrame(columns=["Time","Sector","Val","Country"])
+        ns = {'g':'http://www.sdmx.org/resources/sdmxml/schemas/v2_1/data/generic'}
+        rows = []
+        for s in root.findall('.//g:Series', ns):
+            for obs in s.findall('.//g:Obs', ns):
+                dim = obs.find('g:ObsDimension', ns)
+                val = obs.find('g:ObsValue', ns)
+                if dim is None or val is None or not val.get('value'):
+                    continue
+                t = dim.get('value')
+                v = pd.to_numeric(val.get('value'), errors="coerce")
+                if pd.isna(v): 
+                    continue
+                if "Q" in t:
+                    y, q = t.split("-Q")
+                    m = {"1":3, "2":6, "3":9, "4":12}[q]
+                    dt = pd.Timestamp(int(y), m, 1)
+                else:
+                    dt = pd.Timestamp(int(t), 12, 1)
+                rows.append((dt, v/1000.0))  # M$ → B$
+        return (pd.DataFrame(rows, columns=["Time","Val"])
+                  .sort_values("Time").reset_index(drop=True))
 
-if eme14_long.empty:
-    st.info("EME-14 sektörel veri bulunamadı.")
-else:
-    # 2) Yıl sonu (EOY) gözlemi: her (Country, Sector, Year) için SON tarih
-    eme14 = eme14_long.copy()
-    eme14["Year"] = eme14["Time"].dt.year
-    eoy = (
-        eme14.sort_values("Time")
-             .groupby(["Country","Sector","Year"], as_index=False)
-             .tail(1)  # year-end point
-    )
+    # Ülke kodları (ISO-2) — COUNTRY_KEYS zaten üstte var; ondan map çıkaralım
+    _cc_map = {
+        "SaudiArabia":"SA","SouthAfrica":"ZA","China":"CN","Taipei":"TW","India":"IN",
+        "Indonesia":"ID","Korea":"KR","Malaysia":"MY","Russia":"RU","Turkey":"TR",
+        "Argentina":"AR","Brazil":"BR","Chile":"CL","Mexico":"MX"
+    }
 
-    # 3) 14 ülke toplamı: Year x Sector (milyar USD)
-    annual = (
-        eoy.groupby(["Year","Sector"], as_index=False)["Val"]
-           .sum()
-           .rename(columns={"Val":"level"})
-    )
-    pivot = annual.pivot(index="Year", columns="Sector", values="level").fillna(0.0)
+    # --- Key şablonları (senin verdiğin örneklerle birebir) ---
+    def lbs_key_cross_border(cc: str) -> str:
+        # Q.S.C.G.USD.A.5J.A.5A.N.{CC}.N
+        return f"Q.S.C.G.USD.A.5J.A.5A.N.{cc}.N"
 
-    # 4) Üç kaba grup
-    banks  = pivot.get(SECT_PBANK, 0.0) + pivot.get(SECT_PUBANK, 0.0)
-    govt   = pivot.get(SECT_GOVT, 0.0)
-    nonbk  = (
-        pivot.get(SECT_NFC, 0.0)
-      + pivot.get(SECT_POFI, 0.0)
-      + pivot.get(SECT_UOFI, 0.0)
-      + pivot.get(SECT_FC,  0.0)
-    )
-    total_all = banks + govt + nonbk
+    def lbs_key_local_total(cc: str) -> str:
+        # Q.S.C.A.TO1.F.5J.A.{CC}.N.5J.R
+        return f"Q.S.C.A.TO1.F.5J.A.{cc}.N.5J.R"
 
-    # 5) Paylar (%)
-    shares = pd.DataFrame({
-        "Banks":      (banks  / total_all.replace(0, pd.NA)) * 100.0,
-        "Government": (govt   / total_all.replace(0, pd.NA)) * 100.0,
-        "Non-banks":  (nonbk  / total_all.replace(0, pd.NA)) * 100.0,
-    }).fillna(0.0)
+    # ---------------- Select Countries ----------------
+    st.markdown("### Select countries")
+    default_countries = ["Mexico","China","Turkey"]
+    sel_loans = st.multiselect("", list(_cc_map.keys()), default=default_countries)
 
-    # İstenen yıl aralığına kırp
-    shares = shares.loc[range(YEAR_START, min(YEAR_END, shares.index.max()))].copy()
+    if not sel_loans:
+        st.info("Ülke seçiniz.")
+    else:
+        # ---------------- CROSS-BORDER (Non-bank, USD) ----------------
+        st.markdown("#### Cross-border claims on **non-banks** (USD)")
 
-    # 6) Grafik (stacked %)
-    years = shares.index.tolist()
-    fig_sh = go.Figure()
-    for col in ["Banks","Government","Non-banks"]:
-        fig_sh.add_trace(go.Scatter(
-        x=years,
-        y=shares[col].astype(float).values,
-        name=col,
-        mode="lines",
-        stackgroup="one",
-        hovertemplate=col + "<br>%{x}: %{y:.1f}%<extra></extra>"  # ← DÜZ STRING
-    ))
+        # Merge seçili ülkeler
+        cb_df = None
+        for i, cname in enumerate(sel_loans):
+            cc = _cc_map[cname]
+            key = lbs_key_cross_border(cc)
+            s = lbs_series_xml(key, start=str(start_year), end=(end_year or "2025")).rename(columns={"Val": cname})
+            cb_df = s if cb_df is None else cb_df.merge(s, on="Time", how="outer")
+        cb_df = (cb_df or pd.DataFrame(columns=["Time"])).sort_values("Time").reset_index(drop=True)
 
+        palette = ["#e74c3c","#8e44ad","#f39c12","#27ae60","#2980b9","#d35400",
+                   "#2c3e50","#9b59b6","#16a085","#c0392b","#7f8c8d","#1abc9c",
+                   "#34495e","#f1c40f"]
 
-    fig_sh.update_layout(
-        title=" USD Debt Securities by Sector (Year-end Shares, 2000–2025)",
-        xaxis_title="Year",
-        yaxis_title="Share (%)",
-        yaxis=dict(range=[0, 100]),
-        hovermode="x unified",
-        template="plotly_white",
-        legend=dict(orientation="h", x=0.5, xanchor="center", y=-0.25, yanchor="top", bgcolor="rgba(0,0,0,0)"),
-        margin=dict(l=40, r=20, t=90, b=110),
-        height=600
-    )
-    st.plotly_chart(fig_sh, use_container_width=True)
+        # Seviye
+        fig_cb = go.Figure()
+        for i, cname in enumerate(sel_loans):
+            if cname in cb_df.columns:
+                fig_cb.add_trace(go.Scatter(
+                    x=cb_df["Time"], y=pd.to_numeric(cb_df[cname], errors="coerce"),
+                    mode="lines", name=cname,
+                    line=dict(width=3, color=palette[i % len(palette)]),
+                    hovertemplate="$%{y:,.0f}B<extra>"+cname+"</extra>"
+                ))
+        add_shading(fig_cb); yaxis_k(fig_cb)
+        fig_cb.update_layout(
+            title=dict(text=title_range("Cross-border USD Loans to Non-banks (BIS LBS, USD bn)"), x=0.5),
+            height=560, legend=dict(orientation="h")
+        )
+        st.plotly_chart(fig_cb, use_container_width=True)
 
-  
+        # YoY
+        fig_cb_yoy = go.Figure()
+        for i, cname in enumerate(sel_loans):
+            if cname in cb_df.columns:
+                yo = cb_df[["Time", cname]].copy()
+                yo[cname] = pd.to_numeric(yo[cname], errors="coerce")
+                yo["YoY"] = yo[cname].pct_change(4)*100
+                fig_cb_yoy.add_trace(go.Bar(
+                    x=yo["Time"], y=yo["YoY"], name=cname,
+                    marker_color=palette[i % len(palette)],
+                    hovertemplate="%{y:.1f}%<extra>"+cname+"</extra>"
+                ))
+        fig_cb_yoy.add_hline(y=0, line_dash="dash", line_color="black")
+        add_shading(fig_cb_yoy)
+        fig_cb_yoy.update_yaxes(title="YoY (%)", tickformat=".1f", ticksuffix="%")
+        fig_cb_yoy.update_layout(
+            title=dict(text=title_range("Cross-border Loans — YoY"), x=0.5),
+            barmode="group", height=420,
+            legend=dict(orientation="h", yanchor="top", y=-0.25, xanchor="center", x=0.5)
+        )
+        st.plotly_chart(fig_cb_yoy, use_container_width=True)
+
+        # ---------------- LOCAL TOTAL CLAIMS (USD) ----------------
+        st.markdown("#### Local total claims (USD)")
+
+        lc_df = None
+        for i, cname in enumerate(sel_loans):
+            cc = _cc_map[cname]
+            key = lbs_key_local_total(cc)
+            s = lbs_series_xml(key, start=str(start_year), end=(end_year or "2025")).rename(columns={"Val": cname})
+            lc_df = s if lc_df is None else lc_df.merge(s, on="Time", how="outer")
+        lc_df = (lc_df or pd.DataFrame(columns=["Time"])).sort_values("Time").reset_index(drop=True)
+
+        # Seviye
+        fig_lc = go.Figure()
+        for i, cname in enumerate(sel_loans):
+            if cname in lc_df.columns:
+                fig_lc.add_trace(go.Scatter(
+                    x=lc_df["Time"], y=pd.to_numeric(lc_df[cname], errors="coerce"),
+                    mode="lines", name=cname,
+                    line=dict(width=3, color=palette[i % len(palette)]),
+                    hovertemplate="$%{y:,.0f}B<extra>"+cname+"</extra>"
+                ))
+        add_shading(fig_lc); yaxis_k(fig_lc)
+        fig_lc.update_layout(
+            title=dict(text=title_range("Local Total Claims (BIS LBS, USD bn)"), x=0.5),
+            height=560, legend=dict(orientation="h")
+        )
+        st.plotly_chart(fig_lc, use_container_width=True)
+
+        # YoY
+        fig_lc_yoy = go.Figure()
+        for i, cname in enumerate(sel_loans):
+            if cname in lc_df.columns:
+                yo = lc_df[["Time", cname]].copy()
+                yo[cname] = pd.to_numeric(yo[cname], errors="coerce")
+                yo["YoY"] = yo[cname].pct_change(4)*100
+                fig_lc_yoy.add_trace(go.Bar(
+                    x=yo["Time"], y=yo["YoY"], name=cname,
+                    marker_color=palette[i % len(palette)],
+                    hovertemplate="%{y:.1f}%<extra>"+cname+"</extra>"
+                ))
+        fig_lc_yoy.add_hline(y=0, line_dash="dash", line_color="black")
+        add_shading(fig_lc_yoy)
+        fig_lc_yoy.update_yaxes(title="YoY (%)", tickformat=".1f", ticksuffix="%")
+        fig_lc_yoy.update_layout(
+            title=dict(text=title_range("Local Total Claims — YoY"), x=0.5),
+            barmode="group", height=420,
+            legend=dict(orientation="h", yanchor="top", y=-0.25, xanchor="center", x=0.5)
+        )
+        st.plotly_chart(fig_lc_yoy, use_container_width=True)
 
 
 # ---------- Methodology ----------
