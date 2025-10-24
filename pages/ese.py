@@ -602,8 +602,7 @@ with tEC:
         }
 
         def ids_key(cc: str, token: str) -> str:
-    # Match BIS web filter: International markets [C], USD, Foreign currency group [F]
-            return f"Q.{cc}.3P.{token}.C.A.F.USD.A.A.A.A.A.I"
+        return f"Q.{cc}.3P.{token}.C.A.F.USD.A.A.A.A.A.I"
      
 
         @st.cache_data(ttl=3600, show_spinner=False)
