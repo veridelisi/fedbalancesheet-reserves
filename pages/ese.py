@@ -591,26 +591,19 @@ with tEC:
         IDS_FLOW = "dataflow/BIS/WS_DEBT_SEC2_PUB/1.0"
         IDS_HEADERS = {"Accept":"application/vnd.sdmx.genericdata+xml;version=2.1"}
 
-        # ---- MATCH BIS WEB (International market [C], USD, currency group [F]) ----
         IDS_SECTORS = {
-            "Financial corporations":     ("1.B", "#2980b9"),
-            "General government":         ("1.2", "#8e44ad"),
-            "Non-financial corporations": ("1.J", "#e74c3c"),
-            "Private banks":              ("1.E", "#16a085"),
-            "Public banks":               ("1.I", "#27ae60"),
-            "Private other FIs":          ("1.G", "#f39c12"),
-            "Public other FIs":           ("1.K", "#d35400"),
+            "Financial corporations":     ("B.1", "#2980b9"),
+            "General government":         ("2.1", "#8e44ad"),
+            "Non-financial corporations": ("J.1", "#e74c3c"),
+            "Private banks":              ("E.1", "#16a085"),
+            "Public banks":               ("I.1", "#27ae60"),
+            "Private other FIs":          ("G.1", "#f39c12"),
+            "Public other FIs":           ("K.1", "#d35400"),
         }
 
         def ids_key(cc: str, token: str) -> str:
-            # Q.<CC>.3P.<TOKEN>.C.A.F.USD.A.A.A.A.A.I
-            #  - 3P: instrument scope (unchanged)
-            #  - C : Issue market = International markets
-            #  - F : Currency group = Foreign currencies
-            #  - USD: Issue currency = US dollar
-            #  - tail all 'A' as in the BIS UI
+    # Match BIS web filter: International markets [C], USD, Foreign currency group [F]
             return f"Q.{cc}.3P.{token}.C.A.F.USD.A.A.A.A.A.I"
-
      
 
         @st.cache_data(ttl=3600, show_spinner=False)
