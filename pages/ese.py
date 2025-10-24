@@ -602,7 +602,9 @@ with tEC:
         }
 
         def ids_key(cc: str, token: str) -> str:
-            return f"Q.{cc}.3P.{token}.C.A.F.USD.A.A.A.A.A.I"
+    # Doğru sıra: Q.3P.{CC}.{TOKEN}.C.A.F.USD.A.A.A.A.A.I
+            return f"Q.3P.{cc}.{token}.C.A.F.USD.A.A.A.A.A.I"
+
 
         @st.cache_data(ttl=3600, show_spinner=False)
         def fetch_ids_series_full(key: str, start="2000", end="2025") -> pd.DataFrame:
