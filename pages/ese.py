@@ -888,6 +888,102 @@ with tEC:
                 height=560, legend=dict(orientation="h")
             )
             st.plotly_chart(fig, use_container_width=True)
+
+                    # ====================== EME-14: Sector shares (Banks / Government / Non-banks) ======================
+        st.markdown("### Sector Shares — Year-end (2000–2025)")
+        st.caption("⏳ USD Debt Securities by Sector — loading…")
+
+        YEAR_START, YEAR_END = int(start_year), int(end_year or 2025)
+
+        # Sektör isimleri (Debts bloğunda kullandıklarımız)
+        SECT_GOVT   = "General government"
+        SECT_PBANK  = "Private banks"
+        SECT_PUBANK = "Public banks"
+        SECT_NFC    = "Non-financial corporations"
+        SECT_POFI   = "Private other FIs"
+        SECT_UOFI   = "Public other FIs"
+
+        # 1) 14 ülkenin sektörel serilerini uzun formatta birleştir (Time, Sector, Val, Country)
+        eme14_long = []
+        for c in COUNTRY_KEYS.keys():
+            s = load_ids_country_long(c)   # cached; columns: Time, Sector, Val, Country
+            if not s.empty:
+                eme14_long.append(s)
+        eme14_long = (
+            pd.concat(eme14_long, ignore_index=True)
+            if eme14_long else
+            pd.DataFrame(columns=["Time","Sector","Val","Country"])
+        )
+
+        if eme14_long.empty:
+            st.info("EME-14 sektörel veri bulunamadı.")
+        else:
+            # 2) Yıl sonu (EOY): her (Country, Sector, Year) için son gözlem
+            eme14 = eme14_long.copy()
+            eme14["Year"] = eme14["Time"].dt.year
+            eoy = (
+                eme14.sort_values("Time")
+                     .groupby(["Country","Sector","Year"], as_index=False)
+                     .tail(1)
+            )
+
+            # 3) 14 ülke toplamları: Year x Sector (milyar USD)
+            annual = (
+                eoy.groupby(["Year","Sector"], as_index=False)["Val"]
+                   .sum()
+                   .rename(columns={"Val":"level"})
+            )
+            pivot = annual.pivot(index="Year", columns="Sector", values="level").fillna(0.0)
+
+            # 4) Üç grup (çifte sayım yok):
+            #    Banks = Private banks + Public banks
+            #    Government = General government
+            #    Non-banks = NFC + Private OFIs + Public OFIs
+            banks = pivot.get(SECT_PBANK, 0.0) + pivot.get(SECT_PUBANK, 0.0)
+            govt  = pivot.get(SECT_GOVT,  0.0)
+            nonbk = pivot.get(SECT_NFC,   0.0) + pivot.get(SECT_POFI, 0.0) + pivot.get(SECT_UOFI, 0.0)
+
+            total = banks + govt + nonbk
+            # 5) Paylar (%)
+            shares = pd.DataFrame({
+                "Banks":      (banks / total.replace(0, pd.NA)) * 100.0,
+                "Government": (govt  / total.replace(0, pd.NA)) * 100.0,
+                "Non-banks":  (nonbk / total.replace(0, pd.NA)) * 100.0,
+            }).fillna(0.0)
+
+            # İstenen yıl aralığına kırp
+            if not shares.empty:
+                ymax = int(min(YEAR_END, shares.index.max()))
+                ymin = int(max(YEAR_START, shares.index.min()))
+                shares = shares.loc[range(ymin, ymax+1)].copy()
+
+            # 6) Grafik (stacked %)
+            years = shares.index.tolist()
+            fig_sh = go.Figure()
+            order = [("Banks", "#16a085"), ("Government", "#8e44ad"), ("Non-banks", "#e74c3c")]
+            for name, color in order:
+                fig_sh.add_trace(go.Scatter(
+                    x=years, y=shares[name].values,
+                    name=name, mode="lines",
+                    line=dict(width=3, color=color),
+                    stackgroup="one",
+                    hovertemplate=f"{name}<br>%{{x}}: %{{y:.1f}}%<extra></extra>"
+                ))
+
+            fig_sh.update_layout(
+                title=dict(text=title_range("USD Debt Securities by Sector — Shares (EME-14)"), x=0.5),
+                xaxis_title="Year",
+                yaxis_title="Share (%)",
+                yaxis=dict(range=[0, 100]),
+                hovermode="x unified",
+                template="plotly_white",
+                legend=dict(orientation="h", x=0.5, xanchor="center", y=-0.25, yanchor="top"),
+                margin=dict(l=40, r=20, t=90, b=110),
+                height=560
+            )
+            fig_sh.update_yaxes(ticksuffix="%", tickformat=".0f")
+            st.plotly_chart(fig_sh, use_container_width=True)
+
 # ---------- Methodology ----------
 st.markdown("### 📋 Methodology")
 with st.expander("🔎 Click to expand methodology details", expanded=False):
