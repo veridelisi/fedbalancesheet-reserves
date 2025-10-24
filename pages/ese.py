@@ -439,7 +439,6 @@ with tEA:
 
 # --- Emerging Countries (ALT SEKME) ---
 with tEC:
-    
 
     # ALT SEKME ÇUBUĞU: Credits | Debts | Loans
     ec_tabs = st.tabs(["Credits", "Debts", "Loans"])
@@ -470,7 +469,7 @@ with tEC:
         last_dates = []
         for cname, ckey in COUNTRY_KEYS.items():
             s = load_series_billion(ckey)
-            if s.empty: 
+            if s.empty:
                 continue
             s = s.sort_values("Time")
             series_cache[cname] = s
@@ -589,117 +588,114 @@ with tEC:
         st.markdown("## USD Debt (IDS) — Sector Breakdown (2000–2025)")
 
         IDS_FLOW = "dataflow/BIS/WS_DEBT_SEC2_PUB/1.0"
-    IDS_HEADERS = {"Accept":"application/vnd.sdmx.genericdata+xml;version=2.1"}
+        IDS_HEADERS = {"Accept":"application/vnd.sdmx.genericdata+xml;version=2.1"}
 
-    # "All issuers" KALDIRILDI
-    IDS_SECTORS = {
-        "Financial corporations": ("B.1", "#2980b9"),
-        "General government": ("2.1", "#8e44ad"),
-        "Non-financial corporations": ("J.1", "#e74c3c"),
-        "Private banks": ("E.1", "#16a085"),
-        "Public banks": ("I.1", "#27ae60"),
-        "Private other FIs": ("G.1", "#f39c12"),
-        "Public other FIs": ("K.1", "#d35400"),
-    }
-
-    def ids_key(cc: str, token: str) -> str:
-        return f"Q.{cc}.3P.{token}.C.A.F.USD.A.A.A.A.A.I"
-   
-
-    @st.cache_data(ttl=3600, show_spinner=False)
-    def fetch_ids_series_full(key: str, start="2000", end="2025") -> pd.DataFrame:
-        url = f"https://stats.bis.org/api/v2/data/{IDS_FLOW}/{key}/all"
-        params = {"detail":"full","startPeriod":start,"endPeriod":end}
-        try:
-            r = requests.get(url, params=params, headers=IDS_HEADERS, timeout=60)
-            if r.status_code == 404:
-                return pd.DataFrame(columns=["Time","Val"])
-            r.raise_for_status()
-        except Exception:
-            return pd.DataFrame(columns=["Time","Val"])
-        try:
-            root = ET.fromstring(r.content)
-        except Exception:
-            return pd.DataFrame(columns=["Time","Val"])
-
-        ns = {'g':'http://www.sdmx.org/resources/sdmxml/schemas/v2_1/data/generic'}
-        rows = []
-        for s in root.findall('.//g:Series', ns):
-            for obs in s.findall('.//g:Obs', ns):
-                dim = obs.find('g:ObsDimension', ns)
-                val = obs.find('g:ObsValue', ns)
-                if dim is None or val is None or not val.get('value'):
-                    continue
-                t = dim.get('value')
-                v = pd.to_numeric(val.get('value'), errors="coerce")
-                if pd.isna(v): 
-                    continue
-                if "Q" in t:
-                    y, q = t.split("-Q")
-                    m = {"1":3,"2":6,"3":9,"4":12}[q]
-                    dt = pd.Timestamp(int(y), m, 1)
-                else:
-                    dt = pd.Timestamp(int(t), 12, 1)
-                rows.append((dt, v/1000.0))  # M$ → B$
-        if not rows:
-            return pd.DataFrame(columns=["Time","Val"])
-        return pd.DataFrame(rows, columns=["Time","Val"]).sort_values("Time").reset_index(drop=True)
-
-    @st.cache_data(ttl=3600, show_spinner=False)
-    def load_ids_country_long(country_label: str) -> pd.DataFrame:
-        cc_map = {
-            "SaudiArabia":"SA","SouthAfrica":"ZA","China":"CN","Taipei":"TW","India":"IN",
-            "Indonesia":"ID","Korea":"KR","Malaysia":"MY","Russia":"RU","Turkey":"TR",
-            "Argentina":"AR","Brazil":"BR","Chile":"CL","Mexico":"MX"
+        # "All issuers" KALDIRILDI
+        IDS_SECTORS = {
+            "Financial corporations": ("B.1", "#2980b9"),
+            "General government": ("2.1", "#8e44ad"),
+            "Non-financial corporations": ("J.1", "#e74c3c"),
+            "Private banks": ("E.1", "#16a085"),
+            "Public banks": ("I.1", "#27ae60"),
+            "Private other FIs": ("G.1", "#f39c12"),
+            "Public other FIs": ("K.1", "#d35400"),
         }
-        cc = cc_map.get(country_label)
-        if not cc:
-            return pd.DataFrame(columns=["Time","Sector","Val","Country"])
-        frames = []
-        for sector, (token, _color) in IDS_SECTORS.items():
-            key = ids_key(cc, token)
-            s = fetch_ids_series_full(key, start=str(start_year), end=(end_year or "2025"))
-            if s.empty:
-                continue
-            s["Sector"] = sector
-            s["Country"] = country_label
-            frames.append(s)
-        return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(columns=["Time","Sector","Val","Country"])
 
-    st.markdown("#### Select a country")
-    country_list = list(COUNTRY_KEYS.keys())
-    default_country = "Mexico" if "Mexico" in country_list else country_list[0]
-    try:
-        country_sel = st.segmented_control("Country", country_list, selection=default_country)
-    except Exception:
-        country_sel = st.radio("Country", country_list, horizontal=True, index=country_list.index(default_country))
+        def ids_key(cc: str, token: str) -> str:
+            return f"Q.{cc}.3P.{token}.C.A.F.USD.A.A.A.A.A.I"
 
-    ids_long = load_ids_country_long(country_sel)
+        @st.cache_data(ttl=3600, show_spinner=False)
+        def fetch_ids_series_full(key: str, start="2000", end="2025") -> pd.DataFrame:
+            url = f"https://stats.bis.org/api/v2/data/{IDS_FLOW}/{key}/all"
+            params = {"detail":"full","startPeriod":start,"endPeriod":end}
+            try:
+                r = requests.get(url, params=params, headers=IDS_HEADERS, timeout=60)
+                if r.status_code == 404:
+                    return pd.DataFrame(columns=["Time","Val"])
+                r.raise_for_status()
+            except Exception:
+                return pd.DataFrame(columns=["Time","Val"])
+            try:
+                root = ET.fromstring(r.content)
+            except Exception:
+                return pd.DataFrame(columns=["Time","Val"])
 
-    if ids_long.empty:
-        st.info("Seçili ülke için IDS (USD debt) sektörel seriler bulunamadı.")
-    else:
-        color_map = {k:v for k, (_t, v) in IDS_SECTORS.items()}
-        fig = go.Figure()
-        for sec in IDS_SECTORS.keys():
-            sdf = ids_long[ids_long["Sector"] == sec]
-            if sdf.empty:
-                continue
-            fig.add_trace(go.Scatter(
-                x=sdf["Time"], y=sdf["Val"], mode="lines", name=sec,
-                line=dict(width=3, color=color_map.get(sec)),
-                hovertemplate=f"{country_sel} — {sec}<br>%{{x|%Y-%m}}: $%{{y:,.1f}}B<extra></extra>"
-            ))
-        add_shading(fig); yaxis_k(fig)
-        fig.update_layout(
-            title=dict(text=title_range(f"{country_sel}: USD Debt Securities — Sector Breakdown"), x=0.5),
-            height=560, legend=dict(orientation="h")
-        )
-        st.plotly_chart(fig, use_container_width=True)
+            ns = {'g':'http://www.sdmx.org/resources/sdmxml/schemas/v2_1/data/generic'}
+            rows = []
+            for s in root.findall('.//g:Series', ns):
+                for obs in s.findall('.//g:Obs', ns):
+                    dim = obs.find('g:ObsDimension', ns)
+                    val = obs.find('g:ObsValue', ns)
+                    if dim is None or val is None or not val.get('value'):
+                        continue
+                    t = dim.get('value')
+                    v = pd.to_numeric(val.get('value'), errors="coerce")
+                    if pd.isna(v):
+                        continue
+                    if "Q" in t:
+                        y, q = t.split("-Q")
+                        m = {"1":3,"2":6,"3":9,"4":12}[q]
+                        dt = pd.Timestamp(int(y), m, 1)
+                    else:
+                        dt = pd.Timestamp(int(t), 12, 1)
+                    rows.append((dt, v/1000.0))  # M$ → B$
+            if not rows:
+                return pd.DataFrame(columns=["Time","Val"])
+            return pd.DataFrame(rows, columns=["Time","Val"]).sort_values("Time").reset_index(drop=True)
 
+        @st.cache_data(ttl=3600, show_spinner=False)
+        def load_ids_country_long(country_label: str) -> pd.DataFrame:
+            cc_map = {
+                "SaudiArabia":"SA","SouthAfrica":"ZA","China":"CN","Taipei":"TW","India":"IN",
+                "Indonesia":"ID","Korea":"KR","Malaysia":"MY","Russia":"RU","Turkey":"TR",
+                "Argentina":"AR","Brazil":"BR","Chile":"CL","Mexico":"MX"
+            }
+            cc = cc_map.get(country_label)
+            if not cc:
+                return pd.DataFrame(columns=["Time","Sector","Val","Country"])
+            frames = []
+            for sector, (token, _color) in IDS_SECTORS.items():
+                key = ids_key(cc, token)
+                s = fetch_ids_series_full(key, start=str(start_year), end=(end_year or "2025"))
+                if s.empty:
+                    continue
+                s["Sector"] = sector
+                s["Country"] = country_label
+                frames.append(s)
+            return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(columns=["Time","Sector","Val","Country"])
 
+        st.markdown("#### Select a country")
+        country_list = list(COUNTRY_KEYS.keys())
+        default_country = "Mexico" if "Mexico" in country_list else country_list[0]
+        try:
+            country_sel = st.segmented_control("Country", country_list, selection=default_country)
+        except Exception:
+            country_sel = st.radio("Country", country_list, horizontal=True, index=country_list.index(default_country))
 
-        # ====================== TAB 3: Loans (CROSS-BORDER only) ======================
+        ids_long = load_ids_country_long(country_sel)
+
+        if ids_long.empty:
+            st.info("Seçili ülke için IDS (USD debt) sektörel seriler bulunamadı.")
+        else:
+            color_map = {k:v for k, (_t, v) in IDS_SECTORS.items()}
+            fig = go.Figure()
+            for sec in IDS_SECTORS.keys():
+                sdf = ids_long[ids_long["Sector"] == sec]
+                if sdf.empty:
+                    continue
+                fig.add_trace(go.Scatter(
+                    x=sdf["Time"], y=sdf["Val"], mode="lines", name=sec,
+                    line=dict(width=3, color=color_map.get(sec)),
+                    hovertemplate=f"{country_sel} — {sec}<br>%{{x|%Y-%m}}: $%{{y:,.1f}}B<extra></extra>"
+                ))
+            add_shading(fig); yaxis_k(fig)
+            fig.update_layout(
+                title=dict(text=title_range(f"{country_sel}: USD Debt Securities — Sector Breakdown"), x=0.5),
+                height=560, legend=dict(orientation="h")
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+    # ====================== TAB 3: Loans (CROSS-BORDER + LOCAL) ======================
     with tabLoans:
         st.markdown("### USD Loans (LBS) — Cross-border (2000–2025)")
 
@@ -731,7 +727,7 @@ with tEC:
                         continue
                     t = dim.get('value')
                     v = pd.to_numeric(val.get('value'), errors="coerce")
-                    if pd.isna(v): 
+                    if pd.isna(v):
                         continue
                     if "Q" in t:
                         y, q = t.split("-Q")
@@ -749,7 +745,7 @@ with tEC:
             "Argentina":"AR","Brazil":"BR","Chile":"CL","Mexico":"MX"
         }
 
-        # Cross-border non-bank key (tam senin verdiğin şablon)
+        # Cross-border non-bank key
         def lbs_key_cross_border(cc: str) -> str:
             # Q.S.C.G.USD.A.5J.A.5A.N.{CC}.N
             return f"Q.S.C.G.USD.A.5J.A.5A.N.{cc}.N"
@@ -760,7 +756,7 @@ with tEC:
         sel_loans = st.multiselect(
             "", list(_cc_map.keys()),
             default=default_countries,
-            key="loans_cb_country_select"   # <<<<< ÖNEMLİ: benzersiz key
+            key="loans_cb_country_select"   # benzersiz key
         )
 
         if not sel_loans:
@@ -776,8 +772,8 @@ with tEC:
             cb_df = cb_df.sort_values("Time").reset_index(drop=True)
 
             palette = ["#e74c3c","#8e44ad","#f39c12","#27ae60","#2980b9","#d35400",
-                    "#2c3e50","#9b59b6","#16a085","#c0392b","#7f8c8d","#1abc9c",
-                    "#34495e","#f1c40f"]
+                       "#2c3e50","#9b59b6","#16a085","#c0392b","#7f8c8d","#1abc9c",
+                       "#34495e","#f1c40f"]
 
             # Seviye
             fig_cb = go.Figure()
@@ -819,76 +815,74 @@ with tEC:
             st.plotly_chart(fig_cb_yoy, use_container_width=True)
 
         # ---------------- LOCAL TOTAL CLAIMS (USD) ----------------
-    st.markdown("#### USD Loans (LBS) — Local total claims (USD)")
+        st.markdown("#### USD Loans (LBS) — Local total claims (USD)")
 
-    # Eğer henüz yoksa local key şablonunu ekleyelim
-    def lbs_key_local_total(cc: str) -> str:
-        # Q.S.C.A.TO1.F.5J.A.{CC}.N.5J.R
-        return f"Q.S.C.A.TO1.F.5J.A.{cc}.N.5J.R"
+        def lbs_key_local_total(cc: str) -> str:
+            # Q.S.C.A.TO1.F.5J.A.{CC}.N.5J.R
+            return f"Q.S.C.A.TO1.F.5J.A.{cc}.N.5J.R"
 
-    # Ayrı bir seçim kutusu (farklı key!)
-    st.markdown("### Select countries (Local)")
-    default_local = ["Turkey", "SaudiArabia", "Mexico", "Indonesia"]
-    sel_local = st.multiselect(
-        "", list(_cc_map.keys()),
-        default=default_local,
-        key="loans_local_country_select"
-    )
-
-    if not sel_local:
-        st.info("Ülke seçiniz.")
-    else:
-        # Veriyi birleştir
-        lc_df = None
-        for cname in sel_local:
-            cc = _cc_map[cname]
-            key = lbs_key_local_total(cc)
-            s = lbs_series_xml(key, start=str(start_year), end=(end_year or "2025")).rename(columns={"Val": cname})
-            lc_df = s if lc_df is None else lc_df.merge(s, on="Time", how="outer")
-        lc_df = lc_df.sort_values("Time").reset_index(drop=True)
-
-        palette = ["#e74c3c","#8e44ad","#f39c12","#27ae60","#2980b9","#d35400",
-                "#2c3e50","#9b59b6","#16a085","#c0392b","#7f8c8d","#1abc9c",
-                "#34495e","#f1c40f"]
-
-        # Seviye grafiği
-        fig_lc = go.Figure()
-        for i, cname in enumerate(sel_local):
-            if cname in lc_df.columns:
-                fig_lc.add_trace(go.Scatter(
-                    x=lc_df["Time"], y=pd.to_numeric(lc_df[cname], errors="coerce"),
-                    mode="lines", name=cname,
-                    line=dict(width=3, color=palette[i % len(palette)]),
-                    hovertemplate="$%{y:,.0f}B<extra>"+cname+"</extra>"
-                ))
-        add_shading(fig_lc); yaxis_k(fig_lc)
-        fig_lc.update_layout(
-            title=dict(text=title_range("Local Total Claims (BIS LBS, USD bn)"), x=0.5),
-            height=560, legend=dict(orientation="h")
+        st.markdown("### Select countries (Local)")
+        default_local = ["Turkey", "SaudiArabia", "Mexico", "Indonesia"]
+        sel_local = st.multiselect(
+            "", list(_cc_map.keys()),
+            default=default_local,
+            key="loans_local_country_select"
         )
-        st.plotly_chart(fig_lc, use_container_width=True)
 
-        # YoY grafiği
-        fig_lc_yoy = go.Figure()
-        for i, cname in enumerate(sel_local):
-            if cname in lc_df.columns:
-                yo = lc_df[["Time", cname]].copy()
-                yo[cname] = pd.to_numeric(yo[cname], errors="coerce")
-                yo["YoY"] = yo[cname].pct_change(4)*100
-                fig_lc_yoy.add_trace(go.Bar(
-                    x=yo["Time"], y=yo["YoY"], name=cname,
-                    marker_color=palette[i % len(palette)],
-                    hovertemplate="%{y:.1f}%<extra>"+cname+"</extra>"
-                ))
-        fig_lc_yoy.add_hline(y=0, line_dash="dash", line_color="black")
-        add_shading(fig_lc_yoy)
-        fig_lc_yoy.update_yaxes(title="YoY (%)", tickformat=".1f", ticksuffix="%")
-        fig_lc_yoy.update_layout(
-            title=dict(text=title_range("Local Total Claims — YoY"), x=0.5),
-            barmode="group", height=420,
-            legend=dict(orientation="h", yanchor="top", y=-0.25, xanchor="center", x=0.5)
-        )
-        st.plotly_chart(fig_lc_yoy, use_container_width=True)
+        if not sel_local:
+            st.info("Ülke seçiniz.")
+        else:
+            # Veriyi birleştir
+            lc_df = None
+            for cname in sel_local:
+                cc = _cc_map[cname]
+                key = lbs_key_local_total(cc)
+                s = lbs_series_xml(key, start=str(start_year), end=(end_year or "2025")).rename(columns={"Val": cname})
+                lc_df = s if lc_df is None else lc_df.merge(s, on="Time", how="outer")
+            lc_df = lc_df.sort_values("Time").reset_index(drop=True)
+
+            palette = ["#e74c3c","#8e44ad","#f39c12","#27ae60","#2980b9","#d35400",
+                       "#2c3e50","#9b59b6","#16a085","#c0392b","#7f8c8d","#1abc9c",
+                       "#34495e","#f1c40f"]
+
+            # Seviye grafiği
+            fig_lc = go.Figure()
+            for i, cname in enumerate(sel_local):
+                if cname in lc_df.columns:
+                    fig_lc.add_trace(go.Scatter(
+                        x=lc_df["Time"], y=pd.to_numeric(lc_df[cname], errors="coerce"),
+                        mode="lines", name=cname,
+                        line=dict(width=3, color=palette[i % len(palette)]),
+                        hovertemplate="$%{y:,.0f}B<extra>"+cname+"</extra>"
+                    ))
+            add_shading(fig_lc); yaxis_k(fig_lc)
+            fig_lc.update_layout(
+                title=dict(text=title_range("Local Total Claims (BIS LBS, USD bn)"), x=0.5),
+                height=560, legend=dict(orientation="h")
+            )
+            st.plotly_chart(fig_lc, use_container_width=True)
+
+            # YoY grafiği
+            fig_lc_yoy = go.Figure()
+            for i, cname in enumerate(sel_local):
+                if cname in lc_df.columns:
+                    yo = lc_df[["Time", cname]].copy()
+                    yo[cname] = pd.to_numeric(yo[cname], errors="coerce")
+                    yo["YoY"] = yo[cname].pct_change(4)*100
+                    fig_lc_yoy.add_trace(go.Bar(
+                        x=yo["Time"], y=yo["YoY"], name=cname,
+                        marker_color=palette[i % len(palette)],
+                        hovertemplate="%{y:.1f}%<extra>"+cname+"</extra>"
+                    ))
+            fig_lc_yoy.add_hline(y=0, line_dash="dash", line_color="black")
+            add_shading(fig_lc_yoy)
+            fig_lc_yoy.update_yaxes(title="YoY (%)", tickformat=".1f", ticksuffix="%")
+            fig_lc_yoy.update_layout(
+                title=dict(text=title_range("Local Total Claims — YoY"), x=0.5),
+                barmode="group", height=420,
+                legend=dict(orientation="h", yanchor="top", y=-0.25, xanchor="center", x=0.5)
+            )
+            st.plotly_chart(fig_lc_yoy, use_container_width=True)
 
 # ---------- Methodology ----------
 st.markdown("### 📋 Methodology")
