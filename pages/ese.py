@@ -890,7 +890,7 @@ else:
 
 # ---------- Methodology ----------
 st.markdown("### 📋 Methodology")
-with st.expander("🔎 Click to expand methodology details", expanded=False):
+with st.expander("🔎 Click to expand methodology details", expanded=True):
     st.markdown("""
 **🧾 Basics**
 - 📦 Units → BIS data are in *millions of USD* → converted to **billions (÷1000)**.  
