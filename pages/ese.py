@@ -968,6 +968,7 @@ Both plotted as level and YoY charts.
 - **Flow:** `BIS/WS_DEBT_SEC2_PUB/1.0`
 - **Key pattern (country × sector):**  
 `Q.{CC}.3P.{TOKEN}.C.A.F.USD.A.A.A.A.A.I`
+- Issue Sector Immediate Borrower
 - **Sector tokens:**
 - Financial corporations → `B.1`
 - General government → `2.1`
