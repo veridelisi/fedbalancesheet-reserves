@@ -754,7 +754,7 @@ with tabLoans:
 
     # ------------ Select countries (benzersiz key!) ------------
     st.markdown("### Select countries")
-    default_countries = ["Mexico","China","Turkey"]
+    default_countries = ["China","Brazil","SaudiArabia","Mexico","India"]
     sel_loans = st.multiselect(
         "", list(_cc_map.keys()),
         default=default_countries,
