@@ -892,11 +892,120 @@ else:
 st.markdown("### 📋 Methodology")
 with st.expander("🔎 Click to expand methodology details", expanded=False):
     st.markdown("""
-**Basics**
-- 📦 Units: BIS returns **millions of USD** → converted to **billions (÷1000)** in code.  
-- 🗓️ Frequency: **Quarterly** (`YYYY-Qn`) → converted to end-of-quarter timestamps.  
-- 📈 Growth: **YoY (%) = 4-quarter change**.  
-- 🧭 API base pattern:
+**🧾 Basics**
+- 📦 Units → BIS data are in *millions of USD* → converted to **billions (÷1000)**.  
+- 🗓️ Frequency → **Quarterly** (`YYYY-Qn`) → converted to end-of-quarter timestamps.  
+- 📈 Growth → **YoY (%) = 4-quarter change**.  
+- 🧭 API base pattern: https://stats.bis.org/api/v2/data/%7BFLOW_PATH%7D/%7BKEY%7D/all?detail=full&startPeriod=YYYY&endPeriod=YYYY
+Data are parsed from **SDMX GenericData 2.1 XML**.
+
+---
+
+## 1️⃣ Top Tabs
+### • Total Credit / Debt Securities / Loans / Comparison
+- **Flow:** `BIS/WS_GLI/1.0`
+- **Keys (USD totals):**
+- Total Credit → `Q.USD.3P.N.A.I.B.USD`  
+- Debt Securities → `Q.USD.3P.N.A.I.D.USD`  
+- Loans → `Q.USD.3P.N.B.I.G.USD`
+- Example:  
+[GLI – Total Credit](https://stats.bis.org/api/v2/data/dataflow/BIS/WS_GLI/1.0/Q.USD.3P.N.A.I.B.USD/all?detail=full&startPeriod=2000&endPeriod=2025)
+- The **Comparison** tab overlays these three (levels + YoY).
+
+---
+
+## 2️⃣ Advanced vs Emerging
+- **Flow:** `BIS/WS_GLI/1.0`
+- **Emerging aggregates:**
+- Emerging Debt → `Q.USD.4T.N.A.I.D.USD`
+- Emerging Bank Loans → `Q.USD.4T.N.B.I.G.USD`
+- **Advanced** = Total − Emerging  
+Both plotted as level and YoY charts.
+
+---
+
+## 3️⃣ Emerging Area
+- **Flow:** `BIS/WS_GLI/1.0`
+- **Regional total credit (USD):**
+- 🌍 Africa & Middle East → `Q.USD.4W.N.A.I.B.USD`
+- 🌏 Emerging Asia → `Q.USD.4Y.N.A.I.B.USD`
+- 🌍 Emerging Europe → `Q.USD.3C.N.A.I.B.USD`
+- 🌎 Latin America → `Q.USD.4U.N.A.I.B.USD`
+- Example:  
+[Emerging Asia](https://stats.bis.org/api/v2/data/dataflow/BIS/WS_GLI/1.0/Q.USD.4Y.N.A.I.B.USD/all?detail=full&startPeriod=2000&endPeriod=2025)
+- **Comparison** shows a pie of latest regional shares + line chart for evolution (2000–2025).
+
+---
+
+## 4️⃣ Emerging Countries (with inner tabs)
+
+### A) Credits 💳
+- **Flow:** `BIS/WS_GLI/1.0`
+- **Key pattern (country total credit, USD):**  
+`Q.USD.{CC}.N.A.I.B.USD`  
+`{CC}` = ISO-2 code (e.g., MX, CN, TR).  
+- Example (Mexico):  
+[Mexico Credit](https://stats.bis.org/api/v2/data/dataflow/BIS/WS_GLI/1.0/Q.USD.MX.N.A.I.B.USD/all?detail=full&startPeriod=2000&endPeriod=2025)
+- Uses Emerging Total (`Q.USD.4T.N.A.I.B.USD`) for Top-14 share pie.
+
+---
+
+### B) Debts 🧩
+- **Flow:** `BIS/WS_DEBT_SEC2_PUB/1.0`
+- **Key pattern (country × sector):**  
+`Q.{CC}.3P.{TOKEN}.C.A.F.USD.A.A.A.A.A.I`
+- **Sector tokens:**
+- Financial corporations → `B.1`
+- General government → `2.1`
+- Non-financial corporations → `J.1`
+- Private banks → `E.1`
+- Public banks → `I.1`
+- Private other FIs → `G.1`
+- Public other FIs → `K.1`
+- Example (Turkey – Government):  
+[Turkey Gov Debt](https://stats.bis.org/api/v2/data/dataflow/BIS/WS_DEBT_SEC2_PUB/1.0/Q.TR.3P.2.1.C.A.F.USD.A.A.A.A.A.I/all?detail=full&startPeriod=2000&endPeriod=2025)
+- **Sector Share logic:**
+- Banks = Private + Public banks  
+- Government = General government  
+- Non-banks = Financial corp + NFC + Private OFIs + Public OFIs  
+- Shares = bucket / (Banks + Government + Non-banks)
+
+---
+
+### C) Loans 🏦
+- **Flow:** `BIS/WS_LBS_D_PUB/1.0`
+
+**Cross-border claims on non-banks (USD)**  
+- Key: `Q.S.C.G.USD.A.5J.A.5A.N.{CC}.N`  
+Example (Mexico):  
+[Cross-border MX](https://stats.bis.org/api/v2/data/dataflow/BIS/WS_LBS_D_PUB/1.0/Q.S.C.G.USD.A.5J.A.5A.N.MX.N/all?detail=full&startPeriod=2000&endPeriod=2025)
+
+**Local total claims (USD)**  
+- Key: `Q.S.C.A.TO1.F.5J.A.{CC}.N.5J.R`  
+Example (Mexico):  
+[Local MX](https://stats.bis.org/api/v2/data/dataflow/BIS/WS_LBS_D_PUB/1.0/Q.S.C.A.TO1.F.5J.A.MX.N.5J.R/all?detail=full&startPeriod=2000&endPeriod=2025)
+- Both use the same selection widget and display **lines (levels)** + **bars (YoY)**.
+
+---
+
+## ⚙️ Transformations & UI
+- 🔁 SDMX GenericData parsing; missing obs safely skipped.  
+- 🧮 Converted to billions; year-end = last quarterly obs.  
+- 🎛️ Streamlit tabs + multiselects with unique keys.  
+- 🎨 Plotly:
+- Lines → stock levels  
+- Bars → YoY growth  
+- Shading:
+  🟥 2007–09 Financial Crisis  
+  🟧 2020 COVID-19  
+  🟦 2022– Fed Tightening Cycle
+""")
+             
+
+
+
+
+
 
 # ---------- Footer ----------
 st.markdown(
