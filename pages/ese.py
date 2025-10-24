@@ -698,7 +698,7 @@ with tEC:
 
 
 # ====================== EME-14: Sector shares (Banks / Government / Non-banks) ======================
-st.markdown("### EME-14 — Sector Shares (Year-end, 2000–2025)")
+st.markdown("### Sector Shares (Year-end, 2000–2025)")
 
 YEAR_START, YEAR_END = int(start_year), int(end_year or 2025)
 
@@ -775,7 +775,7 @@ else:
 
 
     fig_sh.update_layout(
-        title="<b>EME-14</b> — USD Debt Securities by Sector (Year-end Shares, 2000–2025)",
+        title=" USD Debt Securities by Sector (Year-end Shares, 2000–2025)",
         xaxis_title="Year",
         yaxis_title="Share (%)",
         yaxis=dict(range=[0, 100]),
