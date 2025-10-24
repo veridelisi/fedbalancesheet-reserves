@@ -1071,12 +1071,11 @@ Both plotted as level and YoY charts.
 - Public banks → `I.1`
 - Private other FIs → `G.1`
 - Public other FIs → `K.1`
-- Example (Turkey – Government):
-- **Sector Share logic:**
+- **Sector Share logic:** 14 emerging countries' data are aggregated; year-end obs used.
 - Banks = Private + Public banks  
 - Government = General government  
 - Non-banks = Financial corp + NFC + Private OFIs + Public OFIs  
-- Shares = bucket / (Banks + Government + Non-banks)
+- Shares = X / (Banks + Government + Non-banks)
 
 ---
 
@@ -1085,14 +1084,11 @@ Both plotted as level and YoY charts.
 
 **Cross-border claims on non-banks (USD)**  
 - Key: `Q.S.C.G.USD.A.5J.A.5A.N.{CC}.N`  
-Example (Mexico):  
-[Cross-border MX](https://stats.bis.org/api/v2/data/dataflow/BIS/WS_LBS_D_PUB/1.0/Q.S.C.G.USD.A.5J.A.5A.N.MX.N/all?detail=full&startPeriod=2000&endPeriod=2025)
+Example (Mexico):(https://data.bis.org/topics/LBS/BIS,WS_LBS_D_PUB,1.0/Q.S.C.G.USD.A.5J.A.5A.N.MX.N)
 
 **Local total claims (USD)**  
 - Key: `Q.S.C.A.TO1.F.5J.A.{CC}.N.5J.R`  
-Example (Mexico):  
-[Local MX](https://stats.bis.org/api/v2/data/dataflow/BIS/WS_LBS_D_PUB/1.0/Q.S.C.A.TO1.F.5J.A.MX.N.5J.R/all?detail=full&startPeriod=2000&endPeriod=2025)
-- Both use the same selection widget and display **lines (levels)** + **bars (YoY)**.
+Example (Mexico): (https://data.bis.org/topics/LBS/BIS,WS_LBS_D_PUB,1.0/Q.S.C.A.TO1.F.5J.A.MX.N.5J.R)
 
 ---
 
