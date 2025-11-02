@@ -81,14 +81,17 @@ def fetch_latest_window(page_size: int = 500) -> pd.DataFrame:
     r.raise_for_status()
     df = pd.DataFrame(r.json().get("data", []))
 
-    # normalize
-    for c in ("record_date", "transaction_type", "transaction_catg", "transaction_today_amt"):
+    # normalize  (FETCH_LATEST_WINDOW)
+    for c in ("record_date", "transaction_type", "transaction_catg",
+            "transaction_today_amt", "transaction_fytd_amt"):
         if c not in df.columns:
             df[c] = None
 
     df["record_date"] = pd.to_datetime(df["record_date"], errors="coerce").dt.date
     df = df.dropna(subset=["record_date"])
     df["transaction_today_amt"] = df["transaction_today_amt"].apply(to_float)
+    df["transaction_fytd_amt"]  = df["transaction_fytd_amt"].apply(to_float)
+
     return df
 
 @st.cache_data(ttl=1800)
@@ -118,14 +121,17 @@ def fetch_ytd_data(start_date: str, end_date: str) -> pd.DataFrame:
     
     df = pd.DataFrame(all_data)
     
-    # normalize
-    for c in ("record_date", "transaction_type", "transaction_catg", "transaction_today_amt"):
+    # normalize  (FETCH_YTD_DATA)
+    for c in ("record_date", "transaction_type", "transaction_catg",
+            "transaction_today_amt", "transaction_fytd_amt"):
         if c not in df.columns:
             df[c] = None
 
     df["record_date"] = pd.to_datetime(df["record_date"], errors="coerce").dt.date
     df = df.dropna(subset=["record_date"])
     df["transaction_today_amt"] = df["transaction_today_amt"].apply(to_float)
+    df["transaction_fytd_amt"]  = df["transaction_fytd_amt"].apply(to_float)
+
     return df
 
 def day_slice(df: pd.DataFrame, d: date) -> pd.DataFrame:
@@ -505,49 +511,51 @@ else:
             ytd_expend_top["Percentage in YTD Expenditures"] = ytd_expend_top["Percentage in YTD Expenditures"].round(1).map(lambda v: f"{v:.1f}%")
         st.dataframe(ytd_expend_top, use_container_width=True)
     
-    # YTD Debt Chart
-    st.markdown("**YTD Debt Operations**")
-    debt_chart = debt_bar_chart(
-        ytd_newdebt_bn, 
-        ytd_redemp_bn, 
-        title=f"YTD New Debt vs Redemptions ({ytd_start} to {ytd_end})"
+    # --- FYTD değerlerini latest günden oku (m$) ---
+def get_fytd(df_day, ttype, pattern):
+    m = (
+        (df_day["transaction_type"] == ttype) &
+        (df_day["transaction_catg"].astype(str)
+             .str.contains(pattern, case=False, na=False, regex=True))
     )
-    st.altair_chart(debt_chart, use_container_width=True, theme=None)
-    
-    # YTD Summary metrics - 5 cards: 4 components + net result
-    col1, col2, col3, col4, col5 = st.columns(5)
-    
-    with col1:
-        st.metric(
-            label="YTD Taxes",
-            value=f"${fmt_bn(ytd_taxes_bn)}B"
-        )
-    
-    with col2:
-        st.metric(
-            label="YTD Expenditures", 
-            value=f"${fmt_bn(ytd_expend_bn)}B"
-        )
-    
-    with col3:
-        st.metric(
-            label="YTD New Debt",
-            value=f"${fmt_bn(ytd_newdebt_bn)}B"
-        )
-    
-    with col4:
-        st.metric(
-            label="YTD Redemptions",
-            value=f"${fmt_bn(ytd_redemp_bn)}B"
-        )
-    
-    with col5:
-        ytd_net = ytd_taxes_bn + ytd_newdebt_bn - ytd_expend_bn - ytd_redemp_bn
-        st.metric(
-            label="YTD Net Result",
-            value=f"${fmt_bn(ytd_net)}B",
-            delta=f"{'TGA Increased' if ytd_net >= 0 else 'TGA Decreased'}"
-        )
+    val = df_day.loc[m, "transaction_fytd_amt"].sum()
+    return float(val) if pd.notnull(val) else 0.0
+
+# Gerekli dört kalem (m$)
+dep_fytd = get_fytd(df_latest, "Deposits",    r"^Total(\sTGA)?\s*Deposits$")
+iss_fytd = get_fytd(df_latest, "Deposits",    r"^Public Debt Cash Issues")
+wdr_fytd = get_fytd(df_latest, "Withdrawals", r"^Total(\sTGA)?\s*Withdrawals$")
+red_fytd = get_fytd(df_latest, "Withdrawals", r"^Public Debt Cash Redemp")
+
+# FYTD formülleri (m$)
+tax_fytd_m = dep_fytd - iss_fytd
+exp_fytd_m = wdr_fytd - red_fytd
+new_fytd_m = iss_fytd
+red_fytd_m = red_fytd
+net_fytd_m = tax_fytd_m + new_fytd_m - exp_fytd_m - red_fytd_m
+
+# --- YTD Debt Chart (FYTD Issues vs Redemptions, bn $) ---
+st.markdown("**YTD Debt Operations**")
+debt_chart = debt_bar_chart(
+    bn(new_fytd_m),
+    bn(red_fytd_m),
+    title=f"YTD New Debt vs Redemptions (Fiscal YTD to {ytd_end})"
+)
+st.altair_chart(debt_chart, use_container_width=True, theme=None)
+
+# --- YTD Summary metrics - 5 cards (FYTD'den, bn $) ---
+col1, col2, col3, col4, col5 = st.columns(5)
+with col1:
+    st.metric("YTD Taxes",        f"${fmt_bn(bn(tax_fytd_m))}B")
+with col2:
+    st.metric("YTD Expenditures", f"${fmt_bn(bn(exp_fytd_m))}B")
+with col3:
+    st.metric("YTD New Debt",     f"${fmt_bn(bn(new_fytd_m))}B")
+with col4:
+    st.metric("YTD Redemptions",  f"${fmt_bn(bn(red_fytd_m))}B")
+with col5:
+    st.metric("YTD Net Result",   f"${fmt_bn(bn(net_fytd_m))}B",
+              delta=("TGA Increased" if net_fytd_m >= 0 else "TGA Decreased"))
 
 # ---------------------------- Methodology -------------------------------
 st.markdown("### 📋 Methodology")
