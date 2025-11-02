@@ -515,42 +515,7 @@ else:
 
 
 
-    def compute_components_for_fytd(df_day: pd.DataFrame) -> dict:
-        """Return FYTD totals (Taxes, Expenditures, NewDebt, Redemp) using transaction_fytd_amt."""
-        dep = df_day[df_day["transaction_type"] == "Deposits"].copy()
-        wdr = df_day[df_day["transaction_type"] == "Withdrawals"].copy()
-
-    # --- Deposits ---
-    dep_total_row = dep[dep["transaction_catg"].str.contains("Total TGA Deposits", na=False)]
-    dep_total = dep_total_row["transaction_fytd_amt"].sum() if not dep_total_row.empty \
-                else (dep["transaction_fytd_amt"].iloc[-1] if len(dep) else 0.0)
-
-    new_debt_row = dep[dep["transaction_catg"].str.contains("Public Debt Cash Issues", na=False)]
-    new_debt = new_debt_row["transaction_fytd_amt"].sum() if not new_debt_row.empty \
-               else (dep["transaction_fytd_amt"].iloc[-2] if len(dep) >= 2 else 0.0)
-
-    taxes = dep_total - new_debt
-
-    # --- Withdrawals ---
-    wdr_total_row = wdr[wdr["transaction_catg"].str.contains("Total TGA Withdrawals", na=False)]
-    wdr_total = wdr_total_row["transaction_fytd_amt"].sum() if not wdr_total_row.empty \
-                else (wdr["transaction_fytd_amt"].iloc[-1] if len(wdr) else 0.0)
-
-    redemp_row = wdr[wdr["transaction_catg"].str.contains("Public Debt Cash Redemptions", na=False)]
-    redemp = redemp_row["transaction_fytd_amt"].sum() if not redemp_row.empty \
-             else (wdr["transaction_fytd_amt"].iloc[-2] if len(wdr) >= 2 else 0.0)
-
-    expenditures = wdr_total - redemp
-
-    return dict(
-        taxes=taxes,
-        expenditures=expenditures,
-        newdebt=new_debt,
-        redemp=redemp,
-        deposits_total=dep_total,
-        withdrawals_total=wdr_total,
-    )
-
+ 
 
 
 # ---------------------------- Methodology -------------------------------
