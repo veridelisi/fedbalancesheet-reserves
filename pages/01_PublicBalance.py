@@ -515,49 +515,32 @@ else:
 
 
 
-    # --- FYTD'yi kategori bazında topla (m$) ---
-def fytd_sum(df_day, ttype, exclude_patterns=None):
-    d = df_day[df_day["transaction_type"] == ttype].copy()
-    d["transaction_catg"] = d["transaction_catg"].astype(str)
-
-    # Hariç tutulacak kalıplar
-    patt = exclude_patterns or []
-    if patt:
-        mask_ex = False
-        for p in patt:
-            mask_ex = mask_ex | d["transaction_catg"].str.contains(p, case=False, na=False, regex=True)
-        d = d[~mask_ex]
-
-    # Null/Total vb temizliği
-    d = d[d["transaction_catg"].str.strip().ne("")]
-    d = d[~d["transaction_catg"].str.contains(r"^Total(\sTGA)?\s*(Deposits|Withdrawals)$", case=False, na=False, regex=True)]
-
-    return float(d["transaction_fytd_amt"].sum())
+  # --- FYTD değerlerini doğrudan veritabanından çek (m$) ---
 
 def fytd_pick(df_day, ttype, pattern):
     m = (
         (df_day["transaction_type"] == ttype) &
-        (df_day["transaction_catg"].astype(str).str.contains(pattern, case=False, na=False, regex=True))
+        (df_day["transaction_catg"].astype(str)
+           .str.contains(pattern, case=False, na=False, regex=True))
     )
     return float(df_day.loc[m, "transaction_fytd_amt"].sum())
 
-# Borç kalemlerini tekilleştir (m$)
+# 1) Totaller (doğrudan FYTD)
+dep_total_fytd_m = fytd_pick(df_latest, "Deposits",    r"^Total(\sTGA)?\s*Deposits$")
+wdr_total_fytd_m = fytd_pick(df_latest, "Withdrawals", r"^Total(\sTGA)?\s*Withdrawals$")
+
+# 2) Debt kalemleri (FYTD)
 new_fytd_m = fytd_pick(df_latest, "Deposits",    r"^Public Debt Cash Issues")
 red_fytd_m = fytd_pick(df_latest, "Withdrawals", r"^Public Debt Cash Redemp")
 
-# Vergi/harcama proxy'si: borç kalemlerini ve Total satırlarını hariç tutup FYTD topla (m$)
-tax_fytd_m = fytd_sum(
-    df_latest, "Deposits",
-    exclude_patterns=[r"^Public Debt Cash Issues", r"^Total(\sTGA)?\s*Deposits$"]
-)
-exp_fytd_m = fytd_sum(
-    df_latest, "Withdrawals",
-    exclude_patterns=[r"^Public Debt Cash Redemp", r"^Total(\sTGA)?\s*Withdrawals$"]
-)
+# 3) Kartlar için doğrudan değerler
+tax_fytd_m = dep_total_fytd_m            # YTD Taxes  = Total Deposits (FYTD)
+exp_fytd_m = wdr_total_fytd_m            # YTD Expend. = Total Withdrawals (FYTD)
 
-net_fytd_m = tax_fytd_m + new_fytd_m - exp_fytd_m - red_fytd_m
+# 4) Net = Total Deposits FYTD − Total Withdrawals FYTD  (debt'i ayrıca gösteriyoruz)
+net_fytd_m = dep_total_fytd_m - wdr_total_fytd_m
 
-# --- YTD Debt Chart (FYTD'den, bn $) ---
+# --- YTD Debt Chart (FYTD Issues vs Redemptions, bn $) ---
 st.markdown("**YTD Debt Operations**")
 debt_chart = debt_bar_chart(
     bn(new_fytd_m),
@@ -566,7 +549,6 @@ debt_chart = debt_bar_chart(
 )
 st.altair_chart(debt_chart, use_container_width=True, theme=None)
 
-# --- YTD Summary metrics - 5 cards (FYTD'den, bn $) ---
 # --- YTD Summary metrics - 5 cards (FYTD'den, bn $) ---
 col1, col2, col3, col4, col5 = st.columns(5)
 with col1:
@@ -580,7 +562,6 @@ with col4:
 with col5:
     st.metric("YTD Net Result",   f"${fmt_bn(bn(net_fytd_m))}B",
               delta=("TGA Increased" if net_fytd_m >= 0 else "TGA Decreased"))
-
 
 
 # ---------------------------- Methodology -------------------------------
