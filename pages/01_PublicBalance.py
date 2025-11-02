@@ -515,10 +515,10 @@ else:
 
 
 
- def compute_components_for_fytd(df_day: pd.DataFrame) -> dict:
-    """Return FYTD totals (Taxes, Expenditures, NewDebt, Redemp) using transaction_fytd_amt."""
-    dep = df_day[df_day["transaction_type"] == "Deposits"].copy()
-    wdr = df_day[df_day["transaction_type"] == "Withdrawals"].copy()
+    def compute_components_for_fytd(df_day: pd.DataFrame) -> dict:
+        """Return FYTD totals (Taxes, Expenditures, NewDebt, Redemp) using transaction_fytd_amt."""
+        dep = df_day[df_day["transaction_type"] == "Deposits"].copy()
+        wdr = df_day[df_day["transaction_type"] == "Withdrawals"].copy()
 
     # --- Deposits ---
     dep_total_row = dep[dep["transaction_catg"].str.contains("Total TGA Deposits", na=False)]
