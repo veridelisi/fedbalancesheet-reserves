@@ -552,7 +552,8 @@ def compute_ytd_from_daily(df_all: pd.DataFrame,
 
 
 # --- 1) Hesapla (milyon $)
-ytd_daily = compute_ytd_from_daily(df_all, start_date="2025-01-02", end_date=latest_date)
+ytd_daily = compute_ytd_from_daily(df_ytd, start_date="2025-01-02", end_date=latest_date)
+
 
 # --- 2) Milyar $'a çevir
 ytd_taxes_bn   = bn(ytd_daily["ytd_taxes"])
