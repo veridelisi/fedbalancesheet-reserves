@@ -513,76 +513,77 @@ else:
     
     # YTD Debt Ops Bar Chart
 
-    def compute_ytd_from_daily(df_all: pd.DataFrame,
+    # ----------------------- YTD (2 Jan 2025 → latest) daily totals -----------------------
+
+# Fonksiyon: 2 Ocak 2025'ten itibaren günlük compute_components_for_day sonuçlarını toplar
+def compute_ytd_from_daily(df_all: pd.DataFrame,
                            start_date: str = "2025-01-02",
                            end_date: date | None = None) -> dict:
-   
-             if end_date is None:
-                end_date = df_all["record_date"].max()
+    """Sum daily components from start_date to end_date (in million $)."""
+    if end_date is None:
+        end_date = df_all["record_date"].max()
 
-                # Tarih filtresi (inclusive)
-                mask = (df_all["record_date"] >= pd.to_datetime(start_date).date()) & \
-                    (df_all["record_date"] <= end_date)
-                df_span = df_all.loc[mask].copy()
-                if df_span.empty:
-                    return {"ytd_taxes": 0.0, "ytd_expenditures": 0.0,
-                            "ytd_newdebt": 0.0, "ytd_redemp": 0.0}
+    mask = (df_all["record_date"] >= pd.to_datetime(start_date).date()) & \
+           (df_all["record_date"] <= end_date)
+    df_span = df_all.loc[mask].copy()
 
-                total_taxes = total_expenditures = total_newdebt = total_redemp = 0.0
+    if df_span.empty:
+        return {"ytd_taxes": 0.0, "ytd_expenditures": 0.0,
+                "ytd_newdebt": 0.0, "ytd_redemp": 0.0}
 
-                for d in sorted(df_span["record_date"].unique()):
-                    day_df = day_slice(df_span, d)
-                    if day_df.empty:
-                        continue
-                    comp = compute_components_for_day(day_df)  # uses transaction_today_amt
-                    total_taxes        += float(comp.get("taxes", 0.0) or 0.0)
-                    total_expenditures += float(comp.get("expenditures", 0.0) or 0.0)
-                    total_newdebt      += float(comp.get("newdebt", 0.0) or 0.0)
-                    total_redemp       += float(comp.get("redemp", 0.0) or 0.0)
+    total_taxes = total_expenditures = total_newdebt = total_redemp = 0.0
 
-                return {
-                    "ytd_taxes": total_taxes,
-                    "ytd_expenditures": total_expenditures,
-                    "ytd_newdebt": total_newdebt,
-                    "ytd_redemp": total_redemp,
-                }
+    for d in sorted(df_span["record_date"].unique()):
+        day_df = day_slice(df_span, d)
+        if day_df.empty:
+            continue
+        comp = compute_components_for_day(day_df)
+        total_taxes        += float(comp.get("taxes", 0.0) or 0.0)
+        total_expenditures += float(comp.get("expenditures", 0.0) or 0.0)
+        total_newdebt      += float(comp.get("newdebt", 0.0) or 0.0)
+        total_redemp       += float(comp.get("redemp", 0.0) or 0.0)
+
+    return {
+        "ytd_taxes": total_taxes,
+        "ytd_expenditures": total_expenditures,
+        "ytd_newdebt": total_newdebt,
+        "ytd_redemp": total_redemp,
+    }
 
 
+# --- 1) Hesapla (milyon $)
+ytd_daily = compute_ytd_from_daily(df_all, start_date="2025-01-02", end_date=latest_date)
 
-    st# --- YTD (2 Jan 2025 → latest) günlük toplam ---
-    ytd_daily = compute_ytd_from_daily(df_all, start_date="2025-01-02", end_date=latest_date)
+# --- 2) Milyar $'a çevir
+ytd_taxes_bn   = bn(ytd_daily["ytd_taxes"])
+ytd_expend_bn  = bn(ytd_daily["ytd_expenditures"])
+ytd_newdebt_bn = bn(ytd_daily["ytd_newdebt"])
+ytd_redemp_bn  = bn(ytd_daily["ytd_redemp"])
+ytd_net_bn     = ytd_taxes_bn + ytd_newdebt_bn - ytd_expend_bn - ytd_redemp_bn
 
-    ytd_taxes_bn   = bn(ytd_daily["ytd_taxes"])
-    ytd_expend_bn  = bn(ytd_daily["ytd_expenditures"])
-    ytd_newdebt_bn = bn(ytd_daily["ytd_newdebt"])
-    ytd_redemp_bn  = bn(ytd_daily["ytd_redemp"])
-    ytd_net_bn     = ytd_taxes_bn + ytd_newdebt_bn - ytd_expend_bn - ytd_redemp_bn
+# --- 3) YTD Debt Chart (günlük toplamlarla)
+st.markdown("**YTD Debt Operations**")
+debt_chart = debt_bar_chart(
+    ytd_newdebt_bn,
+    ytd_redemp_bn,
+    title=f"YTD New Debt vs Redemptions (2025-01-02 to {latest_date.strftime('%Y-%m-%d')})"
+)
+st.altair_chart(debt_chart, use_container_width=True, theme=None)
 
-    # --- YTD Debt chart (günlük toplamlarla) ---
-    st.markdown("**YTD Debt Operations**")
-    debt_chart = debt_bar_chart(
-        ytd_newdebt_bn,
-        ytd_redemp_bn,
-        title=f"YTD New Debt vs Redemptions (2025-01-02 to {latest_date.strftime('%Y-%m-%d')})"
-    )
-    st.altair_chart(debt_chart, use_container_width=True, theme=None)
+# --- 4) YTD Summary metrics (günlük toplamlarla)
+col1, col2, col3, col4, col5 = st.columns(5)
+with col1:
+    st.metric("YTD Taxes", f"${fmt_bn(ytd_taxes_bn)}B")
+with col2:
+    st.metric("YTD Expenditures", f"${fmt_bn(ytd_expend_bn)}B")
+with col3:
+    st.metric("YTD New Debt", f"${fmt_bn(ytd_newdebt_bn)}B")
+with col4:
+    st.metric("YTD Redemptions", f"${fmt_bn(ytd_redemp_bn)}B")
+with col5:
+    st.metric("YTD Net Result", f"${fmt_bn(ytd_net_bn)}B",
+              delta=("TGA Increased" if ytd_net_bn >= 0 else "TGA Decreased"))
 
-    # --- YTD Summary metrics (günlük toplamlarla) ---
-    col1, col2, col3, col4, col5 = st.columns(5)
-    with col1:
-        st.metric("YTD Taxes",        f"${fmt_bn(ytd_taxes_bn)}B")
-    with col2:
-        st.metric("YTD Expenditures", f"${fmt_bn(ytd_expend_bn)}B")
-    with col3:
-        st.metric("YTD New Debt",     f"${fmt_bn(ytd_newdebt_bn)}B")
-    with col4:
-        st.metric("YTD Redemptions",  f"${fmt_bn(ytd_redemp_bn)}B")
-    with col5:
-        st.metric("YTD Net Result",   f"${fmt_bn(ytd_net_bn)}B",
-                delta=("TGA Increased" if ytd_net_bn >= 0 else "TGA Decreased"))
-    .markdown("**YTD Debt Operations**")
-
- 
 
 
 # ---------------------------- Methodology -------------------------------
