@@ -515,53 +515,42 @@ else:
 
 
 
-  # --- FYTD değerlerini doğrudan veritabanından çek (m$) ---
+ def compute_components_for_fytd(df_day: pd.DataFrame) -> dict:
+    """Return FYTD totals (Taxes, Expenditures, NewDebt, Redemp) using transaction_fytd_amt."""
+    dep = df_day[df_day["transaction_type"] == "Deposits"].copy()
+    wdr = df_day[df_day["transaction_type"] == "Withdrawals"].copy()
 
-def fytd_pick(df_day, ttype, pattern):
-    m = (
-        (df_day["transaction_type"] == ttype) &
-        (df_day["transaction_catg"].astype(str)
-           .str.contains(pattern, case=False, na=False, regex=True))
+    # --- Deposits ---
+    dep_total_row = dep[dep["transaction_catg"].str.contains("Total TGA Deposits", na=False)]
+    dep_total = dep_total_row["transaction_fytd_amt"].sum() if not dep_total_row.empty \
+                else (dep["transaction_fytd_amt"].iloc[-1] if len(dep) else 0.0)
+
+    new_debt_row = dep[dep["transaction_catg"].str.contains("Public Debt Cash Issues", na=False)]
+    new_debt = new_debt_row["transaction_fytd_amt"].sum() if not new_debt_row.empty \
+               else (dep["transaction_fytd_amt"].iloc[-2] if len(dep) >= 2 else 0.0)
+
+    taxes = dep_total - new_debt
+
+    # --- Withdrawals ---
+    wdr_total_row = wdr[wdr["transaction_catg"].str.contains("Total TGA Withdrawals", na=False)]
+    wdr_total = wdr_total_row["transaction_fytd_amt"].sum() if not wdr_total_row.empty \
+                else (wdr["transaction_fytd_amt"].iloc[-1] if len(wdr) else 0.0)
+
+    redemp_row = wdr[wdr["transaction_catg"].str.contains("Public Debt Cash Redemptions", na=False)]
+    redemp = redemp_row["transaction_fytd_amt"].sum() if not redemp_row.empty \
+             else (wdr["transaction_fytd_amt"].iloc[-2] if len(wdr) >= 2 else 0.0)
+
+    expenditures = wdr_total - redemp
+
+    return dict(
+        taxes=taxes,
+        expenditures=expenditures,
+        newdebt=new_debt,
+        redemp=redemp,
+        deposits_total=dep_total,
+        withdrawals_total=wdr_total,
     )
-    return float(df_day.loc[m, "transaction_fytd_amt"].sum())
 
-# 1) Totaller (doğrudan FYTD)
-dep_total_fytd_m = fytd_pick(df_latest, "Deposits",    r"^Total(\sTGA)?\s*Deposits$")
-wdr_total_fytd_m = fytd_pick(df_latest, "Withdrawals", r"^Total(\sTGA)?\s*Withdrawals$")
-
-# 2) Debt kalemleri (FYTD)
-new_fytd_m = fytd_pick(df_latest, "Deposits",    r"^Public Debt Cash Issues")
-red_fytd_m = fytd_pick(df_latest, "Withdrawals", r"^Public Debt Cash Redemp")
-
-# 3) Kartlar için doğrudan değerler
-tax_fytd_m = dep_total_fytd_m            # YTD Taxes  = Total Deposits (FYTD)
-exp_fytd_m = wdr_total_fytd_m            # YTD Expend. = Total Withdrawals (FYTD)
-
-# 4) Net = Total Deposits FYTD − Total Withdrawals FYTD  (debt'i ayrıca gösteriyoruz)
-net_fytd_m = dep_total_fytd_m - wdr_total_fytd_m
-
-# --- YTD Debt Chart (FYTD Issues vs Redemptions, bn $) ---
-st.markdown("**YTD Debt Operations**")
-debt_chart = debt_bar_chart(
-    bn(new_fytd_m),
-    bn(red_fytd_m),
-    title=f"YTD New Debt vs Redemptions (Fiscal YTD to {ytd_end})"
-)
-st.altair_chart(debt_chart, use_container_width=True, theme=None)
-
-# --- YTD Summary metrics - 5 cards (FYTD'den, bn $) ---
-col1, col2, col3, col4, col5 = st.columns(5)
-with col1:
-    st.metric("YTD Taxes",        f"${fmt_bn(bn(tax_fytd_m))}B")
-with col2:
-    st.metric("YTD Expenditures", f"${fmt_bn(bn(exp_fytd_m))}B")
-with col3:
-    st.metric("YTD New Debt",     f"${fmt_bn(bn(new_fytd_m))}B")
-with col4:
-    st.metric("YTD Redemptions",  f"${fmt_bn(bn(red_fytd_m))}B")
-with col5:
-    st.metric("YTD Net Result",   f"${fmt_bn(bn(net_fytd_m))}B",
-              delta=("TGA Increased" if net_fytd_m >= 0 else "TGA Decreased"))
 
 
 # ---------------------------- Methodology -------------------------------
