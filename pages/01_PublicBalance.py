@@ -567,18 +567,20 @@ debt_chart = debt_bar_chart(
 st.altair_chart(debt_chart, use_container_width=True, theme=None)
 
 # --- YTD Summary metrics - 5 cards (FYTD'den, bn $) ---
+# --- YTD Summary metrics - 5 cards (FYTD'den, bn $) ---
 col1, col2, col3, col4, col5 = st.columns(5)
 with col1:
-    st.metric("YTD Taxes",        f\"${fmt_bn(bn(tax_fytd_m))}B\")
+    st.metric("YTD Taxes",        f"${fmt_bn(bn(tax_fytd_m))}B")
 with col2:
-    st.metric("YTD Expenditures", f\"${fmt_bn(bn(exp_fytd_m))}B\")
+    st.metric("YTD Expenditures", f"${fmt_bn(bn(exp_fytd_m))}B")
 with col3:
-    st.metric("YTD New Debt",     f\"${fmt_bn(bn(new_fytd_m))}B\")
+    st.metric("YTD New Debt",     f"${fmt_bn(bn(new_fytd_m))}B")
 with col4:
-    st.metric("YTD Redemptions",  f\"${fmt_bn(bn(red_fytd_m))}B\")
+    st.metric("YTD Redemptions",  f"${fmt_bn(bn(red_fytd_m))}B")
 with col5:
-    st.metric("YTD Net Result",   f\"${fmt_bn(bn(net_fytd_m))}B\",
+    st.metric("YTD Net Result",   f"${fmt_bn(bn(net_fytd_m))}B",
               delta=("TGA Increased" if net_fytd_m >= 0 else "TGA Decreased"))
+
 
 
 # ---------------------------- Methodology -------------------------------
