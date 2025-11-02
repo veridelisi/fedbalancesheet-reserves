@@ -516,40 +516,36 @@ else:
     def compute_ytd_from_daily(df_all: pd.DataFrame,
                            start_date: str = "2025-01-02",
                            end_date: date | None = None) -> dict:
-    """
-    2 Ocak 2025'ten (veya verilen tarihten) end_date'e kadar
-    günlük compute_components_for_day sonuçlarını toplayıp
-    YTD toplamları döndürür. (Birim: milyon $)
-    """
-    if end_date is None:
-        end_date = df_all["record_date"].max()
+   
+             if end_date is None:
+                end_date = df_all["record_date"].max()
 
-    # Tarih filtresi (inclusive)
-    mask = (df_all["record_date"] >= pd.to_datetime(start_date).date()) & \
-           (df_all["record_date"] <= end_date)
-    df_span = df_all.loc[mask].copy()
-    if df_span.empty:
-        return {"ytd_taxes": 0.0, "ytd_expenditures": 0.0,
-                "ytd_newdebt": 0.0, "ytd_redemp": 0.0}
+                # Tarih filtresi (inclusive)
+                mask = (df_all["record_date"] >= pd.to_datetime(start_date).date()) & \
+                    (df_all["record_date"] <= end_date)
+                df_span = df_all.loc[mask].copy()
+                if df_span.empty:
+                    return {"ytd_taxes": 0.0, "ytd_expenditures": 0.0,
+                            "ytd_newdebt": 0.0, "ytd_redemp": 0.0}
 
-    total_taxes = total_expenditures = total_newdebt = total_redemp = 0.0
+                total_taxes = total_expenditures = total_newdebt = total_redemp = 0.0
 
-    for d in sorted(df_span["record_date"].unique()):
-        day_df = day_slice(df_span, d)
-        if day_df.empty:
-            continue
-        comp = compute_components_for_day(day_df)  # uses transaction_today_amt
-        total_taxes        += float(comp.get("taxes", 0.0) or 0.0)
-        total_expenditures += float(comp.get("expenditures", 0.0) or 0.0)
-        total_newdebt      += float(comp.get("newdebt", 0.0) or 0.0)
-        total_redemp       += float(comp.get("redemp", 0.0) or 0.0)
+                for d in sorted(df_span["record_date"].unique()):
+                    day_df = day_slice(df_span, d)
+                    if day_df.empty:
+                        continue
+                    comp = compute_components_for_day(day_df)  # uses transaction_today_amt
+                    total_taxes        += float(comp.get("taxes", 0.0) or 0.0)
+                    total_expenditures += float(comp.get("expenditures", 0.0) or 0.0)
+                    total_newdebt      += float(comp.get("newdebt", 0.0) or 0.0)
+                    total_redemp       += float(comp.get("redemp", 0.0) or 0.0)
 
-    return {
-        "ytd_taxes": total_taxes,
-        "ytd_expenditures": total_expenditures,
-        "ytd_newdebt": total_newdebt,
-        "ytd_redemp": total_redemp,
-    }
+                return {
+                    "ytd_taxes": total_taxes,
+                    "ytd_expenditures": total_expenditures,
+                    "ytd_newdebt": total_newdebt,
+                    "ytd_redemp": total_redemp,
+                }
 
 
 
