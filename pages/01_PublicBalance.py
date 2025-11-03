@@ -543,38 +543,88 @@ with st.expander("🔎 Click to expand methodology details", expanded=False):
     st.markdown(
         """
 **What this page shows**  
-- 🧾 Decomposition of the Federal public cash position into **Taxes**, **Expenditures**, and **Debt operations**.  
-- 🧮 Two lenses: **daily result** and **fiscal year-to-date (FYTD)** aggregates starting **Oct 1**.
+- 🧾 Decomposes the U.S. federal **public cash balance** into:  
+  **Taxes**, **Expenditures**, **New Debt (IIIB)**, and **Debt Redemptions (IIIB)**.  
+- 📅 Two perspectives: **Daily** and **Fiscal Year-to-Date (FYTD)** starting **October 1**.
 
 ---
 
-### 🧮 Calculation logic (daily)
-- 💵 **Taxes** = **Total TGA Deposits (DTS Table II)** − **Public Debt Cash Issues (DTS Table IIIB)**  
-- 🧾 **Expenditures** = **Total TGA Withdrawals (DTS Table II)** − **Public Debt Cash Redemptions (DTS Table IIIB)**  
-- 🔗 **Debt operations** are shown separately as:
-  - **New Debt (Issues)** = Public Debt Cash Issues (IIIB)  
-  - **Redemptions** = Public Debt Cash Redemptions (IIIB)  
-- 📊 **Daily Result (Δ cash)** = **Taxes + New Debt − Expenditures − Redemptions**  
+## 🔌 Data Source & Fields
+- 🇺🇸 **U.S. Treasury Fiscal Data – Daily Treasury Statement (DTS)**  
+  Endpoint: `services/api/fiscal_service/v1/accounting/dts/deposits_withdrawals_operating_cash`  
+- 📑 Columns used:
+  - `record_date` — statement date  
+  - `transaction_type` ∈ {`Deposits`, `Withdrawals`}  
+  - `transaction_catg` — line/category label  
+  - `account_type` — may appear in some datasets  
+  - `transaction_today_amt`, `transaction_mtd_amt`, `transaction_fytd_amt` (millions USD)
+
+- 💵 **Units:** API returns **millions USD**, dashboard displays **billions USD** (÷ 1,000).
 
 ---
 
-### 📅 FYTD analysis
-- 🧷 Period starts **Oct 1** (U.S. federal fiscal year).  
-- ➕ FYTD values taken directly from `transaction_fytd_amt` (no manual summing).  
-- 🧮 **YTD Net result** = **Taxes + Issues − Expenditures − Redemptions** (all FYTD).
+## 🏷️ Row-Matching Logic (Regex-Based, Position-Independent)
+| Component | How It’s Found in the Data |
+|------------|----------------------------|
+| **New Debt (Issues, IIIB)** | `transaction_type = Deposits` AND `transaction_catg` contains “Public Debt Cash Issues” |
+| **Debt Redemptions (IIIB)** | `transaction_type = Withdrawals` AND `transaction_catg` contains “Public Debt Cash Redemp” |
+| **Total TGA Deposits (Table II)** | Prefer rows where `transaction_catg` is null → regex `Total Deposits | Total TGA Deposits` |
+| **Total TGA Withdrawals (Table II)** | Prefer rows where `transaction_catg` is null → regex `Total Withdrawals | Total TGA Withdrawals` |
+
+> ⚙️ Because line positions shift daily, matching is **text-based (regex)**, not row-number-based.  
+> `account_type` is used when available; otherwise the match relies solely on `transaction_catg`.
 
 ---
 
-### 🗂️ Data source
-- 🇺🇸 **U.S. Treasury – Fiscal Data (Daily Treasury Statement)**  
-  Dataset: `deposits_withdrawals_operating_cash` (Tables II & IIIB mapping).  
+## 📆 Daily Calculation Formulas
+- 💵 **Taxes (daily)**  
+  `Taxes = Total TGA Deposits (Table II) – Public Debt Cash Issues (Table IIIB)`
+- 🧾 **Expenditures (daily)**  
+  `Expenditures = Total TGA Withdrawals (Table II) – Public Debt Cash Redemptions (Table IIIB)`
+- 🧷 **Debt operations (daily)**  
+  - `New Debt (Issues) = Public Debt Cash Issues (IIIB)`  
+  - `Redemptions = Public Debt Cash Redemp. (IIIB)`
+- 📊 **Daily Result (Δ TGA)**  
+  `Δ TGA = Taxes + Issues – Expenditures – Redemptions`
 
 ---
 
-### ⚙️ Units
-- API returns **millions of USD** → dashboards display **billions** (÷1,000).
-        """
-    )
+## 🗓️ FYTD (Fiscal Year-to-Date) Logic — starting Oct 1
+- ⛳ Fiscal year begins **October 1**.  
+- 🧮 FYTD values are **taken directly** from `transaction_fytd_amt` — no manual summation.  
+- 🔢 Formulas (in millions USD):
+  - `YTD New Debt = FYTD(Public Debt Cash Issues)`
+  - `YTD Redemptions = FYTD(Public Debt Cash Redemp.)`
+  - `YTD Taxes = FYTD(Total TGA Deposits) – FYTD(Public Debt Cash Issues)`
+  - `YTD Expenditures = FYTD(Total TGA Withdrawals) – FYTD(Public Debt Cash Redemp.)`
+  - `YTD Net Result = YTD Taxes + YTD New Debt – YTD Expenditures – YTD Redemptions`
+
+---
+
+## 🔝 Top-10 Tables
+- **Daily Top-10:**  
+  From the day’s `Deposits`/`Withdrawals`; drop *Issues*, *Redemptions*, and *Total* rows,  
+  rank remaining categories by amount, and show percentage share of **Taxes** or **Expenditures**.  
+- **FYTD Top-10:**  
+  Same logic using the day’s **`transaction_fytd_amt`**, excluding *Debt* / *Total* labels via regex.
+
+---
+
+## 🧪 Edge Cases & Validation
+- 🔄 Column shifts or blank `transaction_catg` handled via regex and `__NULL__` filter.  
+- 🧩 Multiple matches → select the **largest value** (per category) since FYTD totals may repeat.  
+- 📉 Negative daily values can occur (DTS shows same-day in/out flows net).  
+- 🧠 Caching via `@st.cache_data(ttl = 1800)` — API requests cached for 30 minutes.  
+- 💰 Unit check: API = millions USD → Dashboard = billions USD.
+
+---
+
+## 🧷 Abbreviations
+- **TGA** — Treasury General Account  
+- **DTS** — Daily Treasury Statement  
+- **II** — Table II (Operating Cash Deposits / Withdrawals Totals)  
+- **IIIB** — Table IIIB (Public Debt Cash Issues / Redemptions)
+
 
 # --------------------------- Footer -------------------------------
 st.markdown(
