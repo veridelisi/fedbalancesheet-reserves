@@ -9,7 +9,7 @@ from datetime import date, timedelta
 from dateutil.relativedelta import relativedelta
 import streamlit as st
 from textwrap import dedent
-
+import re
 
 st.set_page_config(page_title="Public Balance (Taxes, Expenditures, New Debt, Debt Redemptions)", layout="wide")
 # --- Gezinme Barı (Yatay Menü, saf Streamlit) ---
@@ -32,8 +32,6 @@ with cols[6]:
 with cols[7]:
     st.page_link("pages/01_Eurodollar.py", label="💡 Eurodollar")
 
-
-
 # --- Sol menü sakla ---
 st.markdown("""
     <style>
@@ -42,11 +40,8 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-
-
 st.title("🏦 Public Balance (Taxes, Expenditures, New Debt, Debt Redemptions)")
-st.caption("Latest snapshot • Annual compare (YoY or fixed 2025-01-01) • Daily Top-10 breakdowns")
-
+st.caption("Latest snapshot • Fiscal YTD (1 Oct) • Daily Top-10 breakdowns")
 
 # -------------------------- Helpers ----------------------------------
 
@@ -73,6 +68,59 @@ def fmt_bn(x):
     except Exception:
         return "0.0"
 
+# --- FYTD row picker (esnek; CSV'deki isim değişse de regex ile yakalar) ---
+def pick_amount(df_day: pd.DataFrame, tx_type: str, account_pat: str | None, catg_pat: str | None,
+                which: str = "transaction_fytd_amt") -> float:
+    """
+    Tek gün datasından istenen satırın miktarını döndürür.
+    - tx_type: 'Deposits' / 'Withdrawals'
+    - account_pat: 'Treasury General Account' / 'Total Deposits' / 'Total Withdrawals' vb. (regex)
+                   None ise filtre uygulanmaz.
+    - catg_pat: 'Public Debt Cash Issues' / 'Public Debt Cash Redemp' vb. (regex)
+                '__NULL__' => transaction_catg boş olanlar.
+                None ise filtre uygulanmaz.
+    - which: 'transaction_today_amt' / 'transaction_mtd_amt' / 'transaction_fytd_amt'
+    """
+    d = df_day[df_day["transaction_type"].str.lower().eq(tx_type.lower())].copy()
+
+    if account_pat:
+        if "account_type" in d.columns:
+            d = d[d["account_type"].astype(str).str.contains(account_pat, case=False, na=False, regex=True)]
+        else:
+            # bazı eski dökümlerde "account_type" yoksa, tüm satırlarda aramayalım
+            pass
+
+    if catg_pat is not None:
+        if catg_pat == "__NULL__":
+            mask_null = d["transaction_catg"].isna() | d["transaction_catg"].astype(str).str.lower().isin(["", "null", "none", "nan"])
+            d = d[mask_null]
+        else:
+            d = d[d["transaction_catg"].astype(str).str.contains(catg_pat, case=False, na=False, regex=True)]
+
+    if d.empty:
+        # fallback: doğrudan bilinen metinleri tarayalım
+        if tx_type.lower() == "deposits" and catg_pat == "__NULL__":
+            d = df_day[(df_day["transaction_type"]=="Deposits") &
+                       (df_day["transaction_catg"].astype(str).str.contains("Total TGA Deposits|Total Deposits",
+                                                                           case=False, na=False, regex=True))]
+        elif tx_type.lower() == "withdrawals" and catg_pat == "__NULL__":
+            d = df_day[(df_day["transaction_type"]=="Withdrawals") &
+                       (df_day["transaction_catg"].astype(str).str.contains("Total TGA Withdrawals|Total Withdrawals",
+                                                                           case=False, na=False, regex=True))]
+        elif tx_type.lower() == "deposits" and catg_pat:
+            d = df_day[(df_day["transaction_type"]=="Deposits") &
+                       (df_day["transaction_catg"].astype(str).str.contains("Public Debt Cash Issues", case=False, na=False))]
+        elif tx_type.lower() == "withdrawals" and catg_pat:
+            d = df_day[(df_day["transaction_type"]=="Withdrawals") &
+                       (df_day["transaction_catg"].astype(str).str.contains("Public Debt Cash Redemp", case=False, na=False))]
+
+    if d.empty:
+        return 0.0
+
+    val = pd.to_numeric(d.get(which, 0.0), errors="coerce").fillna(0.0)
+    # aynı başlık birden fazla alt satırda gelebilir; FYTD için en büyük/son değer genelde total'dir
+    return float(val.max())
+
 @st.cache_data(ttl=1800)
 def fetch_latest_window(page_size: int = 500) -> pd.DataFrame:
     """Fetch recent DTS window sorted by date desc."""
@@ -83,21 +131,20 @@ def fetch_latest_window(page_size: int = 500) -> pd.DataFrame:
 
     # normalize  (FETCH_LATEST_WINDOW)
     for c in ("record_date", "transaction_type", "transaction_catg",
-            "transaction_today_amt", "transaction_fytd_amt"):
+              "transaction_today_amt", "transaction_mtd_amt", "transaction_fytd_amt",
+              "account_type"):
         if c not in df.columns:
             df[c] = None
 
     df["record_date"] = pd.to_datetime(df["record_date"], errors="coerce").dt.date
     df = df.dropna(subset=["record_date"])
-    df["transaction_today_amt"] = df["transaction_today_amt"].apply(to_float)
-    df["transaction_fytd_amt"]  = df["transaction_fytd_amt"].apply(to_float)
-
+    for c in ("transaction_today_amt","transaction_mtd_amt","transaction_fytd_amt"):
+        df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0.0)
     return df
 
 @st.cache_data(ttl=1800)
 def fetch_ytd_data(start_date: str, end_date: str) -> pd.DataFrame:
-    """Fetch YTD data from start_date to end_date."""
-    # Bu endpoint paginated olabilir, büyük date range için birden fazla call gerekebilir
+    """Fetch YTD data from start_date to end_date. (Gerekirse kullanılır; mevcut akış FYTD'yi tek günden alıyor.)"""
     all_data = []
     page_size = 10000
     
@@ -123,14 +170,14 @@ def fetch_ytd_data(start_date: str, end_date: str) -> pd.DataFrame:
     
     # normalize  (FETCH_YTD_DATA)
     for c in ("record_date", "transaction_type", "transaction_catg",
-            "transaction_today_amt", "transaction_fytd_amt"):
+              "transaction_today_amt", "transaction_fytd_amt", "account_type"):
         if c not in df.columns:
             df[c] = None
 
     df["record_date"] = pd.to_datetime(df["record_date"], errors="coerce").dt.date
     df = df.dropna(subset=["record_date"])
-    df["transaction_today_amt"] = df["transaction_today_amt"].apply(to_float)
-    df["transaction_fytd_amt"]  = df["transaction_fytd_amt"].apply(to_float)
+    df["transaction_today_amt"] = pd.to_numeric(df["transaction_today_amt"], errors="coerce").fillna(0.0)
+    df["transaction_fytd_amt"]  = pd.to_numeric(df["transaction_fytd_amt"],  errors="coerce").fillna(0.0)
 
     return df
 
@@ -144,12 +191,12 @@ def compute_components_for_day(df_day: pd.DataFrame) -> dict:
 
     # --- Deposits ---
     # Total deposits (Table II)
-    dep_total_row = dep[dep["transaction_catg"].str.contains("Total TGA Deposits", na=False)]
+    dep_total_row = dep[dep["transaction_catg"].astype(str).str.contains("Total TGA Deposits|Total Deposits", na=False, case=False)]
     dep_total = dep_total_row["transaction_today_amt"].sum() if not dep_total_row.empty \
                 else (dep["transaction_today_amt"].iloc[-1] if len(dep) else 0.0)
 
     # Public Debt Cash Issues (Table IIIB)
-    new_debt_row = dep[dep["transaction_catg"].str.contains("Public Debt Cash Issues", na=False)]
+    new_debt_row = dep[dep["transaction_catg"].astype(str).str.contains("Public Debt Cash Issues", na=False, case=False)]
     new_debt = new_debt_row["transaction_today_amt"].sum() if not new_debt_row.empty \
                else (dep["transaction_today_amt"].iloc[-2] if len(dep) >= 2 else 0.0)
 
@@ -157,12 +204,12 @@ def compute_components_for_day(df_day: pd.DataFrame) -> dict:
 
     # --- Withdrawals ---
     # Total withdrawals (Table II)
-    wdr_total_row = wdr[wdr["transaction_catg"].str.contains("Total TGA Withdrawals", na=False)]
+    wdr_total_row = wdr[wdr["transaction_catg"].astype(str).str.contains("Total TGA Withdrawals|Total Withdrawals", na=False, case=False)]
     wdr_total = wdr_total_row["transaction_today_amt"].sum() if not wdr_total_row.empty \
                 else (wdr["transaction_today_amt"].iloc[-1] if len(wdr) else 0.0)
 
     # Public Debt Cash Redemptions (Table IIIB)
-    redemp_row = wdr[wdr["transaction_catg"].str.contains("Public Debt Cash Redemptions", na=False)]
+    redemp_row = wdr[wdr["transaction_catg"].astype(str).str.contains("Public Debt Cash Redemp", na=False, case=False)]
     redemp = redemp_row["transaction_today_amt"].sum() if not redemp_row.empty \
              else (wdr["transaction_today_amt"].iloc[-2] if len(wdr) >= 2 else 0.0)
 
@@ -196,7 +243,7 @@ def top10_withdrawals_simple(df_day: pd.DataFrame, expend_m: float, n: int = 10)
     if len(w) >= 2:
         w = w.iloc[:-2]  # drop (Redemptions + Total)
     w = w[w["transaction_catg"].notna()]
-    w = w[~w["transaction_catg"].str.contains("Total|Public Debt Cash Redemptions", na=False)]
+    w = w[~w["transaction_catg"].str.contains("Total|Public Debt Cash Redemptions|Public Debt Cash Redemp", na=False)]
     w = w[["transaction_catg", "transaction_today_amt"]]
     out = (w.sort_values("transaction_today_amt", ascending=False)
              .head(n)
@@ -204,82 +251,32 @@ def top10_withdrawals_simple(df_day: pd.DataFrame, expend_m: float, n: int = 10)
     out["Percentage in Expenditures"] = (out["Amount (m$)"] / expend_m * 100.0) if expend_m else 0.0
     return out.reset_index(drop=True)
 
-# YTD agregasyon fonksiyonları
-def top10_ytd_deposits(df_ytd: pd.DataFrame, ytd_taxes_m: float, n: int = 10) -> pd.DataFrame:
-    """YTD deposits aggregated by category - ONLY tax categories."""
-    d = df_ytd[df_ytd["transaction_type"] == "Deposits"].copy()
-    
-    # Temiz kategori filtreleme
+# FYTD Top-10 (tek gün datasındaki FYTD sütununu kullanır)
+def top10_fytd_deposits_day(df_day: pd.DataFrame, ytd_taxes_m: float, n: int = 10) -> pd.DataFrame:
+    d = df_day[df_day["transaction_type"] == "Deposits"].copy()
     d["transaction_catg"] = d["transaction_catg"].astype(str)
     d = d.dropna(subset=["transaction_catg"])
-    d = d[d["transaction_catg"].str.strip() != ""]
-    d = d[d["transaction_catg"] != "nan"]
-    d = d[d["transaction_catg"] != "None"]
-    
-    # Debt ve total kategorilerini çıkar
-    d = d[~d["transaction_catg"].str.contains("Total|Public Debt|Debt", na=False, case=False)]
-    # null temizliği
-    d = d[~d["transaction_catg"].str.lower().eq("null")]
+    d = d[~d["transaction_catg"].str.contains("Total|Public Debt|Debt", case=False, na=False)]
+    d = d[~d["transaction_catg"].str.lower().isin(["", "null", "none", "nan"])]
 
-    
-    # Kategori bazında toplam
-    agg = d.groupby("transaction_catg")["transaction_today_amt"].sum().reset_index()
-    agg = agg[agg["transaction_today_amt"] > 0]  # Pozitif değerler
-    agg = agg.sort_values("transaction_today_amt", ascending=False).head(n)
-    agg = agg.rename(columns={"transaction_catg": "Category", "transaction_today_amt": "YTD Amount (m$)"})
+    agg = (d.groupby("transaction_catg", as_index=False)["transaction_fytd_amt"].sum()
+             .rename(columns={"transaction_catg":"Category","transaction_fytd_amt":"YTD Amount (m$)"}))
+    agg = agg[agg["YTD Amount (m$)"] > 0].sort_values("YTD Amount (m$)", ascending=False).head(n)
     agg["Percentage in YTD Taxes"] = (agg["YTD Amount (m$)"] / ytd_taxes_m * 100.0) if ytd_taxes_m else 0.0
     return agg.reset_index(drop=True)
 
-def top10_ytd_withdrawals(df_ytd: pd.DataFrame, ytd_expend_m: float, n: int = 10) -> pd.DataFrame:
-    """YTD withdrawals aggregated by category - ONLY expenditure categories."""
-    w = df_ytd[df_ytd["transaction_type"] == "Withdrawals"].copy()
-    
-    # Temiz kategori filtreleme
+def top10_fytd_withdrawals_day(df_day: pd.DataFrame, ytd_expend_m: float, n: int = 10) -> pd.DataFrame:
+    w = df_day[df_day["transaction_type"] == "Withdrawals"].copy()
     w["transaction_catg"] = w["transaction_catg"].astype(str)
     w = w.dropna(subset=["transaction_catg"])
-    w = w[w["transaction_catg"].str.strip() != ""]
-    w = w[w["transaction_catg"] != "nan"]
-    w = w[w["transaction_catg"] != "None"]
-    
-    # Debt ve total kategorilerini çıkar
-    w = w[~w["transaction_catg"].str.contains("Total|Public Debt|Debt|Redemption", na=False, case=False)]
-    # null temizliği
-    w = w[~w["transaction_catg"].str.lower().eq("null")]
+    w = w[~w["transaction_catg"].str.contains("Total|Public Debt|Debt|Redemp", case=False, na=False)]
+    w = w[~w["transaction_catg"].str.lower().isin(["", "null", "none", "nan"])]
 
-    # Kategori bazında toplam
-    agg = w.groupby("transaction_catg")["transaction_today_amt"].sum().reset_index()
-    agg = agg[agg["transaction_today_amt"] > 0]  # Pozitif değerler
-    agg = agg.sort_values("transaction_today_amt", ascending=False).head(n)
-    agg = agg.rename(columns={"transaction_catg": "Category", "transaction_today_amt": "YTD Amount (m$)"})
+    agg = (w.groupby("transaction_catg", as_index=False)["transaction_fytd_amt"].sum()
+             .rename(columns={"transaction_catg":"Category","transaction_fytd_amt":"YTD Amount (m$)"}))
+    agg = agg[agg["YTD Amount (m$)"] > 0].sort_values("YTD Amount (m$)", ascending=False).head(n)
     agg["Percentage in YTD Expenditures"] = (agg["YTD Amount (m$)"] / ytd_expend_m * 100.0) if ytd_expend_m else 0.0
     return agg.reset_index(drop=True)
-
-def compute_ytd_totals(df_ytd: pd.DataFrame) -> dict:
-    """Compute YTD totals for all components."""
-    # Her gün için compute edip topla
-    dates = sorted(df_ytd["record_date"].unique())
-    
-    total_taxes = 0.0
-    total_expenditures = 0.0
-    total_newdebt = 0.0
-    total_redemp = 0.0
-    
-    for d in dates:
-        day_data = day_slice(df_ytd, d)
-        if day_data.empty:
-            continue
-        components = compute_components_for_day(day_data)
-        total_taxes += components.get("taxes", 0.0)
-        total_expenditures += components.get("expenditures", 0.0)
-        total_newdebt += components.get("newdebt", 0.0)
-        total_redemp += components.get("redemp", 0.0)
-    
-    return {
-        "ytd_taxes": total_taxes,
-        "ytd_expenditures": total_expenditures,
-        "ytd_newdebt": total_newdebt,
-        "ytd_redemp": total_redemp
-    }
 
 def debt_bar_chart(new_debt_bn: float, redemp_bn: float, title: str = ""):
     """Modern bar chart for New Debt vs Redemptions."""
@@ -302,7 +299,6 @@ def debt_bar_chart(new_debt_bn: float, redemp_bn: float, title: str = ""):
         ]
     )
     
-    # Bar colors: New Debt = blue, Redemptions = red
     bars = base.mark_bar(
         cornerRadius=12,
         opacity=0.9,
@@ -314,7 +310,6 @@ def debt_bar_chart(new_debt_bn: float, redemp_bn: float, title: str = ""):
                        scale=alt.Scale(range=["#3b82f6", "#ef4444"]))
     )
     
-    # Value labels on bars
     labels = base.mark_text(
         dy=-15,
         align="center",
@@ -325,7 +320,6 @@ def debt_bar_chart(new_debt_bn: float, redemp_bn: float, title: str = ""):
         text=alt.Text("Amount:Q", format=",.1f")
     )
     
-    # Shadow effect
     shadow = base.mark_bar(
         cornerRadius=12,
         opacity=0.15,
@@ -467,53 +461,81 @@ with right:
         expend_top["Percentage in Expenditures"] = expend_top["Percentage in Expenditures"].round(1).map(lambda v: f"{v:.1f}%")
     st.dataframe(expend_top, use_container_width=True)
 
-# ----------------------- YTD Analysis (2025-01-01 to latest) ----------------------
-
+# ----------------------- FYTD Analysis (fiscal year, as of latest day) ----------------------
 st.markdown("---")
-st.subheader(f"Year-to-Date Analysis (2025-01-01 to {latest_date.strftime('%Y-%m-%d')})")
+st.subheader(f"Fiscal Year-to-Date (FYTD) — as of {latest_date.strftime('%Y-%m-%d')}")
 
-# YTD data fetch
-ytd_start = "2025-01-01"
-ytd_end = latest_date.strftime("%Y-%m-%d")
+# Tek gün datasından FYTD kolonlarını kullanarak 4 kalemi çıkart
+# Taxes = Total Deposits - Public Debt Cash Issues (IIIB)
+# Expenditures = Total Withdrawals - Public Debt Cash Redemp. (IIIB)
 
-with st.spinner("Fetching YTD data..."):
-    df_ytd = fetch_ytd_data(ytd_start, ytd_end)
+depTot_fytd = pick_amount(df_latest, "Deposits",
+                          account_pat=r"Total Deposits", catg_pat="__NULL__",
+                          which="transaction_fytd_amt")
 
-if df_ytd.empty:
-    st.warning("No YTD data available.")
-else:
-    # Compute YTD totals
-    ytd_totals = compute_ytd_totals(df_ytd)
-    
-    ytd_taxes_bn = bn(ytd_totals["ytd_taxes"])
-    ytd_expend_bn = bn(ytd_totals["ytd_expenditures"])
-    ytd_newdebt_bn = bn(ytd_totals["ytd_newdebt"])
-    ytd_redemp_bn = bn(ytd_totals["ytd_redemp"])
-    
-    # YTD Top-10 Tables
-    st.markdown("**YTD Top-10 Categories**")
-    
-    left_ytd, right_ytd = st.columns(2)
-    
-    with left_ytd:
-        st.markdown("**YTD Taxes — top 10 categories (cumulative)**")
-        ytd_taxes_top = top10_ytd_deposits(df_ytd, ytd_totals["ytd_taxes"], n=10)
-        if not ytd_taxes_top.empty:
-            ytd_taxes_top["YTD Amount (m$)"] = ytd_taxes_top["YTD Amount (m$)"].map(lambda v: f"{v:,.0f}")
-            ytd_taxes_top["Percentage in YTD Taxes"] = ytd_taxes_top["Percentage in YTD Taxes"].round(1).map(lambda v: f"{v:.1f}%")
-        st.dataframe(ytd_taxes_top, use_container_width=True)
-    
-    with right_ytd:
-        st.markdown("**YTD Expenditures — top 10 categories (cumulative)**")
-        ytd_expend_top = top10_ytd_withdrawals(df_ytd, ytd_totals["ytd_expenditures"], n=10)
-        if not ytd_expend_top.empty:
-            ytd_expend_top["YTD Amount (m$)"] = ytd_expend_top["YTD Amount (m$)"].map(lambda v: f"{v:,.0f}")
-            ytd_expend_top["Percentage in YTD Expenditures"] = ytd_expend_top["Percentage in YTD Expenditures"].round(1).map(lambda v: f"{v:.1f}%")
-        st.dataframe(ytd_expend_top, use_container_width=True)
-    
-    # YTD Debt Ops Bar Chart
+issues_fytd = pick_amount(df_latest, "Deposits",
+                          account_pat=r"Treasury General Account", catg_pat=r"Public Debt Cash Issues",
+                          which="transaction_fytd_amt")
 
- 
+withTot_fytd = pick_amount(df_latest, "Withdrawals",
+                           account_pat=r"Total Withdrawals", catg_pat="__NULL__",
+                           which="transaction_fytd_amt")
+
+redemp_fytd = pick_amount(df_latest, "Withdrawals",
+                          account_pat=r"Treasury General Account", catg_pat=r"Public Debt Cash Redemp",
+                          which="transaction_fytd_amt")
+
+# Fallback: eğer total satırları account_type ile bulunamazsa, doğrudan transaction_catg metnine bak
+if depTot_fytd == 0.0:
+    depTot_fytd = pick_amount(df_latest, "Deposits", account_pat=None, catg_pat="Total TGA Deposits|Total Deposits", which="transaction_fytd_amt")
+if withTot_fytd == 0.0:
+    withTot_fytd = pick_amount(df_latest, "Withdrawals", account_pat=None, catg_pat="Total TGA Withdrawals|Total Withdrawals", which="transaction_fytd_amt")
+if issues_fytd == 0.0:
+    issues_fytd = pick_amount(df_latest, "Deposits", account_pat=None, catg_pat="Public Debt Cash Issues", which="transaction_fytd_amt")
+if redemp_fytd == 0.0:
+    redemp_fytd = pick_amount(df_latest, "Withdrawals", account_pat=None, catg_pat="Public Debt Cash Redemp", which="transaction_fytd_amt")
+
+ytd_taxes_m   = depTot_fytd - issues_fytd
+ytd_expend_m  = withTot_fytd - redemp_fytd
+ytd_newdebt_m = issues_fytd
+ytd_redemp_m  = redemp_fytd
+ytd_net_m     = ytd_taxes_m + ytd_newdebt_m - ytd_expend_m - ytd_redemp_m
+
+# Kartlar (bn$)
+col1, col2, col3, col4, col5 = st.columns(5)
+col1.metric("YTD Taxes",        f"${fmt_bn(bn(ytd_taxes_m))}B")
+col2.metric("YTD Expenditures", f"${fmt_bn(bn(ytd_expend_m))}B")
+col3.metric("YTD New Debt",     f"${fmt_bn(bn(ytd_newdebt_m))}B")
+col4.metric("YTD Redemptions",  f"${fmt_bn(bn(ytd_redemp_m))}B")
+col5.metric("YTD Net Result",   f"${fmt_bn(bn(ytd_net_m))}B",
+            delta=("TGA Increased" if ytd_net_m >= 0 else "TGA Decreased"))
+
+# FYTD Debt Ops Bar Chart
+st.markdown("**YTD Debt Operations**")
+debt_chart = debt_bar_chart(
+    bn(ytd_newdebt_m),
+    bn(ytd_redemp_m),
+    title=f"FYTD New Debt vs Redemptions (since Oct 1)"
+)
+st.altair_chart(debt_chart, use_container_width=True, theme=None)
+
+# FYTD Top-10 tabloları
+left_ytd, right_ytd = st.columns(2)
+with left_ytd:
+    st.markdown("**YTD Taxes — top 10 categories (FYTD shares)**")
+    ytd_taxes_top = top10_fytd_deposits_day(df_latest, ytd_taxes_m, n=10)
+    if not ytd_taxes_top.empty:
+        ytd_taxes_top["YTD Amount (m$)"] = ytd_taxes_top["YTD Amount (m$)"].map(lambda v: f"{v:,.0f}")
+        ytd_taxes_top["Percentage in YTD Taxes"] = ytd_taxes_top["Percentage in YTD Taxes"].round(1).map(lambda v: f"{v:.1f}%")
+    st.dataframe(ytd_taxes_top, use_container_width=True)
+
+with right_ytd:
+    st.markdown("**YTD Expenditures — top 10 categories (FYTD shares)**")
+    ytd_expend_top = top10_fytd_withdrawals_day(df_latest, ytd_expend_m, n=10)
+    if not ytd_expend_top.empty:
+        ytd_expend_top["YTD Amount (m$)"] = ytd_expend_top["YTD Amount (m$)"].map(lambda v: f"{v:,.0f}")
+        ytd_expend_top["Percentage in YTD Expenditures"] = ytd_expend_top["Percentage in YTD Expenditures"].round(1).map(lambda v: f"{v:.1f}%")
+    st.dataframe(ytd_expend_top, use_container_width=True)
 
 # ---------------------------- Methodology -------------------------------
 st.markdown("### 📋 Methodology")
@@ -522,7 +544,7 @@ with st.expander("🔎 Click to expand methodology details", expanded=False):
         """
 **What this page shows**  
 - 🧾 Decomposition of the Federal public cash position into **Taxes**, **Expenditures**, and **Debt operations**.  
-- 🧮 Two lenses: **daily result** and **year-to-date (YTD)** aggregates starting **2025-01-01**.
+- 🧮 Two lenses: **daily result** and **fiscal year-to-date (FYTD)** aggregates starting **Oct 1**.
 
 ---
 
@@ -533,59 +555,28 @@ with st.expander("🔎 Click to expand methodology details", expanded=False):
   - **New Debt (Issues)** = Public Debt Cash Issues (IIIB)  
   - **Redemptions** = Public Debt Cash Redemptions (IIIB)  
 - 📊 **Daily Result (Δ cash)** = **Taxes + New Debt − Expenditures − Redemptions**  
-- 🔁 **Business days only**; weekends/holidays excluded (no forward-fill on flows).
 
 ---
 
-### 📅 YTD analysis
-- 🧷 Period: **from 2025-01-01 to latest available date**.  
-- ➕ Categories are summed across all business days.  
-- 🧮 **Debt ops chart** compares **total Issues** vs **total Redemptions**.  
-- 🧾 **YTD Net result** = cumulative **Daily Result** (gov’t cash position change).
+### 📅 FYTD analysis
+- 🧷 Period starts **Oct 1** (U.S. federal fiscal year).  
+- ➕ FYTD values taken directly from `transaction_fytd_amt` (no manual summing).  
+- 🧮 **YTD Net result** = **Taxes + Issues − Expenditures − Redemptions** (all FYTD).
 
 ---
 
 ### 🗂️ Data source
 - 🇺🇸 **U.S. Treasury – Fiscal Data (Daily Treasury Statement)**  
-  • Primary dataset: `deposits_withdrawals_operating_cash` (DTS Table II baseline)  
-  • Debt ops mapping: **Public Debt Cash Issues/Redemptions** (DTS Table IIIB)  
-  • ⏱️ **Update**: Daily on business days (publication lag and revisions may occur).
+  Dataset: `deposits_withdrawals_operating_cash` (Tables II & IIIB mapping).  
 
 ---
 
-### ⚙️ Data processing
-- 🔢 Units: API returns **millions of USD** → displayed as **USD billions** (÷1,000).  
-- 🧹 Ranking tables (Top-10):  
-  - Exclude **total/summary** rows and debt-related categories (handled separately).  
-  - Filter out **null/empty** labels.  
-  - Keep **positive** transaction amounts only for the Top-10 leaderboards.  
-
----
-
-### 🚫 Categories excluded from Top-10 tables
-- **Total TGA Deposits/Withdrawals** (summary rows)  
-- **Public Debt Cash Issues/Redemptions** (shown in Debt ops section)  
-- **Null/empty** category names  
-- **Zero or negative** amounts for ranking views
-
----
-
-### ⚠️ Caveats
-- ⏳ **Timing effects** (settlement dates, tax peaks, coupon/redemption days) can cause large day-to-day swings.  
-- 🔁 **Revisions**: DTS entries may be restated after initial publication.  
-- 🕒 Values are **end-of-day**; intraday cash movements are not captured.
-
----
-
-### 🗺️ Glossary
-- **Taxes (proxy)**: Non-debt deposit inflows into TGA (after removing debt-issue proceeds).  
-- **Expenditures (proxy)**: Non-debt outflows (after removing redemptions).  
-- **Daily Result**: Net change in the government’s cash position for that day.
+### ⚙️ Units
+- API returns **millions of USD** → dashboards display **billions** (÷1,000).
         """
     )
 
 # --------------------------- Footer -------------------------------
-
 st.markdown(
     """
     <div style="text-align:center;color:#64748b;font-size:0.95rem;padding:20px 0;">
