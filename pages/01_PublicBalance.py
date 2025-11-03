@@ -625,6 +625,8 @@ with st.expander("🔎 Click to expand methodology details", expanded=False):
 - **II** — Table II (Operating Cash Deposits / Withdrawals Totals)  
 - **IIIB** — Table IIIB (Public Debt Cash Issues / Redemptions)
 
+        """
+    )
 
 # --------------------------- Footer -------------------------------
 st.markdown(
