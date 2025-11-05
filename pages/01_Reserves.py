@@ -595,16 +595,20 @@ with st.expander("🔎 Click to expand methodology details", expanded=False):
   👉 This ensures the headline matches the official H.4.1 total even if individual components are filtered.
 
 
-**Why securities and TGA can move in opposite directions while reserves stay flat**
+**How maturities affect reserves (Treasury vs. private)**
 
-Reserve changes are derived as an **accounting identity**:
-ΔReserves = ΔAssets − ΔCurrency − ΔTGA − ΔON RRP − ΔOther Liabilities − ΔCapital  
+Reserve balances change by identity:
+ΔReserves = ΔAssets − ΔCurrency − ΔTGA − ΔON RRP − ΔOther Liabilities − ΔCapital
 
-- An **increase in assets** (e.g., securities ↑) **adds** reserves.  
-- An **increase in non-reserve liabilities** (e.g., TGA ↑, ON RRP ↑) **drains** reserves.  
-- When Treasury securities mature, **Securities ↓** mechanically reduces reserves,  
-  but if the Treasury **pays from its TGA ↓**, that simultaneously **adds** reserves.  
-- These offsetting effects often leave total reserve balances nearly unchanged.  
+- **If a U.S. Treasury security matures (held by the Fed):** the principal is paid **from the Treasury’s TGA** at the Fed.  
+  ⇒ ΔSecurities < 0 and **ΔTGA < 0**, while **ΔReserves ≈ 0 at the payment moment**.  
+
+
+- **If a non-Treasury security matures (agency debt/MBS/corporate):** the principal is paid **from private bank accounts**.  
+  ⇒ ΔSecurities < 0 and **ΔReserves < 0**, while **ΔTGA = 0**.
+
+This is why the charts show separate bars: “Securities ↓” pushes reserves down; “TGA ↓” pushes them up.  
+In Treasury maturities these often offset; in private maturities there is no TGA offset, so reserves fall.
 
 This logic explains why the charts show separate positive/negative bars for each item,  
 while the **headline “Net Reserve Change”** still matches the official H.4.1 total.
