@@ -554,6 +554,21 @@ create_smart_summary_cards(
     liab_weekly, liab_annual,
     net_weekly, net_annual
 )
+
+ # ---------- Raw values table (Latest, Week-ago, 2025-01-01) ----------
+vals_2025 = get_table_values(t_fixed.isoformat())
+all_series = sorted(set(vals_t.keys()) | set(vals_w.keys()) | set(vals_2025.keys()))
+df_raw = pd.DataFrame([{
+        "Series": s,
+        f"Latest {t.isoformat()} ($M)": vals_t.get(s, math.nan),
+        f"Week-ago {t_w.isoformat()} ($M)": vals_w.get(s, math.nan),
+        "2025-01-01 ($M)": vals_2025.get(s, math.nan),
+    } for s in all_series])
+st.markdown("---")
+st.subheader("Raw H.4.1 values — latest, week-ago, and 2025-01-01 (millions)")
+st.dataframe(df_raw.reset_index(drop=True), use_container_width=True)
+
+
 # ---------------------------- Methodology -------------------------------
 st.markdown("### 📋 Methodology")
 with st.expander("🔎 Click to expand methodology details", expanded=False):
@@ -638,16 +653,5 @@ st.markdown(
 )
 
 
- # ---------- Raw values table (Latest, Week-ago, 2025-01-01) ----------
-vals_2025 = get_table_values(t_fixed.isoformat())
-all_series = sorted(set(vals_t.keys()) | set(vals_w.keys()) | set(vals_2025.keys()))
-df_raw = pd.DataFrame([{
-        "Series": s,
-        f"Latest {t.isoformat()} ($M)": vals_t.get(s, math.nan),
-        f"Week-ago {t_w.isoformat()} ($M)": vals_w.get(s, math.nan),
-        "2025-01-01 ($M)": vals_2025.get(s, math.nan),
-    } for s in all_series])
-st.markdown("---")
-st.subheader("Raw H.4.1 values — latest, week-ago, and 2025-01-01 (millions)")
-st.dataframe(df_raw.reset_index(drop=True), use_container_width=True)
+
 
