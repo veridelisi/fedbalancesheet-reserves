@@ -594,6 +594,21 @@ with st.expander("🔎 Click to expand methodology details", expanded=False):
   `NET_annual = RB(latest) − RB(2025-01-01)`  
   👉 This ensures the headline matches the official H.4.1 total even if individual components are filtered.
 
+
+**Why securities and TGA can move in opposite directions while reserves stay flat**
+
+Reserve changes are derived as an **accounting identity**:
+ΔReserves = ΔAssets − ΔCurrency − ΔTGA − ΔON RRP − ΔOther Liabilities − ΔCapital  
+
+- An **increase in assets** (e.g., securities ↑) **adds** reserves.  
+- An **increase in non-reserve liabilities** (e.g., TGA ↑, ON RRP ↑) **drains** reserves.  
+- When Treasury securities mature, **Securities ↓** mechanically reduces reserves,  
+  but if the Treasury **pays from its TGA ↓**, that simultaneously **adds** reserves.  
+- These offsetting effects often leave total reserve balances nearly unchanged.  
+
+This logic explains why the charts show separate positive/negative bars for each item,  
+while the **headline “Net Reserve Change”** still matches the official H.4.1 total.
+
 **Display rules**
 - 🚧 Noise filter (applied to component lists): **±$50M** for weekly, **±$100M** for annual.
 - 🟩 Positive bars increase levels / add to reserves; 🟥 negatives reduce them.
