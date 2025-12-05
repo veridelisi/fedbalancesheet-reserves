@@ -1046,6 +1046,68 @@ with tEC:
             fig_sh.update_yaxes(ticksuffix="%", tickformat=".0f")
             st.plotly_chart(fig_sh, use_container_width=True)
 
+
+
+                       # ====================== Ek Grafik: Non-bank Alt Sektörleri (2000–2025) ======================
+            if not eme14_long.empty:
+
+                nonbank_sectors = [
+                    "Non-financial corporations",
+                    "Private other FIs",
+                    "Public other FIs",
+                    "Financial corporations"
+                ]
+
+                # EME14 uzun veri → Yıl sonu (EOY)
+                df_nb = eme14_long.copy()
+                df_nb["Year"] = df_nb["Time"].dt.year
+                df_nb = (
+                    df_nb[df_nb["Sector"].isin(nonbank_sectors)]
+                    .sort_values("Time")
+                    .groupby(["Sector","Year"], as_index=False)
+                    .tail(1)    # yılın son gözlemi
+                )
+
+                # Her yıl sektör toplamı
+                df_nb_total = (
+                    df_nb.groupby(["Year","Sector"], as_index=False)["Val"]
+                         .sum()
+                         .rename(columns={"Val":"Level"})
+                )
+
+                fig_nb4 = go.Figure()
+
+                color_map_nb = {
+                    "Non-financial corporations": "#e74c3c",
+                    "Private other FIs": "#f39c12",
+                    "Public other FIs": "#d35400",
+                    "Financial corporations": "#2980b9",
+                }
+
+                # Çizgiler ekleniyor
+                for sec in nonbank_sectors:
+                    sdf = df_nb_total[df_nb_total["Sector"] == sec]
+                    fig_nb4.add_trace(go.Scatter(
+                        x=sdf["Year"], y=sdf["Level"],
+                        mode="lines+markers",
+                        name=sec,
+                        line=dict(width=3, color=color_map_nb[sec]),
+                        hovertemplate=f"{sec}<br>%{{x}}: $%{{y:,.1f}}B<extra></extra>"
+                    ))
+
+                fig_nb4.update_layout(
+                    title=dict(text=title_range("Non-bank USD Debt — Sector Breakdown (EME-14)"), x=0.5),
+                    xaxis_title="Year",
+                    yaxis_title="USD Billions",
+                    template="plotly_white",
+                    hovermode="x unified",
+                    height=520,
+                    legend=dict(orientation="h", x=0.5, xanchor="center", y=-0.25)
+                )
+
+                st.plotly_chart(fig_nb4, use_container_width=True)
+
+
 # ---------- Methodology ----------
 st.markdown("### 📋 Methodology")
 with st.expander("🔎 Click to expand methodology details", expanded=False):
