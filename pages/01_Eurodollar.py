@@ -1048,64 +1048,98 @@ with tEC:
 
 
 
-                       # ====================== Ek Grafik: Non-bank Alt Sektörleri (2000–2025) ======================
-            if not eme14_long.empty:
+                   # ====================== EME-14: Non-bank sector breakdown ======================
+        st.markdown("### Non-bank Issuers — Sector Shares (2000–2025)")
+        st.caption("USD Debt Securities — Breakdown within Non-bank Issuers (EME-14)")
 
-                nonbank_sectors = [
-                    "Non-financial corporations",
-                    "Private other FIs",
-                    "Public other FIs",
-                    "Financial corporations"
-                ]
+        if eme14_long.empty:
+            st.info("EME-14 non-bank sektörel veri bulunamadı.")
+        else:
+            eme_nb = eme14_long.copy()
+            eme_nb["Year"] = eme_nb["Time"].dt.year
 
-                # EME14 uzun veri → Yıl sonu (EOY)
-                df_nb = eme14_long.copy()
-                df_nb["Year"] = df_nb["Time"].dt.year
-                df_nb = (
-                    df_nb[df_nb["Sector"].isin(nonbank_sectors)]
-                    .sort_values("Time")
-                    .groupby(["Sector","Year"], as_index=False)
-                    .tail(1)    # yılın son gözlemi
-                )
+            # Yıl sonu (EOY) seçimi
+            eoy_nb = (
+                eme_nb.sort_values("Time")
+                      .groupby(["Country", "Sector", "Year"], as_index=False)
+                      .tail(1)
+            )
 
-                # Her yıl sektör toplamı
-                df_nb_total = (
-                    df_nb.groupby(["Year","Sector"], as_index=False)["Val"]
-                         .sum()
-                         .rename(columns={"Val":"Level"})
-                )
+            # Yıllık toplamlar: Year x Sector
+            annual_nb = (
+                eoy_nb.groupby(["Year", "Sector"], as_index=False)["Val"]
+                      .sum()
+                      .rename(columns={"Val": "level"})
+            )
+            pivot_nb = annual_nb.pivot(index="Year", columns="Sector", values="level").fillna(0.0)
 
-                fig_nb4 = go.Figure()
+            # Non-bank alt sektörleri
+            SECT_FINCORP = "Financial corporations"
+            SECT_NFC     = "Non-financial corporations"
+            SECT_POFI    = "Private other FIs"
+            SECT_UOFI    = "Public other FIs"
 
-                color_map_nb = {
-                    "Non-financial corporations": "#e74c3c",
-                    "Private other FIs": "#f39c12",
-                    "Public other FIs": "#d35400",
-                    "Financial corporations": "#2980b9",
-                }
+            fincorp = pivot_nb.get(SECT_FINCORP, 0.0)
+            nfc     = pivot_nb.get(SECT_NFC, 0.0)
+            pofi    = pivot_nb.get(SECT_POFI, 0.0)
+            uofi    = pivot_nb.get(SECT_UOFI, 0.0)
 
-                # Çizgiler ekleniyor
-                for sec in nonbank_sectors:
-                    sdf = df_nb_total[df_nb_total["Sector"] == sec]
-                    fig_nb4.add_trace(go.Scatter(
-                        x=sdf["Year"], y=sdf["Level"],
-                        mode="lines+markers",
-                        name=sec,
-                        line=dict(width=3, color=color_map_nb[sec]),
-                        hovertemplate=f"{sec}<br>%{{x}}: $%{{y:,.1f}}B<extra></extra>"
-                    ))
+            total_nb = fincorp + nfc + pofi + uofi
 
-                fig_nb4.update_layout(
-                    title=dict(text=title_range("Non-bank USD Debt — Sector Breakdown (EME-14)"), x=0.5),
-                    xaxis_title="Year",
-                    yaxis_title="USD Billions",
-                    template="plotly_white",
-                    hovermode="x unified",
-                    height=520,
-                    legend=dict(orientation="h", x=0.5, xanchor="center", y=-0.25)
-                )
+            nb_shares = pd.DataFrame({
+                "Financial corporations":      (fincorp / total_nb.replace(0, pd.NA)) * 100.0,
+                "Non-financial corporations":  (nfc     / total_nb.replace(0, pd.NA)) * 100.0,
+                "Private other FIs":           (pofi    / total_nb.replace(0, pd.NA)) * 100.0,
+                "Public other FIs":            (uofi    / total_nb.replace(0, pd.NA)) * 100.0,
+            }).fillna(0.0)
 
-                st.plotly_chart(fig_nb4, use_container_width=True)
+            # Yıl aralığına kırp
+            if not nb_shares.empty:
+                ymax_nb = int(min(YEAR_END, nb_shares.index.max()))
+                ymin_nb = int(max(YEAR_START, nb_shares.index.min()))
+                nb_shares = nb_shares.loc[range(ymin_nb, ymax_nb + 1)].copy()
+
+            years_nb = nb_shares.index.tolist()
+
+            fig_nb = go.Figure()
+            nb_order = [
+                ("Financial corporations",     "#2980b9"),
+                ("Non-financial corporations", "#e74c3c"),
+                ("Private other FIs",          "#f39c12"),
+                ("Public other FIs",           "#d35400"),
+            ]
+
+            for name, color in nb_order:
+                fig_nb.add_trace(go.Scatter(
+                    x=years_nb,
+                    y=nb_shares[name].values,
+                    name=name,
+                    mode="lines",
+                    line=dict(width=3, color=color),
+                    stackgroup="one",
+                    hovertemplate=f"{name}<br>%{{x}}: %{{y:.1f}}%<extra></extra>",
+                ))
+
+            fig_nb.update_layout(
+                title=dict(
+                    text=title_range("Non-bank USD Debt Securities — Sector Shares (EME-14)"),
+                    x=0.5
+                ),
+                xaxis_title="Year",
+                yaxis_title="Share of non-bank issuance (%)",
+                yaxis=dict(range=[0, 100]),
+                hovermode="x unified",
+                template="plotly_white",
+                legend=dict(
+                    orientation="h",
+                    x=0.5, xanchor="center",
+                    y=-0.25, yanchor="top"
+                ),
+                margin=dict(l=40, r=20, t=90, b=110),
+                height=560,
+            )
+            fig_nb.update_yaxes(ticksuffix="%", tickformat=".0f")
+            st.plotly_chart(fig_nb, use_container_width=True)
 
 
 # ---------- Methodology ----------
