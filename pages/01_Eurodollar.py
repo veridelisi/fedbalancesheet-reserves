@@ -961,6 +961,7 @@ with tEC:
         SECT_PBANK  = "Private banks"
         SECT_PUBANK = "Public banks"
         SECT_NFC    = "Non-financial corporations"
+        SECT_FIN    = "Financial corporations"      
         SECT_POFI   = "Private other FIs"
         SECT_UOFI   = "Public other FIs"
 
@@ -1002,7 +1003,7 @@ with tEC:
             #    Non-banks = NFC + Private OFIs + Public OFIs
             banks = pivot.get(SECT_PBANK, 0.0) + pivot.get(SECT_PUBANK, 0.0)
             govt  = pivot.get(SECT_GOVT,  0.0)
-            nonbk = pivot.get(SECT_NFC,   0.0) + pivot.get(SECT_POFI, 0.0) + pivot.get(SECT_UOFI, 0.0)
+            nonbk = (pivot.get(SECT_NFC, 0.0)+ pivot.get(SECT_FIN, 0.0)+ pivot.get(SECT_POFI, 0.0)+ pivot.get(SECT_UOFI, 0.0))
 
             total = banks + govt + nonbk
             # 5) Paylar (%)
