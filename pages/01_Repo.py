@@ -278,7 +278,7 @@ LATEST = sub["date"].max()
 # ---- manual refresh to bust cache ----
 ref1, ref2 = st.columns([1, 6])
 with ref1:
-    if st.button("↻ Primary Dealer's Repo and Reverse Repo:Refresh data", use_container_width=True):
+    if st.button("↻ Refresh data", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
 
