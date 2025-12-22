@@ -408,11 +408,18 @@ def latest_available_date(df: pd.DataFrame) -> pd.Timestamp:
     return df["date"].max()
 
 def make_interactive_line_chart(df: pd.DataFrame, title: str) -> alt.Chart:
+    df = df.copy()
+    df["value_bn"] = df["value"] / 1e9  # ✅ USD billions
+
     selection = alt.selection_point(fields=["series"], bind="legend")
 
     base = alt.Chart(df).encode(
         x=alt.X("date:T", title=""),
-        y=alt.Y("value:Q", title="USD", axis=alt.Axis(format="~s")),
+        y=alt.Y(
+            "value_bn:Q",
+            title="USD (bn)",
+            axis=alt.Axis(format=",.0f")  # 1,234 gibi
+        ),
         color=alt.Color(
             "series:N",
             legend=alt.Legend(orient="bottom", direction="horizontal", title=None)
@@ -429,19 +436,22 @@ def make_interactive_line_chart(df: pd.DataFrame, title: str) -> alt.Chart:
 
     line = base.mark_line().add_params(selection)
 
-    # tooltip yakalama alanı
-    hitbox = base.mark_line(opacity=0, strokeWidth=4).add_params(hover)
+    # tooltip yakalama alanı (kalın olsun)
+    hitbox = base.mark_line(opacity=0, strokeWidth=14).add_params(hover)
 
     points = base.mark_circle(size=20).encode(
         opacity=alt.condition(hover, alt.value(1), alt.value(0)),
         tooltip=[
             alt.Tooltip("date:T", title="Date"),
             alt.Tooltip("series:N", title="Series"),
-            alt.Tooltip("value:Q", title="Volume (USD)", format=","),
+            alt.Tooltip("value_bn:Q", title="Volume (USD bn)", format=",.2f"),
         ],
     )
 
-    return alt.layer(line, hitbox, points).properties(height=360, title=alt.Title(title, anchor='middle'))
+    return alt.layer(line, hitbox, points).properties(
+        height=360,
+        title=alt.Title(title, anchor="middle")
+    )
 
 # --- End date: ulaşılabilen en son veri olsun ---
 today = dt.date.today().strftime("%Y-%m-%d")
