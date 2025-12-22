@@ -386,3 +386,6 @@ with c2:
         make_interactive_line_chart(collateral_df, "DVP Collateral"),
         use_container_width=True
     )
+missing = [m for m in series_map.values() if m not in raw]
+if missing:
+    raise ValueError(f"Missing mnemonics in response: {missing}")
