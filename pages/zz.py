@@ -434,9 +434,9 @@ def make_interactive_line_chart(df: pd.DataFrame, title: str) -> alt.Chart:
 
     line = base.mark_line(strokeWidth=2).add_params(selection)
 
-    hitbox = base.mark_line(opacity=0, strokeWidth=14).add_params(hover)
+    hitbox = base.mark_line(opacity=0, strokeWidth=4).add_params(hover)
 
-    points = base.mark_circle(size=20).encode(
+    points = base.mark_circle(size=10).encode(
         opacity=alt.condition(hover, alt.value(1), alt.value(0)),
         tooltip=[
             alt.Tooltip("date:T", title="Date"),
