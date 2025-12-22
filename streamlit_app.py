@@ -380,19 +380,23 @@ with col1:
 
 with col2:
     gradient_project_card(
-        title="Money Market Reference Rates",
-        tagline="EFFR, OBFR, SOFR, BGCR, TGCR • NY Fed reference rates",
-        description=(
-            "Track the latest levels and historical trends of key money market rates. Features "
-            "7-day and YTD views with user-selectable series and SOFR-centered design for "
-            "clean rate comparisons and spread analysis."
-        ),
-        page_path="pages/01_Interest.py",
-        link_label="🔍 Monitor Interest Rates",
-        icon="📈",
-        gradient_class="gradient-rates",
-        badge_text="Live Rates"
-    )
+    title="U.S. Repo Market Structure",
+    tagline="OFR Repo Data • Tri-party, DVP, GCF analysis",
+    description=(
+        "Explore the structure of the U.S. repo market using official Office of Financial Research (OFR) data. "
+        "Track transaction volumes across Tri-party, DVP, and GCF segments, with detailed breakdowns by tenor "
+        "and collateral where available. Interactive charts highlight market transparency, structural differences, "
+        "and the evolving role of repo markets in dollar liquidity."
+    ),
+    page_path="pages/01_Repo2.py",
+    link_label="🔍 Explore Repo Markets",
+    icon="♻️",
+    gradient_class="gradient-repo",
+    badge_text="OFR Data"
+)
+
+
+
 
 col1, col2 = st.columns(2, gap="large")
 
@@ -414,20 +418,19 @@ with col1:
 
 with col2:
     gradient_project_card(
-    title="U.S. Repo Market Structure",
-    tagline="OFR Repo Data • Tri-party, DVP, GCF analysis",
-    description=(
-        "Explore the structure of the U.S. repo market using official Office of Financial Research (OFR) data. "
-        "Track transaction volumes across Tri-party, DVP, and GCF segments, with detailed breakdowns by tenor "
-        "and collateral where available. Interactive charts highlight market transparency, structural differences, "
-        "and the evolving role of repo markets in dollar liquidity."
-    ),
-    page_path="pages/01_Repo2.py",
-    link_label="🔍 Explore Repo Markets",
-    icon="♻️",
-    gradient_class="gradient-repo",
-    badge_text="OFR Data"
-)
+        title="Money Market Reference Rates",
+        tagline="EFFR, OBFR, SOFR, BGCR, TGCR • NY Fed reference rates",
+        description=(
+            "Track the latest levels and historical trends of key money market rates. Features "
+            "7-day and YTD views with user-selectable series and SOFR-centered design for "
+            "clean rate comparisons and spread analysis."
+        ),
+        page_path="pages/01_Interest.py",
+        link_label="🔍 Monitor Interest Rates",
+        icon="📈",
+        gradient_class="gradient-rates",
+        badge_text="Live Rates"
+    )
 
 # Treasury & Fiscal Section
 st.markdown("""
