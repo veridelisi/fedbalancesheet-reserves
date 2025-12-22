@@ -260,9 +260,6 @@ with c2:
 
 
 
-
-# ---------------------------- DVP: Tenor + Collateral (same row) ----------------------------
-
 # ---------------------------- DVP: Tenor (single chart) ----------------------------
 
 TENOR_SERIES = {
@@ -336,7 +333,7 @@ def make_interactive_line_chart(df: pd.DataFrame, title: str) -> alt.Chart:
     # tooltip yakalama alanı (daha kalın olsun, rahat yakalasın)
     hitbox = base.mark_line(opacity=0, strokeWidth=14).add_params(hover)
 
-    points = base.mark_circle(size=70).encode(
+    points = base.mark_circle(size=20).encode(
         opacity=alt.condition(hover, alt.value(1), alt.value(0)),
         tooltip=[
             alt.Tooltip("date:T", title="Date"),
@@ -359,6 +356,6 @@ st.caption(f"DVP date range: {pd.to_datetime(START_DATE).date()} → {end_date_f
 
 # Tek kolon, sola yaslı: columns bile kullanmana gerek yok
 st.altair_chart(
-    make_interactive_line_chart(tenor_df, "DVP Repo Volume by Tenor (Preliminary)"),
+    make_interactive_line_chart(tenor_df, "DVP  Tenor "),
     use_container_width=True
 )
