@@ -471,7 +471,7 @@ with c1:
 
 with c2:
     st.altair_chart(
-        make_interactive_line_chart(collateral_df, "GCF Collateral"),
+        make_interactive_line_chart(collateral_df, "GCFDDD Collateral"),
         use_container_width=True
     )
 
