@@ -398,19 +398,20 @@ col1, col2 = st.columns(2, gap="large")
 
 with col1:
     gradient_project_card(
-        title="Eurodollar Market Evolution",
-        tagline="BIS Global Liquidity Indicators • USD credit analysis",
-        description=(
-            "Track the evolution of the global Eurodollar market from 2000 to present. Analyze "
-            "total credit, debt securities, and loans with YoY views, crisis period shading, "
-            "and Fed policy cycle context for comprehensive market understanding."
-        ),
-        page_path="pages/01_Eurodollar.py",
-        link_label="🔍 Explore Eurodollar Market",
-        icon="🌍",
-        gradient_class="gradient-eurodollar",
-        badge_text="Global Data"
-    )
+    title="U.S. Repo Market Structure",
+    tagline="OFR Repo Data • Tri-party, DVP, GCF analysis",
+    description=(
+        "Explore the structure of the U.S. repo market using official Office of Financial Research (OFR) data. "
+        "Track transaction volumes across Tri-party, DVP, and GCF segments, with detailed breakdowns by tenor "
+        "and collateral where available. Interactive charts highlight market transparency, structural differences, "
+        "and the evolving role of repo markets in dollar liquidity."
+    ),
+    page_path="pages/01_Repo2.py",
+    link_label="🔍 Explore Repo Markets",
+    icon="♻️",
+    gradient_class="gradient-repo",
+    badge_text="OFR Data"
+)
 
 with col2:
     st.write("")  # Empty column for balance
