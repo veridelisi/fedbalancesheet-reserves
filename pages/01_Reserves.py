@@ -10,8 +10,7 @@ from matplotlib.ticker import FuncFormatter, AutoLocator
 
 st.set_page_config(page_title="Veridelisi • Reserve Page", layout="wide")
 
-# --- Top nav ---
-cols = st.columns(8)
+cols = st.columns(9)
 with cols[0]:
     st.page_link("streamlit_app.py", label="🏠 Home")
 with cols[1]:
@@ -19,14 +18,16 @@ with cols[1]:
 with cols[2]:
     st.page_link("pages/01_Repo.py", label="♻️ Repo")
 with cols[3]:
-    st.page_link("pages/01_TGA.py", label="🌐 TGA")
+    st.page_link("pages/01_Repo2.py", label="♻️ Repo 2")    
 with cols[4]:
-    st.page_link("pages/01_PublicBalance.py", label="💹 Public Balance")
+    st.page_link("pages/01_TGA.py", label="🌐 TGA")
 with cols[5]:
-    st.page_link("pages/01_Interest.py", label="✈️ Reference Rates")
+    st.page_link("pages/01_PublicBalance.py", label="💹 Public Balance")
 with cols[6]:
-    st.page_link("pages/01_Desk.py", label="📡 Desk")
+    st.page_link("pages/01_Interest.py", label="✈️ Reference Rates")
 with cols[7]:
+    st.page_link("pages/01_Desk.py", label="📡 Desk")
+with cols[8]:
     st.page_link("pages/01_Eurodollar.py", label="💡 Eurodollar")
 
 # --- Hide sidebar + small CSS + badge helper ---
