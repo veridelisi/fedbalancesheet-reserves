@@ -140,39 +140,6 @@ chart = alt.Chart(plot_df).mark_line().encode(
 st.altair_chart(chart, use_container_width=True)
 
 
-# ---------------------------- Latest snapshot (from plot_df) ----------------------------
-
-# ortak "latest day" (seçili zoom aralığında)
-LATEST = plot_df["date"].max()
-
-# son gün değerleri (market bazında)
-last = (
-    plot_df[plot_df["date"] == LATEST]
-    .groupby("market", as_index=False)["value"]
-    .last()
-)
-
-# helper: market değerini güvenle çek (yoksa 0)
-def _get_val(mkt: str) -> float:
-    s = last.loc[last["market"] == mkt, "value"]
-    return float(s.iloc[0]) if len(s) else 0.0
-
-tri = _get_val("Triparty") / 1e12
-dvp = _get_val("DVP") / 1e12
-gcf = _get_val("GCF") / 1e12
-total = tri + dvp + gcf
-
-st.markdown(
-    f"""
-**Latest snapshot ({LATEST.strftime('%b %d, %Y')})**
-
-🔴 **Tri-party:** {tri:.1f}T  
-🔵 **DVP:** {dvp:.1f}T  
-🔷 **GCF:** {gcf:.1f}T  
-
-➡️ **Total:** **{total:.1f}T USD**
-"""
-)
 
 
 # ---------------------------- Tri-party: Tenor + Collateral (same row) ----------------------------
