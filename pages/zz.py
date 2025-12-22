@@ -273,13 +273,7 @@ TENOR_SERIES = {
     "Term >30 Days":    "REPO-DVP_TV_G30-P",
 }
 
-COLLATERAL_SERIES = {
-    "U.S. Treasury":      "REPO-DVP_TV_T-P",
-    "Agency & GSE":       "REPO-DVP_TV_AG-P",
-    "Corporate Debt":     "REPO-DVP_TV_CORD-P",
-    "Other Collateral":   "REPO-DVP_TV_O-P",
-    "Total":              "REPO-DVP_TV_TOT-P",
-}
+
 
 
 def _pick_subkey(timeseries_dict: dict) -> str:
@@ -373,7 +367,7 @@ collateral_df = collateral_df_raw[collateral_df_raw["date"] <= end_date_final].c
 
 st.caption(f"Tri-party date range: {pd.to_datetime(START_DATE).date()} → {end_date_final.date()}")
 
-c1, c2 = st.columns(2)
+c1 = st.columns(1)
 
 with c1:
     st.altair_chart(
@@ -381,11 +375,3 @@ with c1:
         use_container_width=True
     )
 
-with c2:
-    st.altair_chart(
-        make_interactive_line_chart(collateral_df, "DVP Collateral"),
-        use_container_width=True
-    )
-missing = [m for m in series_map.values() if m not in raw]
-if missing:
-    raise ValueError(f"Missing mnemonics in response: {missing}")
