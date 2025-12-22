@@ -275,6 +275,7 @@ sub = sub.dropna(subset=["date"]).sort_values("date")
 LATEST = sub["date"].max()
 
 # ------------------------------- Top row ------------------------------
+st.markdown("### 🏦 Primary Dealer Repo Operations (NY Fed Desk)")
 # ---- manual refresh to bust cache ----
 ref1, ref2 = st.columns([1, 6])
 with ref1:
