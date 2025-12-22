@@ -139,33 +139,7 @@ chart = alt.Chart(plot_df).mark_line().encode(
 
 st.altair_chart(chart, use_container_width=True)
 
-# ------------------------------- Latest snapshot -------------------------------
 
-LATEST = min(
-    tri_df["date"].max(),
-    dvp_df["date"].max(),
-    gcf_df["date"].max()
-)
-
-latest_date = LATEST.strftime("%b %d, %Y")
-
-tri_latest = tri_df.loc[tri_df["date"] == LATEST, "value"].iloc[0] / 1e12
-dvp_latest = dvp_df.loc[dvp_df["date"] == LATEST, "value"].iloc[0] / 1e12
-gcf_latest = gcf_df.loc[gcf_df["date"] == LATEST, "value"].iloc[0] / 1e12
-
-total_latest = tri_latest + dvp_latest + gcf_latest
-
-st.markdown(
-    f"""
-**Latest snapshot ({latest_date})**
-
-🔴 **Tri-party:** {tri_latest:.1f}T  
-🔵 **DVP:** {dvp_latest:.1f}T  
-🔷 **GCF:** {gcf_latest:.1f}T  
-
-➡️ **Total repo market:** **{total_latest:.1f}T USD**
-"""
-)
 
 
 # ---------------------------- Tri-party: Tenor + Collateral (same row) ----------------------------
