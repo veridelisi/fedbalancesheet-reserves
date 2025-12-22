@@ -215,7 +215,7 @@ def make_interactive_line_chart(df: pd.DataFrame, title: str) -> alt.Chart:
     # tooltip yakalama alanı
     hitbox = base.mark_line(opacity=0, strokeWidth=4).add_params(hover)
 
-    points = base.mark_circle(size=70).encode(
+    points = base.mark_circle(size=20).encode(
         opacity=alt.condition(hover, alt.value(1), alt.value(0)),
         tooltip=[
             alt.Tooltip("date:T", title="Date"),
@@ -248,12 +248,12 @@ c1, c2 = st.columns(2)
 
 with c1:
     st.altair_chart(
-        make_interactive_line_chart(tenor_df, "Tri-party Repo Volume by Tenor (Preliminary)"),
+        make_interactive_line_chart(tenor_df, "Tri-party Tenor"),
         use_container_width=True
     )
 
 with c2:
     st.altair_chart(
-        make_interactive_line_chart(collateral_df, "Tri-party Repo Volume by Collateral (Preliminary)"),
+        make_interactive_line_chart(collateral_df, "Tri-party Collateral"),
         use_container_width=True
     )
