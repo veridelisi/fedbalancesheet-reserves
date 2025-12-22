@@ -12,7 +12,7 @@ import datetime as dt
 st.set_page_config(page_title="Repo Dashboard", layout="wide")
 
 # ---------------------------- Top nav (your template) -----------------
-cols = st.columns(8)
+cols = st.columns(9)
 with cols[0]:
     st.page_link("streamlit_app.py", label="🏠 Home")
 with cols[1]:
@@ -20,14 +20,16 @@ with cols[1]:
 with cols[2]:
     st.page_link("pages/01_Repo.py", label="♻️ Repo")
 with cols[3]:
-    st.page_link("pages/01_TGA.py", label="🌐 TGA")
+    st.page_link("pages/01_Repo2.py", label="♻️ Repo 2")    
 with cols[4]:
-    st.page_link("pages/01_PublicBalance.py", label="💹 Public Balance")
+    st.page_link("pages/01_TGA.py", label="🌐 TGA")
 with cols[5]:
-    st.page_link("pages/01_Interest.py", label="✈️ Reference Rates")
+    st.page_link("pages/01_PublicBalance.py", label="💹 Public Balance")
 with cols[6]:
-    st.page_link("pages/01_Desk.py", label="📡 Desk")
+    st.page_link("pages/01_Interest.py", label="✈️ Reference Rates")
 with cols[7]:
+    st.page_link("pages/01_Desk.py", label="📡 Desk")
+with cols[8]:
     st.page_link("pages/01_Eurodollar.py", label="💡 Eurodollar")
 
 st.markdown("""
@@ -566,3 +568,15 @@ Tenor and collateral breakdowns are fetched **only when OFR reports them**.
 
 Together, these differences highlight how **repo market transparency varies by settlement structure**.
 """)
+    
+ # --------------------------- Footer -------------------------------
+
+st.markdown(
+    """
+    <div style="text-align:center;color:#64748b;font-size:0.95rem;padding:20px 0;">
+        <a href="https://veridelisi.substack.com/">Veri Delisi</a>🚀 <br>
+        <em>Engin Yılmaz • Amherst • September 2025 </em>
+    </div>
+    """,
+    unsafe_allow_html=True
+)   
