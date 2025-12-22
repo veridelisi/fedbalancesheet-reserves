@@ -224,7 +224,7 @@ def make_interactive_line_chart(df: pd.DataFrame, title: str) -> alt.Chart:
         ],
     )
 
-    return alt.layer(line, hitbox, points).properties(height=360, title=title)
+    return alt.layer(line, hitbox, points).properties(height=360, title=alt.Title(title, anchor='middle'))
 
 # --- End date: ulaşılabilen en son veri olsun ---
 today = dt.date.today().strftime("%Y-%m-%d")
