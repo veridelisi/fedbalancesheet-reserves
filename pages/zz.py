@@ -263,7 +263,7 @@ with c2:
 
 # ---------------------------- DVP: Tenor + Collateral (same row) ----------------------------
 
-START_DATE = "2025-09-01"
+
 
 TENOR_SERIES = {
     "Total":            "REPO-DVP_TV_TOT-P",
