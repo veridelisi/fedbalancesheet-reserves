@@ -385,8 +385,7 @@ with col2:
     description=(
         "Explore the structure of the U.S. repo market using official Office of Financial Research (OFR) data. "
         "Track transaction volumes across Tri-party, DVP, and GCF segments, with detailed breakdowns by tenor "
-        "and collateral where available. Interactive charts highlight market transparency, structural differences, "
-        "and the evolving role of repo markets in dollar liquidity."
+        "and collateral where available."
     ),
     page_path="pages/01_Repo2.py",
     link_label="🔍 Explore Repo Markets",
