@@ -111,28 +111,45 @@ with st.spinner("OFR verileri çekiliyor (multifull)..."):
 
 # ---------------------------- Chart with bottom interactive legend (NO brush) ----------------------------
 
+# ---------------------------- Chart (bottom legend + reliable tooltip) ----------------------------
+
 selection = alt.selection_point(
     fields=["market"],
     bind="legend"
 )
 
-chart = alt.Chart(plot_df).mark_line().encode(
+base = alt.Chart(plot_df).encode(
     x=alt.X("date:T", title=""),
     y=alt.Y("value:Q", title="USD", axis=alt.Axis(format="~s")),
     color=alt.Color(
         "market:N",
-        legend=alt.Legend(
-            orient="bottom",
-            direction="horizontal",
-            title=None
-        )
+        legend=alt.Legend(orient="bottom", direction="horizontal", title=None)
     ),
     opacity=alt.condition(selection, alt.value(1.0), alt.value(0.15)),
+)
+
+hover = alt.selection_point(
+    fields=["date", "market"],
+    nearest=True,
+    on="mouseover",
+    empty=False,
+)
+
+line = base.mark_line().add_params(selection)
+
+# Görünmez ama kalın hover alanı: mouse yakalasın diye
+hitbox = base.mark_line(opacity=0, strokeWidth=14).add_params(hover)
+
+# Hover olunca nokta + tooltip
+points = base.mark_circle(size=70).encode(
+    opacity=alt.condition(hover, alt.value(1), alt.value(0)),
     tooltip=[
         alt.Tooltip("date:T", title="Date"),
         alt.Tooltip("market:N", title="Market"),
         alt.Tooltip("value:Q", title="Volume (USD)", format=","),
     ],
-).add_params(selection).properties(height=380)
+)
+
+chart = alt.layer(line, hitbox, points).properties(height=380)
 
 st.altair_chart(chart, use_container_width=True)
