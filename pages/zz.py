@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 import altair as alt
 import datetime as dt
 
-BASE = "https://data.financialresearch.gov/v1"
+
 
 # ---------------------------- Page config -----------------------------
 st.set_page_config(page_title="Repo Dashboard", layout="wide")
@@ -41,11 +41,12 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------------------- Helpers --------------------------------
-SERIES = {
-    "Triparty (TV Total)": "REPO-TRI_TV_TOT-P",
-    "DVP (OV Total)": "REPO-DVP_OV_TOT-P",
-    "GCF (TV Total)": "REPO-GCF_TV_TOT-P",
+BASE = "https://data.financialresearch.gov/v1"
+
+MARKETS = {
+    "Triparty": "REPO-TRI_TV_TOT-P",
+    "DVP":      "REPO-DVP_OV_TOT-P",
+    "GCF":      "REPO-GCF_TV_TOT-P",
 }
 
 @st.cache_data(ttl=60*60, show_spinner=False)
