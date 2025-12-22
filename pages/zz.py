@@ -409,16 +409,21 @@ def latest_available_date(df: pd.DataFrame) -> pd.Timestamp:
 
 def make_interactive_line_chart(df: pd.DataFrame, title: str) -> alt.Chart:
     df = df.copy()
-    df["value_bn"] = df["value"] / 1e9  # ✅ USD billions
+    df["value_bn"] = df["value"] / 1e9
 
     selection = alt.selection_point(fields=["series"], bind="legend")
+    hover = alt.selection_point(fields=["date", "series"], nearest=True, on="mouseover", empty=False)
 
     base = alt.Chart(df).encode(
         x=alt.X("date:T", title=""),
         y=alt.Y(
             "value_bn:Q",
-            title="USD (bn)",
-            axis=alt.Axis(format=",.0f")  # 1,234 gibi
+            title="USD bn",  # ✅ burada bn yazıyor
+            axis=alt.Axis(
+                format=",.0f",
+                labelPadding=12,   # ✅ solda kesilmesin
+                titlePadding=14
+            )
         ),
         color=alt.Color(
             "series:N",
@@ -427,16 +432,8 @@ def make_interactive_line_chart(df: pd.DataFrame, title: str) -> alt.Chart:
         opacity=alt.condition(selection, alt.value(1.0), alt.value(0.15)),
     )
 
-    hover = alt.selection_point(
-        fields=["date", "series"],
-        nearest=True,
-        on="mouseover",
-        empty=False,
-    )
+    line = base.mark_line(strokeWidth=2).add_params(selection)
 
-    line = base.mark_line().add_params(selection)
-
-    # tooltip yakalama alanı (kalın olsun)
     hitbox = base.mark_line(opacity=0, strokeWidth=14).add_params(hover)
 
     points = base.mark_circle(size=20).encode(
@@ -448,10 +445,14 @@ def make_interactive_line_chart(df: pd.DataFrame, title: str) -> alt.Chart:
         ],
     )
 
-    return alt.layer(line, hitbox, points).properties(
+    chart = alt.layer(line, hitbox, points).properties(
         height=360,
-        title=alt.Title(title, anchor="middle")
+        title=alt.Title(title, anchor="middle"),
+        padding={"left": 40, "right": 10, "top": 10, "bottom": 10},  # ✅ sol boşluk
     )
+
+    return chart
+
 
 # --- End date: ulaşılabilen en son veri olsun ---
 today = dt.date.today().strftime("%Y-%m-%d")
