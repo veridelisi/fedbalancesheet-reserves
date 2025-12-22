@@ -268,11 +268,11 @@ st.markdown("""
     <div class="stats-container">
         <div style="display: flex; justify-content: space-around; flex-wrap: wrap;">
             <div class="stat-item">
-                <span class="stat-number">7</span>
+                <span class="stat-number">8</span>
                 <span class="stat-label">Dashboards</span>
             </div>
             <div class="stat-item">
-                <span class="stat-number">15+</span>
+                <span class="stat-number">16+</span>
                 <span class="stat-label">Data Sources</span>
             </div>
             <div class="stat-item">
