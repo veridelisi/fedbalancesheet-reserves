@@ -109,19 +109,6 @@ START_DATE, END_DATE = compute_dates_for_zoom(zoom)
 with st.spinner("OFR verileri çekiliyor (multifull)..."):
     plot_df = fetch_ofr_multifull(SERIES, START_DATE, END_DATE)
 
-# ---------------------------- Chart (detail + brush) -------------------
-base = alt.Chart(plot_df).encode(
-    x=alt.X("date:T", title=""),
-    y=alt.Y("value:Q", title="USD", axis=alt.Axis(format="~s")),
-    color=alt.Color("market:N", title="Market"),
-    tooltip=[
-        alt.Tooltip("date:T", title="Date"),
-        alt.Tooltip("market:N", title="Market"),
-        alt.Tooltip("value:Q", title="Volume (USD)", format=","),
-    ],
-)
-
-
 # ---------------------------- Chart with bottom interactive legend ----------------------------
 
 selection = alt.selection_point(
@@ -148,7 +135,8 @@ base = alt.Chart(plot_df).encode(
     ],
 ).add_params(selection)
 
-# Brush (alt navigator) — aynen kalsın
+# ---------------------------- Brush (alt navigator) ----------------------------
+
 brush = alt.selection_interval(encodings=["x"])
 
 detail = (
