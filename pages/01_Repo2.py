@@ -139,6 +139,39 @@ chart = alt.Chart(plot_df).mark_line().encode(
 
 st.altair_chart(chart, use_container_width=True)
 
+# ---------------------------- Latest snapshot (after Altair chart) ----------------------------
+
+def last_value(df: pd.DataFrame, market: str) -> tuple[pd.Timestamp, float]:
+    sub = df[df["market"] == market]
+    if sub.empty:
+        return None, 0.0
+    d = sub["date"].max()
+    v = sub.loc[sub["date"] == d, "value"].iloc[0]
+    return d, float(v)
+
+tri_d, tri_v = last_value(plot_df, "Triparty")
+dvp_d, dvp_v = last_value(plot_df, "DVP")
+gcf_d, gcf_v = last_value(plot_df, "GCF")
+
+tri = tri_v / 1e12
+dvp = dvp_v / 1e12
+gcf = gcf_v / 1e12
+total = tri + dvp + gcf
+
+c1, c2, c3, c4 = st.columns(4)
+with c1:
+    st.metric("🔴 Tri-party", f"{tri:.2f}T")
+with c2:
+    st.metric("🔵 DVP", f"{dvp:.2f}T")
+with c3:
+    st.metric("🔷 GCF", f"{gcf:.2f}T")
+with c4:
+    st.metric("➡️ Total", f"{total:.2f}T")
+
+# İstersen tarihleri küçük not olarak:
+st.caption(
+    f"Dates → Tri-party: {tri_d:%b %d, %Y} · DVP: {dvp_d:%b %d, %Y} · GCF: {gcf_d:%b %d, %Y}"
+)
 
 
 
