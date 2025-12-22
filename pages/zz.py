@@ -266,20 +266,21 @@ with c2:
 START_DATE = "2025-09-01"
 
 TENOR_SERIES = {
-    "Total":            "REPO-TRI_TV_TOT-P",
-    "Overnight/Open":   "REPO-TRI_TV_OO-P",
-    "Term 2–7 Days":    "REPO-TRI_TV_B27-P",
-    "Term 8–30 Days":   "REPO-TRI_TV_B830-P",
-    "Term >30 Days":    "REPO-TRI_TV_G30-P",
+    "Total":            "REPO-DVP_TV_TOT-P",
+    "Overnight/Open":   "REPO-DVP_TV_OO-P",
+    "Term 2–7 Days":    "REPO-DVP_TV_B27-P",
+    "Term 8–30 Days":   "REPO-DVP_TV_B830-P",
+    "Term >30 Days":    "REPO-DVP_TV_G30-P",
 }
 
 COLLATERAL_SERIES = {
-    "U.S. Treasury":      "REPO-TRI_TV_T-P",
-    "Agency & GSE":       "REPO-TRI_TV_AG-P",
-    "Corporate Debt":     "REPO-TRI_TV_CORD-P",
-    "Other Collateral":   "REPO-TRI_TV_O-P",
-    "Total":              "REPO-TRI_TV_TOT-P",
+    "U.S. Treasury":      "REPO-DVP_TV_T-P",
+    "Agency & GSE":       "REPO-DVP_TV_AG-P",
+    "Corporate Debt":     "REPO-DVP_TV_CORD-P",
+    "Other Collateral":   "REPO-DVP_TV_O-P",
+    "Total":              "REPO-DVP_TV_TOT-P",
 }
+
 
 def _pick_subkey(timeseries_dict: dict) -> str:
     return next(iter(timeseries_dict.keys()))
