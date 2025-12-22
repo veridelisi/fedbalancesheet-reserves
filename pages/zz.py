@@ -141,13 +141,52 @@ overview = (
 
 st.altair_chart(alt.vconcat(detail, overview).resolve_scale(color="shared"), use_container_width=True)
 
-# ---------------------------- Data + download --------------------------
-with st.expander("📥 Data"):
-    st.caption(f"Tarih aralığı: {plot_df['date'].min().date()} → {plot_df['date'].max().date()}")
-    st.dataframe(plot_df.sort_values(["date", "market"]), use_container_width=True)
-    st.download_button(
-        "Download CSV",
-        data=plot_df.to_csv(index=False).encode("utf-8"),
-        file_name="ofr_repo_triparty_dvp_gcf.csv",
-        mime="text/csv",
+# ---------------------------- Chart + clickable labels ----------------------------
+
+# Etiketleri grafiğin altına koy (legend yerine)
+selected_markets = st.multiselect(
+    label="",
+    options=["GCF", "Triparty", "DVP"],
+    default=["GCF", "Triparty", "DVP"],
+    help="Aşağıdan seç, grafikte sadece seçtiklerin görünsün.",
+)
+
+# Eğer hiçbir şey seçilmezse grafiği boş bırakmayalım: hepsini geri getir
+if not selected_markets:
+    selected_markets = ["GCF", "Triparty", "DVP"]
+
+filtered_df = plot_df[plot_df["market"].isin(selected_markets)].copy()
+
+base = alt.Chart(filtered_df).encode(
+    x=alt.X("date:T", title=""),
+    y=alt.Y("value:Q", title="USD", axis=alt.Axis(format="~s")),
+    color=alt.Color("market:N", title=None, legend=None),  # legend kapalı (etiketler altta)
+    tooltip=[
+        alt.Tooltip("date:T", title="Date"),
+        alt.Tooltip("market:N", title="Market"),
+        alt.Tooltip("value:Q", title="Volume (USD)", format=","),
+    ],
+)
+
+# Brush selection (overview controls detail) — aynı davranış
+brush = alt.selection_interval(encodings=["x"])
+
+detail = base.mark_line().transform_filter(brush).properties(height=380)
+
+overview = (
+    alt.Chart(filtered_df)
+    .mark_area(opacity=0.25)
+    .encode(
+        x=alt.X("date:T", title=""),
+        y=alt.Y("value:Q", title="", axis=alt.Axis(labels=False, ticks=False)),
+        color=alt.Color("market:N", legend=None),
     )
+    .add_params(brush)
+    .properties(height=70)
+)
+
+st.altair_chart(
+    alt.vconcat(detail, overview).resolve_scale(color="shared"),
+    use_container_width=True
+)
+
