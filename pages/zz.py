@@ -43,7 +43,7 @@ st.markdown("""
 
 BASE = "https://data.financialresearch.gov/v1"
 
-MARKETS = {
+SERIES = {
     "Triparty": "REPO-TRI_TV_TOT-P",
     "DVP":      "REPO-DVP_OV_TOT-P",
     "GCF":      "REPO-GCF_TV_TOT-P",
