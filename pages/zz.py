@@ -482,7 +482,87 @@ with c1:
 
 with c2:
     st.altair_chart(
-        make_interactive_line_chart(collateral_df, "GCFDDD Collateral"),
+        make_interactive_line_chart(collateral_df, "GCF Collateral"),
         use_container_width=True
     )
 
+# ------------------------------ Methodology ------------------------------
+st.markdown("### 📋 Methodology")
+
+with st.expander("🔎 Click to expand methodology details", expanded=False):
+    st.markdown("""
+### 🧭 What this page shows
+This page visualizes **U.S. repo market activity** using official data published by the  
+**Office of Financial Research (OFR)**.
+
+It covers three major repo segments:
+- 🟦 **Tri-party Repo**
+- 🟨 **DVP (Delivery-versus-Payment) Repo**
+- 🟩 **GCF (General Collateral Finance) Repo**
+
+For each segment, the dashboard shows:
+- ⏱️ **Tenor composition** (overnight vs term repos)
+- 🧱 **Collateral composition** *(where reported by OFR)*
+- 📈 **Transaction volumes**, expressed in **USD billions (bn)**
+
+---
+
+### 🗂️ Data source
+- 🏛️ **Office of Financial Research (U.S. Treasury)**
+- 📊 Dataset: **U.S. Repo Markets**
+- 🌐 Base API:https://data.financialresearch.gov/v1
+                
+ ### 🔌 API endpoints used
+- 📦 **Multiple time series (bulk fetch)**  
+Used to retrieve multiple repo series (e.g. Total, Overnight, Term buckets) in a single request.
+
+Each request specifies:
+- 🧾 `mnemonics` → list of OFR series codes  
+- 📅 `start_date` → fixed start date (e.g. 2025-09-01)  
+- ⏳ `end_date` → latest available date returned by the API  
+
+---
+
+### 🧩 Series structure
+Repo volumes are identified using OFR **mnemonics**, for example:
+- `REPO-TRI_TV_TOT-P` → Tri-party repo total volume  
+- `REPO-DVP_TV_TOT-P` → DVP repo total volume  
+- `REPO-GCF_TV_TOT-P` → GCF repo total volume  
+
+Tenor and collateral breakdowns are fetched **only when OFR reports them**.
+
+⚠️ **Important note**  
+- 🔍 **Collateral composition is available for Tri-party and GCF repos**
+- 🚫 **Collateral composition is NOT reported by OFR for DVP repos**  
+→ This is a deliberate data limitation, not a dashboard omission.
+
+---
+
+### 🛠️ Data processing
+- 📥 Raw API responses are parsed from JSON into pandas DataFrames
+- 🧹 Missing or non-numeric observations are dropped
+- 🔢 Volumes are converted from USD to **USD billions (bn)** for readability
+- 📆 When multiple series are shown together, all data are aligned to the  
+**latest common available date**
+
+---
+
+### 📐 Visualization logic
+- 📊 Charts are built using **Altair (Vega-Lite)**
+- 🖱️ Interactive features include:
+- Hover tooltips with exact values
+- Clickable legends to isolate series
+- 📏 Y-axis units are explicitly labeled as **USD bn**
+- 🎯 Visual emphasis:
+- **Total** series provide overall market context
+- **Components** (tenor / collateral) highlight market structure
+
+---
+
+### 🧠 Interpretation guidance
+- Tri-party repos are **collateral-transparent** and centrally settled
+- DVP repos are **bilateral and more opaque**, with limited structural detail
+- GCF repos sit between the two, combining standardized collateral with dealer-driven activity
+
+Together, these differences highlight how **repo market transparency varies by settlement structure**.
+""")
