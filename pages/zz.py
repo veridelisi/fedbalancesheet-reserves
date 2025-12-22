@@ -158,7 +158,4 @@ overview = (
     .properties(height=70)
 )
 
-st.altair_chart(
-   
-    use_container_width=True
-)
+st.altair_chart(detail, use_container_width=True)
