@@ -121,25 +121,6 @@ base = alt.Chart(plot_df).encode(
     ],
 )
 
-# Brush selection (overview controls detail)
-brush = alt.selection_interval(encodings=["x"])
-
-detail = base.mark_line().transform_filter(brush).properties(height=380)
-
-overview = (
-    alt.Chart(plot_df)
-    .mark_area(opacity=0.25)
-    .encode(
-        x=alt.X("date:T", title=""),
-        y=alt.Y("value:Q", title="", axis=alt.Axis(labels=False, ticks=False)),
-        color=alt.Color("market:N", legend=None),
-        tooltip=[alt.Tooltip("date:T", title="Date"), alt.Tooltip("value:Q", title="USD", format="~s")]
-    )
-    .add_params(brush)
-    .properties(height=70)
-)
-
-st.altair_chart(alt.vconcat(detail, overview).resolve_scale(color="shared"), use_container_width=True)
 
 # ---------------------------- Chart + clickable labels ----------------------------
 
