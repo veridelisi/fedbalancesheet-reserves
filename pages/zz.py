@@ -109,14 +109,14 @@ START_DATE, END_DATE = compute_dates_for_zoom(zoom)
 with st.spinner("OFR verileri çekiliyor (multifull)..."):
     plot_df = fetch_ofr_multifull(SERIES, START_DATE, END_DATE)
 
-# ---------------------------- Chart with bottom interactive legend ----------------------------
+# ---------------------------- Chart with bottom interactive legend (NO brush) ----------------------------
 
 selection = alt.selection_point(
     fields=["market"],
     bind="legend"
 )
 
-base = alt.Chart(plot_df).encode(
+chart = alt.Chart(plot_df).mark_line().encode(
     x=alt.X("date:T", title=""),
     y=alt.Y("value:Q", title="USD", axis=alt.Axis(format="~s")),
     color=alt.Color(
@@ -133,29 +133,6 @@ base = alt.Chart(plot_df).encode(
         alt.Tooltip("market:N", title="Market"),
         alt.Tooltip("value:Q", title="Volume (USD)", format=","),
     ],
-).add_params(selection)
+).add_params(selection).properties(height=380)
 
-# ---------------------------- Brush (alt navigator) ----------------------------
-
-brush = alt.selection_interval(encodings=["x"])
-
-detail = (
-    base
-    .mark_line()
-    .transform_filter(brush)
-    .properties(height=380)
-)
-
-overview = (
-    alt.Chart(plot_df)
-    .mark_area(opacity=0.25) 
-    .encode(
-        x=alt.X("date:T", title=""),
-        y=alt.Y("value:Q", title="", axis=alt.Axis(labels=False, ticks=False)),
-        color=alt.Color("market:N", legend=None),
-    )
-    .add_params(brush)
-    .properties(height=70)
-)
-
-st.altair_chart(detail, use_container_width=True)
+st.altair_chart(chart, use_container_width=True)
