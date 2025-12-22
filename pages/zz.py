@@ -122,40 +122,44 @@ base = alt.Chart(plot_df).encode(
 )
 
 
-# ---------------------------- Chart + clickable labels ----------------------------
+# ---------------------------- Chart with bottom interactive legend ----------------------------
 
-# Etiketleri grafiğin altına koy (legend yerine)
-selected_markets = st.multiselect(
-    label="",
-    options=["GCF", "Triparty", "DVP"],
-    default=["GCF", "Triparty", "DVP"],
-    help="Aşağıdan seç, grafikte sadece seçtiklerin görünsün.",
+selection = alt.selection_point(
+    fields=["market"],
+    bind="legend"
 )
 
-# Eğer hiçbir şey seçilmezse grafiği boş bırakmayalım: hepsini geri getir
-if not selected_markets:
-    selected_markets = ["GCF", "Triparty", "DVP"]
-
-filtered_df = plot_df[plot_df["market"].isin(selected_markets)].copy()
-
-base = alt.Chart(filtered_df).encode(
+base = alt.Chart(plot_df).encode(
     x=alt.X("date:T", title=""),
     y=alt.Y("value:Q", title="USD", axis=alt.Axis(format="~s")),
-    color=alt.Color("market:N", title=None, legend=None),  # legend kapalı (etiketler altta)
+    color=alt.Color(
+        "market:N",
+        legend=alt.Legend(
+            orient="bottom",
+            direction="horizontal",
+            title=None
+        )
+    ),
+    opacity=alt.condition(selection, alt.value(1.0), alt.value(0.15)),
     tooltip=[
         alt.Tooltip("date:T", title="Date"),
         alt.Tooltip("market:N", title="Market"),
         alt.Tooltip("value:Q", title="Volume (USD)", format=","),
     ],
-)
+).add_params(selection)
 
-# Brush selection (overview controls detail) — aynı davranış
+# Brush (alt navigator) — aynen kalsın
 brush = alt.selection_interval(encodings=["x"])
 
-detail = base.mark_line().transform_filter(brush).properties(height=380)
+detail = (
+    base
+    .mark_line()
+    .transform_filter(brush)
+    .properties(height=380)
+)
 
 overview = (
-    alt.Chart(filtered_df)
+    alt.Chart(plot_df)
     .mark_area(opacity=0.25)
     .encode(
         x=alt.X("date:T", title=""),
@@ -170,4 +174,3 @@ st.altair_chart(
     alt.vconcat(detail, overview).resolve_scale(color="shared"),
     use_container_width=True
 )
-
