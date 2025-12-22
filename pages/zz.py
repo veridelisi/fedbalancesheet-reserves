@@ -213,7 +213,7 @@ def make_interactive_line_chart(df: pd.DataFrame, title: str) -> alt.Chart:
     line = base.mark_line().add_params(selection)
 
     # tooltip yakalama alanı
-    hitbox = base.mark_line(opacity=0, strokeWidth=14).add_params(hover)
+    hitbox = base.mark_line(opacity=0, strokeWidth=4).add_params(hover)
 
     points = base.mark_circle(size=70).encode(
         opacity=alt.condition(hover, alt.value(1), alt.value(0)),
