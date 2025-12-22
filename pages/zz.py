@@ -148,7 +148,7 @@ detail = (
 
 overview = (
     alt.Chart(plot_df)
-   
+    .mark_area(opacity=0.25) 
     .encode(
         x=alt.X("date:T", title=""),
         y=alt.Y("value:Q", title="", axis=alt.Axis(labels=False, ticks=False)),
