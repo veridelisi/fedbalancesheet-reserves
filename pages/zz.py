@@ -355,8 +355,12 @@ def make_interactive_line_chart(df: pd.DataFrame, title: str) -> alt.Chart:
 today = dt.date.today().strftime("%Y-%m-%d")
 
 with st.spinner("Tri-party tenor & collateral verileri çekiliyor..."):
-    tenor_df_raw = fetch_ofr_multifull(TENOR_SERIES, START_DATE, today)
-    collateral_df_raw = fetch_ofr_multifull(COLLATERAL_SERIES, START_DATE, today)
+    try:
+        tenor_df_raw = fetch_ofr_multifull(TENOR_SERIES, START_DATE, today)
+        collateral_df_raw = fetch_ofr_multifull(COLLATERAL_SERIES, START_DATE, today)
+    except Exception as e:
+        st.error(f"Veri çekme başarısız: {str(e)}")
+        st.stop()
 
 tenor_end = latest_available_date(tenor_df_raw)
 coll_end = latest_available_date(collateral_df_raw)
