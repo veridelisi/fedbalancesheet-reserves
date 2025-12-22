@@ -158,20 +158,21 @@ dvp = dvp_v / 1e12
 gcf = gcf_v / 1e12
 total = tri + dvp + gcf
 
-c1, c2, c3, c4 = st.columns(4)
-with c1:
-    st.metric("🔴 Tri-party", f"{tri:.2f}T")
-with c2:
-    st.metric("🔵 DVP", f"{dvp:.2f}T")
-with c3:
-    st.metric("🔷 GCF", f"{gcf:.2f}T")
-with c4:
-    st.metric("➡️ Total", f"{total:.2f}T")
+with st.container(border=True):
+    c1, c2, c3, c4 = st.columns([1, 1, 1, 1])
 
-# İstersen tarihleri küçük not olarak:
-st.caption(
-    f"Dates → Tri-party: {tri_d:%b %d, %Y} · DVP: {dvp_d:%b %d, %Y} · GCF: {gcf_d:%b %d, %Y}"
-)
+    with c1:
+        st.metric("🔴 Tri-party", f"{tri:.2f}T")
+    with c2:
+        st.metric("🔵 DVP", f"{dvp:.2f}T")
+    with c3:
+        st.metric("🔷 GCF", f"{gcf:.2f}T")
+    with c4:
+        st.metric("➡️ Total", f"{total:.2f}T")
+
+    st.caption(
+        f"Dates → Tri-party: {tri_d:%b %d, %Y} · DVP: {dvp_d:%b %d, %Y} · GCF: {gcf_d:%b %d, %Y}"
+    )
 
 
 
