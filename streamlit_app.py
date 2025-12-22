@@ -372,7 +372,7 @@ with col1:
             "in short-term funding dynamics."
         ),
         page_path="pages/01_Repo.py",
-        link_label="🔍 Analyze Repo Markets",
+        link_label="🔍 Analyze Primary Dealer Repo Markets",
         icon="🔄",
         gradient_class="gradient-repo",
         badge_text="Market Data"
