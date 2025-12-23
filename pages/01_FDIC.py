@@ -7,6 +7,7 @@ import numpy as np
 import requests
 import altair as alt
 import time
+import re
 from bs4 import BeautifulSoup
 
 # ---------------------------- Page config -----------------------------
@@ -143,23 +144,10 @@ FED_TABLE_430_URL = "https://www.federalreserve.gov/data/assetliab/current.htm"
 
 @st.cache_data(ttl=6 * 60 * 60, show_spinner=False)
 def fetch_foreign_bank_branches_reserves_musd() -> float:
-    """
-    Pulls 'Balances with Federal Reserve Banks' from Table 4.30.
-    Based on page HTML structure shown by user:
-      <th id="r1">Balances with Federal Reserve Banks</th>
-      <td class="shadedata">1,038,229</td>
+    html = requests.get("https://www.federalreserve.gov/data/assetliab/current.htm", timeout=30).text
+    return float(re.search(r'<th[^>]*id="r1"[^>]*>Balances with Federal Reserve Banks</th>\s*<td class="shadedata">\s*([\d,]+)\s*</td>', html, re.S).group(1).replace(",", ""))
 
-    Returns: value in *millions of dollars* (float).
-    """
-    html = requests.get(FED_TABLE_430_URL, timeout=30).text
-    soup = BeautifulSoup(html, "html.parser")
 
-    node = soup.select_one("th#r1 + td.shadedata")
-    if node is None:
-        raise RuntimeError("Could not locate Table 4.30 value using selector: th#r1 + td.shadedata")
-
-    txt = node.get_text(strip=True)
-    return float(txt.replace(",", ""))
 
 # -----------------------------------------------------------------------------
 # UI
