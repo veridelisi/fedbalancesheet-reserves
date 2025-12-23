@@ -13,19 +13,7 @@ import re
 st.set_page_config(page_title="FDIC Reserve Dashboard ", layout="wide")
 
 # ---------------------------- Top nav (your template) -----------------
-st.markdown("""
-<style>
-/* Top nav page_link alignment fix */
-a[data-testid="stPageLink-NavLink"] {
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    gap: 0.4rem !important;
-    line-height: 1.2 !important;
-    white-space: nowrap !important;
-}
-</style>
-""", unsafe_allow_html=True)
+
 
 cols = st.columns(10)
 with cols[0]:
@@ -48,7 +36,19 @@ with cols[8]:
     st.page_link("pages/01_Desk.py", label="🛰️ Desk")
 with cols[9]:
     st.page_link("pages/01_Eurodollar.py", label="💡 Eurodollar")
-
+st.markdown("""
+<style>
+/* Top nav page_link alignment fix */
+a[data-testid="stPageLink-NavLink"] {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.4rem !important;
+    line-height: 1.2 !important;
+    white-space: nowrap !important;
+}
+</style>
+""", unsafe_allow_html=True)
 
 st.markdown(
     """
