@@ -10,40 +10,42 @@ from matplotlib.ticker import FuncFormatter, AutoLocator
 
 st.set_page_config(page_title="Veridelisi • Reserve Page", layout="wide")
 
-cols = st.columns(9)
+# ---------------------------- Top nav (your template) -----------------
+
+cols = st.columns(10)
 with cols[0]:
     st.page_link("streamlit_app.py", label="🏠 Home")
 with cols[1]:
     st.page_link("pages/01_Reserves.py", label="🌍 Reserves")
 with cols[2]:
-    st.page_link("pages/01_Repo.py", label="♻️ Repo")
+    st.page_link("pages/01_FDIC.py", label="🏦 FDIC")
 with cols[3]:
-    st.page_link("pages/01_Repo2.py", label="♻️ Repo 2")    
+    st.page_link("pages/01_Repo.py", label="🔄 Repo")
 with cols[4]:
-    st.page_link("pages/01_TGA.py", label="🌐 TGA")
+    st.page_link("pages/01_Repo2.py", label="♻️ Repo 2")
 with cols[5]:
-    st.page_link("pages/01_PublicBalance.py", label="💹 Public Balance")
+    st.page_link("pages/01_TGA.py", label="🏛️ TGA")
 with cols[6]:
-    st.page_link("pages/01_Interest.py", label="✈️ Reference Rates")
+    st.page_link("pages/01_PublicBalance.py", label="📊 P.Balance")
 with cols[7]:
-    st.page_link("pages/01_Desk.py", label="📡 Desk")
+    st.page_link("pages/01_Interest.py", label="📈 Rates")
 with cols[8]:
+    st.page_link("pages/01_Desk.py", label="🛰️ Desk")
+with cols[9]:
     st.page_link("pages/01_Eurodollar.py", label="💡 Eurodollar")
 
-# --- Hide sidebar + small CSS + badge helper ---
-st.markdown("""
+# ---------------------------- STOP Expanded -----------------
+st.markdown(
+    """
 <style>
-  [data-testid="stSidebarNav"]{display:none;}
-  section[data-testid="stSidebar"][aria-expanded="true"]{display:none;}
-  .vd-badge{
-    display:inline-block;padding:3px 8px;border-radius:8px;
-    font-size:0.75rem;font-weight:600;letter-spacing:.2px;
-    color:#111827;background:#E5E7EB;border:1px solid #D1D5DB;
-    margin-left:.5rem;vertical-align:middle;
-  }
+    [data-testid="stSidebarNav"] {display: none;}
+    section[data-testid="stSidebar"][aria-expanded="true"]{display: none;}
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
+# ---------------------------- CODE -----------------
 def badge(text, bg="#E5E7EB", fg="#111827", br="#D1D5DB"):
     return f'<span class="vd-badge" style="background:{bg};color:{fg};border-color:{br};">{text}</span>'
 
