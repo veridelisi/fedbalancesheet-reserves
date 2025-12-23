@@ -144,8 +144,24 @@ FED_TABLE_430_URL = "https://www.federalreserve.gov/data/assetliab/current.htm"
 
 @st.cache_data(ttl=6 * 60 * 60, show_spinner=False)
 def fetch_foreign_bank_branches_reserves_musd() -> float:
-    html = requests.get("https://www.federalreserve.gov/data/assetliab/current.htm", timeout=30).text
-    return float(re.search(r'<th[^>]*id="r1"[^>]*>Balances with Federal Reserve Banks</th>\s*<td class="shadedata">\s*([\d,]+)\s*</td>', html, re.S).group(1).replace(",", ""))
+    html = requests.get(
+        "https://www.federalreserve.gov/data/assetliab/current.htm",
+        timeout=30
+    ).text
+
+    pattern = (
+        r'Balances with Federal Reserve Banks'   # satır adı
+        r'.{0,500}?'                              # aradaki her şey (satır kırıkları dahil)
+        r'<td[^>]*class="shadedata"[^>]*>'        # ilgili hücre
+        r'\s*([\d,]+)\s*'                         # SAYI
+        r'</td>'
+    )
+
+    m = re.search(pattern, html, re.I | re.S)
+    if not m:
+        raise RuntimeError("Table 4.30 value not found in HTML")
+
+    return float(m.group(1).replace(",", ""))
 
 
 
