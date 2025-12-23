@@ -359,3 +359,122 @@ else:
         "Fed Table 4.30 values are in **million USD**. "
         "Both series are converted to **trillion USD** before computing shares."
     )
+
+
+
+# ------------------------------ Methodology ------------------------------
+st.markdown("### 📋 Methodology")
+
+with st.expander("🔎 Click to expand methodology details", expanded=False):
+    st.markdown("""
+**What you’re seeing on this page (in plain English):**  
+We combine **two official sources** to describe where U.S. reserve balances sit:  
+- 🏦 **FDIC-insured U.S. banks** (bank-level, from FDIC Call Reports via API)  
+- 🌍 **U.S. branches & agencies of foreign banks** (sector-level, from Fed Table 4.30)
+
+---
+
+### 1) 🏦 FDIC (Insured U.S. Banks): How reserves are measured
+**Goal:** Build a bank-by-bank estimate of reserve balances held by **FDIC-insured banks**.
+
+**Data source:** FDIC BankFind / Call Report API  
+- 🌐 **Base URL:**  
+  `https://banks.data.fdic.gov/api`
+
+**API endpoints used:**
+- 🏷️ **Institutions (bank identifiers & names)**  
+Used to retrieve:
+- `CERT` (bank certificate number)
+- `NAME` (official bank name)
+
+- 📊 **Financials (Call Report balance sheet items)**  
+
+                Used to retrieve reserve-related fields by reporting date (`REPDTE`).
+
+**Typical query logic (simplified):**
+- Filter to **ACTIVE banks only**
+- Filter by **REPDTE** (quarter-end date, e.g. `20250930`)
+- Paginate using `limit` + `offset`
+
+---
+
+### 2) 🔑 FDIC variables used (priority + fallback)
+- ✅ **CHFRB**  
+*Balances due from Federal Reserve Banks*  
+→ Preferred and most direct proxy for reserve balances
+
+- ↪️ **CHBALI**  
+*Interest-bearing balances*  
+→ Used **only if CHFRB is missing**
+
+**Rule applied in the code:**
+- 🧠 If **CHFRB exists**, use CHFRB  
+- 🪂 Else, fall back to CHBALI  
+- 🧯 If both are missing (rare), treat as **0**
+
+---
+
+### 3) ⚠️ Unit convention (very important)
+FDIC Call Report amounts are reported in **thousand USD**.
+
+Example:
+- `1,772,647,048`  
+- = 1,772,647,048 **thousand USD**  
+- ≈ **1.77 trillion USD**
+
+All FDIC values are converted accordingly before comparison.
+
+---
+
+### 4) 🌍 Foreign banks: Fed Table 4.30
+**Source:** Federal Reserve  
+*Assets and Liabilities of U.S. Branches and Agencies of Foreign Banks (Table 4.30)*
+
+**Item used:**  
+- 🧾 *Balances with Federal Reserve Banks*
+
+**Unit:** million USD
+
+---
+
+### 5) 🧮 Harmonizing units
+To make the two sources comparable:
+- 🏦 FDIC → thousand USD → USD → **trillion USD**
+- 🌍 Fed Table 4.30 → million USD → USD → **trillion USD**
+
+---
+
+### 6) 🥧 Pie chart interpretation
+The final pie chart includes **only two sectors**:
+- 🏦 Insured U.S. Banks (FDIC)
+- 🌍 Foreign Banks (U.S. Branches)
+
+🚫 Credit unions are **intentionally excluded**.
+
+---
+
+### 7) 🔁 Caching & refresh
+- ⚡ Data is cached using `@st.cache_data`
+- 🔄 “Refresh” clears cache and re-fetches data from both sources
+
+---
+
+### 8) ⚖️ Interpretation caveat
+- FDIC data: bank-level, insured institutions  
+- Fed Table 4.30: sector-level totals  
+
+Use results as a **high-level distribution view**, not a perfect reconciliation.
+""")
+
+
+ # --------------------------- Footer -------------------------------
+
+st.markdown(
+    """
+    <div style="text-align:center;color:#64748b;font-size:0.95rem;padding:20px 0;">
+        <a href="https://veridelisi.substack.com/">Veri Delisi</a>🚀 <br>
+        <em>Engin Yılmaz • Amherst • September 2025 </em>
+    </div>
+    """,
+    unsafe_allow_html=True
+)   
