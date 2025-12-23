@@ -210,25 +210,7 @@ with b1:
 with b2:
     st.metric("CHBALI used", f"{chbali_count:,} banks", delta=f"{chbali_amount_thousand_usd:,.0f} (thousand USD)")
 
-# -----------------------------------------------------------------------------
-# 2) THEN: Fed Table 4.30 — separate section (as you requested)
-# -----------------------------------------------------------------------------
-st.divider()
-st.subheader("U.S. Branches and Agencies of Foreign Banks (Table 4.30)")
-st.caption("Fed Table 4.30 item: **Balances with Federal Reserve Banks** (units: **millions of dollars**).")
 
-foreign_musd = None
-try:
-    foreign_musd = fetch_foreign_bank_branches_reserves_musd()
-    # Display as trillion USD and also show the raw million USD in help
-    foreign_trillion = (foreign_musd * 1e6) / 1e12
-    st.metric(
-        "U.S. Branches and Agencies of Foreign Banks Reserves",
-        f"{foreign_trillion:,.3f}T USD",
-        help=f"Raw table value: {foreign_musd:,.0f} (million USD). Converted to USD and then to trillion."
-    )
-except Exception as e:
-    st.warning(f"Could not fetch Table 4.30 value right now: {e}")
 
 # -----------------------------------------------------------------------------
 # 3) FDIC concentration chart (Top 10/20/50) — keep it, no bank table, no CSV
@@ -270,6 +252,27 @@ labels = (
 )
 
 st.altair_chart((chart + labels).properties(height=320), use_container_width=True)
+
+# -----------------------------------------------------------------------------
+# 2) THEN: Fed Table 4.30 — separate section (as you requested)
+# -----------------------------------------------------------------------------
+st.divider()
+st.subheader("U.S. Branches and Agencies of Foreign Banks (Table 4.30)")
+st.caption("Fed Table 4.30 item: **Balances with Federal Reserve Banks** (units: **millions of dollars**).")
+
+foreign_musd = None
+try:
+    foreign_musd = fetch_foreign_bank_branches_reserves_musd()
+    # Display as trillion USD and also show the raw million USD in help
+    foreign_trillion = (foreign_musd * 1e6) / 1e12
+    st.metric(
+        "U.S. Branches and Agencies of Foreign Banks Reserves",
+        f"{foreign_trillion:,.3f}T USD",
+        help=f"Raw table value: {foreign_musd:,.0f} (million USD). Converted to USD and then to trillion."
+    )
+except Exception as e:
+    st.warning(f"Could not fetch Table 4.30 value right now: {e}")
+
 
 # -----------------------------------------------------------------------------
 # 4) FINAL SECTION (at the very end): Pie chart using TWO sources only
