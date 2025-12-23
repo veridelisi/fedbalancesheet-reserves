@@ -8,7 +8,7 @@ import requests
 import altair as alt
 import time
 import re
-from bs4 import BeautifulSoup
+
 
 # ---------------------------- Page config -----------------------------
 st.set_page_config(page_title="FDIC Reserve Dashboard ", layout="wide")
