@@ -9,7 +9,6 @@ import altair as alt
 import time
 import re
 
-
 # ---------------------------- Page config -----------------------------
 st.set_page_config(page_title="FDIC Reserve Dashboard ", layout="wide")
 
@@ -86,11 +85,10 @@ def fetch_all(endpoint: str, params: dict, sleep_s: float = 0.08) -> pd.DataFram
     return pd.DataFrame(rows)
 
 @st.cache_data(ttl=6 * 60 * 60, show_spinner=False)
-def load_reserves(rep_dte: str) -> pd.DataFrame:
+def load_fdic_reserves(rep_dte: str) -> pd.DataFrame:
     """
-    Returns bank-level table with:
-    CERT, NAME, REPDTE, CHFRB, CHBALI, reserve_used, reserve_source
-    (This is used for calculations; we won't display the full bank table.)
+    Returns bank-level reserves dataset used for aggregation (FDIC values are in thousand USD):
+      CERT, NAME, REPDTE, CHFRB, CHBALI, reserve_used, reserve_source
     """
     # 1) Institution names (ACTIVE banks)
     inst_params = {
@@ -138,32 +136,29 @@ def load_reserves(rep_dte: str) -> pd.DataFrame:
     return out
 
 # -----------------------------------------------------------------------------
-# Fed Table 4.30: Foreign bank branches reserves
+# Fed Table 4.30: Foreign bank branches reserves (Balances with Federal Reserve Banks)
 # -----------------------------------------------------------------------------
 FED_TABLE_430_URL = "https://www.federalreserve.gov/data/assetliab/current.htm"
 
 @st.cache_data(ttl=6 * 60 * 60, show_spinner=False)
 def fetch_foreign_bank_branches_reserves_musd() -> float:
-    html = requests.get(
-        "https://www.federalreserve.gov/data/assetliab/current.htm",
-        timeout=30
-    ).text
+    """
+    Extracts Table 4.30 'Balances with Federal Reserve Banks' value.
+    Table units: million USD.
+    Uses regex only (no bs4 dependency).
+    """
+    html = requests.get(FED_TABLE_430_URL, timeout=30).text
 
     pattern = (
-        r'Balances with Federal Reserve Banks'   # satır adı
-        r'.{0,500}?'                              # aradaki her şey (satır kırıkları dahil)
-        r'<td[^>]*class="shadedata"[^>]*>'        # ilgili hücre
-        r'\s*([\d,]+)\s*'                         # SAYI
-        r'</td>'
+        r'Balances with Federal Reserve Banks'
+        r'.{0,500}?'
+        r'<td[^>]*class="shadedata"[^>]*>\s*([\d,]+)\s*</td>'
     )
-
     m = re.search(pattern, html, re.I | re.S)
     if not m:
-        raise RuntimeError("Table 4.30 value not found in HTML")
+        raise RuntimeError("Table 4.30 value not found in HTML (Balances with Federal Reserve Banks).")
 
-    return float(m.group(1).replace(",", ""))
-
-
+    return float(m.group(1).replace(",", ""))  # million USD
 
 # -----------------------------------------------------------------------------
 # UI
@@ -176,20 +171,23 @@ c1, c2 = st.columns([1.2, 2.8])
 with c1:
     repdte = st.text_input("REPDTE (YYYYMMDD)", value="20250930", help="Example: 20250930 for 2025 Q3")
 with c2:
-    refresh = st.button("🔄 Refresh (clear cache)", use_container_width=False)
+    refresh = st.button("🔄 Refresh (clear cache)")
 
 if refresh:
     st.cache_data.clear()
 
-# 1) First: FDIC data (publish this first)
+# -----------------------------------------------------------------------------
+# 1) FIRST: FDIC (insured U.S. banks) — publish this first
+# -----------------------------------------------------------------------------
 with st.spinner("Fetching FDIC data..."):
-    out = load_reserves(repdte)
+    out = load_fdic_reserves(repdte)
 
 if out.empty:
     st.error("No FDIC data returned. Check REPDTE or FDIC API availability.")
     st.stop()
 
-total_reserves = out["reserve_used"].sum()
+# FDIC values are in thousand USD
+total_reserves_thousand_usd = out["reserve_used"].sum()
 n_banks = len(out)
 
 chfrb_mask = out["reserve_source"] == "CHFRB"
@@ -198,40 +196,46 @@ chbali_mask = out["reserve_source"] == "CHBALI"
 chfrb_count = int(chfrb_mask.sum())
 chbali_count = int(chbali_mask.sum())
 
-chfrb_amount = out.loc[chfrb_mask, "reserve_used"].sum()
-chbali_amount = out.loc[chbali_mask, "reserve_used"].sum()
+chfrb_amount_thousand_usd = out.loc[chfrb_mask, "reserve_used"].sum()
+chbali_amount_thousand_usd = out.loc[chbali_mask, "reserve_used"].sum()
 
 m1, m2, m3 = st.columns(3)
 m1.metric("REPDTE", repdte)
 m2.metric("Number of banks", f"{n_banks:,}")
-m3.metric("Total reserves (FDIC: CHFRB else CHBALI)", f"{total_reserves:,.0f}")
+m3.metric("Total reserves (FDIC, thousand USD)", f"{total_reserves_thousand_usd:,.0f}")
 
 b1, b2 = st.columns(2)
 with b1:
-    st.metric("CHFRB used", f"{chfrb_count:,} banks", delta=f"{chfrb_amount:,.0f} USD")
+    st.metric("CHFRB used", f"{chfrb_count:,} banks", delta=f"{chfrb_amount_thousand_usd:,.0f} (thousand USD)")
 with b2:
-    st.metric("CHBALI used", f"{chbali_count:,} banks", delta=f"{chbali_amount:,.0f} USD")
+    st.metric("CHBALI used", f"{chbali_count:,} banks", delta=f"{chbali_amount_thousand_usd:,.0f} (thousand USD)")
 
+# -----------------------------------------------------------------------------
+# 2) THEN: Fed Table 4.30 — separate section (as you requested)
+# -----------------------------------------------------------------------------
 st.divider()
-
-# 2) Then: Foreign bank branches reserves (new row, separate from FDIC)
 st.subheader("U.S. Branches and Agencies of Foreign Banks (Table 4.30)")
-st.caption("Fed Table 4.30 item: **Balances with Federal Reserve Banks** (units: millions of dollars).")
+st.caption("Fed Table 4.30 item: **Balances with Federal Reserve Banks** (units: **millions of dollars**).")
 
+foreign_musd = None
 try:
     foreign_musd = fetch_foreign_bank_branches_reserves_musd()
-    foreign_busd = foreign_musd / 1000.0
+    # Display as trillion USD and also show the raw million USD in help
+    foreign_trillion = (foreign_musd * 1e6) / 1e12
     st.metric(
         "U.S. Branches and Agencies of Foreign Banks Reserves",
-        f"{foreign_busd:,.1f}B USD",
-        help="Source: federalreserve.gov/data/assetliab/current.htm (Table 4.30). Value pulled from the 'Balances with Federal Reserve Banks' row."
+        f"{foreign_trillion:,.3f}T USD",
+        help=f"Raw table value: {foreign_musd:,.0f} (million USD). Converted to USD and then to trillion."
     )
 except Exception as e:
     st.warning(f"Could not fetch Table 4.30 value right now: {e}")
 
+# -----------------------------------------------------------------------------
+# 3) FDIC concentration chart (Top 10/20/50) — keep it, no bank table, no CSV
+# -----------------------------------------------------------------------------
 st.divider()
+st.subheader("FDIC concentration (insured U.S. banks)")
 
-# Concentration chart: Top 10/20/50 shares (Altair)
 def top_share(df: pd.DataFrame, k: int) -> float:
     tot = df["reserve_used"].sum()
     if tot == 0:
@@ -241,15 +245,10 @@ def top_share(df: pd.DataFrame, k: int) -> float:
 plot_df = pd.DataFrame(
     {
         "Group": ["Top 10 banks", "Top 20 banks", "Top 50 banks"],
-        "Share (%)": [
-            top_share(out, 10),
-            top_share(out, 20),
-            top_share(out, 50),
-        ],
+        "Share (%)": [top_share(out, 10), top_share(out, 20), top_share(out, 50)],
     }
 )
 
-st.subheader("FDIC concentration (bank reserves are highly concentrated)")
 chart = (
     alt.Chart(plot_df)
     .mark_bar()
@@ -271,3 +270,57 @@ labels = (
 )
 
 st.altair_chart((chart + labels).properties(height=320), use_container_width=True)
+
+# -----------------------------------------------------------------------------
+# 4) FINAL SECTION (at the very end): Pie chart using TWO sources only
+#    - FDIC (insured U.S. banks): thousand USD -> trillion USD
+#    - Foreign banks (U.S. branches): million USD -> trillion USD
+#    No Credit Unions.
+# -----------------------------------------------------------------------------
+st.divider()
+st.subheader("Distribution of Bank Reserves (FDIC vs Foreign Banks)")
+
+if foreign_musd is None:
+    st.info("Pie chart requires the Fed Table 4.30 value. Once it loads, the chart will render here.")
+else:
+    # Convert both to trillion USD
+    fdic_trillion = (total_reserves_thousand_usd * 1_000) / 1e12   # thousand -> USD -> trillion
+    foreign_trillion = (foreign_musd * 1e6) / 1e12                 # million -> USD -> trillion
+
+    pie_df = pd.DataFrame({
+        "Sector": ["Insured U.S. Banks", "Foreign Banks (U.S. Branches)"],
+        "Reserves (Trillion USD)": [fdic_trillion, foreign_trillion],
+    })
+
+    pie_chart = (
+        alt.Chart(pie_df)
+        .mark_arc(innerRadius=40)
+        .encode(
+            theta=alt.Theta("Reserves (Trillion USD):Q"),
+            color=alt.Color("Sector:N", legend=alt.Legend(title="")),
+            tooltip=[
+                alt.Tooltip("Sector:N"),
+                alt.Tooltip("Reserves (Trillion USD):Q", format=".3f"),
+            ],
+        )
+    )
+
+    # Percent labels
+    pie_df["Share (%)"] = 100 * pie_df["Reserves (Trillion USD)"] / pie_df["Reserves (Trillion USD)"].sum()
+
+    labels = (
+        alt.Chart(pie_df)
+        .mark_text(radius=90, size=14, color="white")
+        .encode(
+            theta=alt.Theta("Reserves (Trillion USD):Q"),
+            text=alt.Text("Share (%):Q", format=".1f"),
+        )
+    )
+
+    st.altair_chart((pie_chart + labels).properties(height=420), use_container_width=True)
+
+    st.caption(
+        "Unit notes: FDIC Call Report values are in **thousand USD**. "
+        "Fed Table 4.30 values are in **million USD**. "
+        "Both series are converted to **trillion USD** before computing the shares."
+    )
