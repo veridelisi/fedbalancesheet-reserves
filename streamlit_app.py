@@ -409,7 +409,7 @@ with col1:
             "Measure reserve balances across FDIC-insured banks using Call Report items. "
             "Uses CHFRB (Balances due from Federal Reserve Banks) when available and "
             "falls back to CHBALI (Interest-bearing balances) when needed. "
-            "Highlights concentration, top holders, and aggregate totals."
+          
         ),
         page_path="pages/01_FDIC.py",
         link_label="🔍 Explore FDIC Reserves",
