@@ -464,6 +464,12 @@ The final pie chart includes **only two sectors**:
 - Fed Table 4.30: sector-level totals  
 
 Use results as a **high-level distribution view**, not a perfect reconciliation.
+
+### 9) ⚖️ Note
+             
+
+- The sum of these two series does not exactly equal total reserve amounts because this analysis excludes credit unions.
+- For a more detailed breakdown, see https://veridelisi.substack.com/p/who-holds-us-dollar-reserves
 """)
 
 
