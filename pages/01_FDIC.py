@@ -36,7 +36,7 @@ with cols[8]:
 with cols[9]:
     st.page_link("pages/01_Eurodollar.py", label="💡 Eurodollar")
 
-
+# ---------------------------- STOP Expanded -----------------
 st.markdown(
     """
 <style>
