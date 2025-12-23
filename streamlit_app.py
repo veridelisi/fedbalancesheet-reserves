@@ -166,6 +166,8 @@ st.markdown("""
         .gradient-rates { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
         .gradient-desk { background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); }
         .gradient-eurodollar { background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); }
+        .gradient-fdic { background: linear-gradient(135deg, #0ea5e9 0%, #0369a1 100%); }
+
         
         /* Stats section */
         .stats-container {
