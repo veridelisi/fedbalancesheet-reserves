@@ -268,11 +268,11 @@ st.markdown("""
     <div class="stats-container">
         <div style="display: flex; justify-content: space-around; flex-wrap: wrap;">
             <div class="stat-item">
-                <span class="stat-number">8</span>
+                <span class="stat-number">9</span>
                 <span class="stat-label">Dashboards</span>
             </div>
             <div class="stat-item">
-                <span class="stat-number">16+</span>
+                <span class="stat-number">20+</span>
                 <span class="stat-label">Data Sources</span>
             </div>
             <div class="stat-item">
@@ -401,18 +401,19 @@ col1, col2 = st.columns(2, gap="large")
 
 with col1:
     gradient_project_card(
-        title="Eurodollar Market Evolution",
-        tagline="BIS Global Liquidity Indicators • USD credit analysis",
+        title="FDIC Bank Reserves Distribution",
+        tagline="FDIC Call Reports • Bank-level reserve holdings",
         description=(
-            "Track the evolution of the global Eurodollar market from 2000 to present. Analyze "
-            "total credit, debt securities, and loans with YoY views, crisis period shading, "
-            "and Fed policy cycle context for comprehensive market understanding."
+            "Measure reserve balances across FDIC-insured banks using Call Report items. "
+            "Uses CHFRB (Balances due from Federal Reserve Banks) when available and "
+            "falls back to CHBALI (Interest-bearing balances) when needed. "
+            "Highlights concentration, top holders, and aggregate totals."
         ),
-        page_path="pages/01_Eurodollar.py",
-        link_label="🔍 Explore Eurodollar Market",
-        icon="🌍",
-        gradient_class="gradient-eurodollar",
-        badge_text="Global Data"
+        page_path="pages/01_FDIC.py",
+        link_label="🔍 Explore FDIC Reserves",
+        icon="🏦",
+        gradient_class="gradient-fdic",
+        badge_text="Regulatory Data"
     )
 
 with col2:
@@ -472,6 +473,37 @@ with col2:
         gradient_class="gradient-balance",
         badge_text="Cash Flows"
     )
+
+# Eurodollar Section (moved to bottom)
+st.markdown("""
+    <div class="category-header">
+        <h2 class="category-title">🌍 Eurodollar</h2>
+        <p class="category-subtitle">Global USD credit, offshore funding, and BIS global liquidity</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+col1, col2 = st.columns(2, gap="large")
+
+with col1:
+    gradient_project_card(
+        title="Eurodollar Market Evolution",
+        tagline="BIS Global Liquidity Indicators • USD credit analysis",
+        description=(
+            "Track the evolution of the global Eurodollar market from 2000 to present. Analyze "
+            "total credit, debt securities, and loans with YoY views, crisis period shading, "
+            "and Fed policy cycle context for comprehensive market understanding."
+        ),
+        page_path="pages/01_Eurodollar.py",
+        link_label="🔍 Explore Eurodollar Market",
+        icon="🌍",
+        gradient_class="gradient-eurodollar",
+        badge_text="Global Data"
+    )
+
+with col2:
+    st.empty()
+
+
 
 # Enhanced Footer
 st.markdown("""
