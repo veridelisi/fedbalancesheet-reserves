@@ -21,21 +21,22 @@ with cols[0]:
 with cols[1]:
     st.page_link("pages/01_Reserves.py", label="🌍 Reserves")
 with cols[2]:
-    st.page_link("pages/01_FDIC.py", label="🏦 FDIC")
+    st.page_link("pages/01_FDIC.py", label="🌍 FDIC")
 with cols[3]:
-    st.page_link("pages/01_Repo.py", label="🔄 Repo")
+    st.page_link("pages/01_Repo.py", label="🌍 Repo")
 with cols[4]:
-    st.page_link("pages/01_Repo2.py", label="♻️ Repo 2")
+    st.page_link("pages/01_Repo2.py", label="🌍 Repo 2")
 with cols[5]:
-    st.page_link("pages/01_TGA.py", label="🏛️ TGA")
+    st.page_link("pages/01_TGA.py", label="🌍 TGA")
 with cols[6]:
-    st.page_link("pages/01_PublicBalance.py", label="📊 Public Balance")
+    st.page_link("pages/01_PublicBalance.py", label="🌍 Public Balance")
 with cols[7]:
-    st.page_link("pages/01_Interest.py", label="📈 Reference Rates")
+    st.page_link("pages/01_Interest.py", label="🌍 Reference Rates")
 with cols[8]:
-    st.page_link("pages/01_Desk.py", label="🛰️ Desk")
+    st.page_link("pages/01_Desk.py", label="🌍 Desk")
 with cols[9]:
-    st.page_link("pages/01_Eurodollar.py", label="💡 Eurodollar")
+    st.page_link("pages/01_Eurodollar.py", label="🌍 Eurodollar")
+
 st.markdown("""
 <style>
 /* Top nav page_link alignment fix */
