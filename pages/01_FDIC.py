@@ -277,6 +277,12 @@ st.altair_chart((chart + labels).properties(height=320), use_container_width=Tru
 #    - Foreign banks (U.S. branches): million USD -> trillion USD
 #    No Credit Unions.
 # -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# 4) FINAL SECTION (at the very end): Pie chart using TWO sources only
+#    - FDIC (insured U.S. banks): thousand USD -> trillion USD
+#    - Foreign banks (U.S. branches): million USD -> trillion USD
+#    No Credit Unions.
+# -----------------------------------------------------------------------------
 st.divider()
 st.subheader("Distribution of Bank Reserves (FDIC vs Foreign Banks)")
 
@@ -287,40 +293,66 @@ else:
     fdic_trillion = (total_reserves_thousand_usd * 1_000) / 1e12   # thousand -> USD -> trillion
     foreign_trillion = (foreign_musd * 1e6) / 1e12                 # million -> USD -> trillion
 
+    total_trillion = fdic_trillion + foreign_trillion
+
+    # Build display dataframe
     pie_df = pd.DataFrame({
         "Sector": ["Insured U.S. Banks", "Foreign Banks (U.S. Branches)"],
         "Reserves (Trillion USD)": [fdic_trillion, foreign_trillion],
     })
+    pie_df["Share (%)"] = 100 * pie_df["Reserves (Trillion USD)"] / total_trillion
 
-    pie_chart = (
+    # --- A nicer, more "polite" layout: numbers first, chart second ---
+    k1, k2, k3 = st.columns([1.3, 1.3, 1.8])
+    k1.metric("Insured U.S. Banks", f"{fdic_trillion:,.2f}T USD", delta=f"{pie_df.loc[0,'Share (%)']:.1f}%")
+    k2.metric("Foreign Banks (U.S. Branches)", f"{foreign_trillion:,.2f}T USD", delta=f"{pie_df.loc[1,'Share (%)']:.1f}%")
+    k3.metric("Total (two sources)", f"{total_trillion:,.2f}T USD")
+
+    st.caption("Shares are computed using the two sources below only (no credit unions).")
+
+    # --- Donut chart (cleaner than a solid pie) ---
+    donut = (
         alt.Chart(pie_df)
-        .mark_arc(innerRadius=40)
+        .mark_arc(innerRadius=70, outerRadius=150, cornerRadius=6)
         .encode(
             theta=alt.Theta("Reserves (Trillion USD):Q"),
             color=alt.Color("Sector:N", legend=alt.Legend(title="")),
             tooltip=[
                 alt.Tooltip("Sector:N"),
-                alt.Tooltip("Reserves (Trillion USD):Q", format=".3f"),
+                alt.Tooltip("Reserves (Trillion USD):Q", format=".2f"),
+                alt.Tooltip("Share (%):Q", format=".1f"),
             ],
         )
+        .properties(height=380)
     )
 
-    # Percent labels
-    pie_df["Share (%)"] = 100 * pie_df["Reserves (Trillion USD)"] / pie_df["Reserves (Trillion USD)"].sum()
-
+    # Percentage labels placed on the ring
     labels = (
         alt.Chart(pie_df)
-        .mark_text(radius=90, size=14, color="white")
+        .mark_text(radius=130, size=14, color="white")
         .encode(
             theta=alt.Theta("Reserves (Trillion USD):Q"),
             text=alt.Text("Share (%):Q", format=".1f"),
         )
     )
 
-    st.altair_chart((pie_chart + labels).properties(height=420), use_container_width=True)
+    # Center text: Total
+    center = (
+        alt.Chart(pd.DataFrame({"text": [f"{total_trillion:,.2f}T"]}))
+        .mark_text(size=26, fontWeight="bold")
+        .encode(text="text:N")
+    )
+
+    center_sub = (
+        alt.Chart(pd.DataFrame({"text": ["Total reserves"]}))
+        .mark_text(size=12, dy=22)
+        .encode(text="text:N")
+    )
+
+    st.altair_chart(donut + labels + center + center_sub, use_container_width=True)
 
     st.caption(
         "Unit notes: FDIC Call Report values are in **thousand USD**. "
         "Fed Table 4.30 values are in **million USD**. "
-        "Both series are converted to **trillion USD** before computing the shares."
+        "Both series are converted to **trillion USD** before computing shares."
     )
