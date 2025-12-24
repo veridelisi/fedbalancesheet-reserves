@@ -486,7 +486,7 @@ col_y1, col_y2 = st.columns(2, gap="large")
 with col_y1:
     gradient_project_card(
         title="U.S. Treasury Yield Curve & Spreads",
-        tagline="Daily Treasury Yield Curve • Term structure & inversion tracking",
+        tagline="Daily Treasury Yield Curve • Term structure ",
         description=(
             "Analyze the U.S. Treasury yield curve using official Treasury data. Track "
             "yield curve shifts, term-structure dynamics, and key recession indicators "
