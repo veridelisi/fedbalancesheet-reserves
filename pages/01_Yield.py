@@ -530,70 +530,75 @@ with st.expander("🔎 Click to expand methodology details", expanded=False):
     st.markdown(
         """
 **🎯 Objective**  
-- Visualize the **U.S. Treasury yield curve** and compute the **10Y – 3M spread** using official Treasury XML data.
+- Analyze and visualize the **U.S. Treasury Yield Curve**  
+- Compute and validate the **10Y – 3M Treasury spread** using official Treasury data  
 
 ---
 
-**📡 Data Source**  
-- **U.S. Treasury – Daily Treasury Yield Curve (XML)**  
-- Dataset: `daily_treasury_yield_curve`  
-- Fields used: **3M** and **10Y** yields  
+**📡 Data Source (Official)**  
+- **U.S. Department of the Treasury**  
+- Dataset: **Daily U.S. Treasury Yield Curve (XML)**  
+- Endpoint: `daily_treasury_yield_curve`  
+- Key tenors used: **3-Month (3M)** and **10-Year (10Y)**  
 
 ---
 
 **⏱️ Time Handling**  
-- Data is fetched **monthly via XML** (`YYYYMM`)  
-- For each target date, the **latest available observation on or before that date** is selected  
-- Month-boundary issues are handled by **falling back to the previous month** when needed  
+- Treasury data is published via **monthly XML files (`YYYYMM`)**  
+- For any target date, the method selects the **latest available observation on or before that date**  
+- If early-month data is missing, the system **automatically falls back to the previous month**  
 
 ---
 
-**📐 Yield Conventions (Critical)**  
-- The Treasury XML **3M yield is already on a Bond-Equivalent / Par-Yield basis**  
-- ❌ **NO discount-yield → BEY conversion is applied**  
-- ✔️ Spread is computed directly as:  
+**📐 Yield Convention (Key Point)**  
+- In the **U.S. Treasury Yield Curve dataset**, the **3M yield is already reported on a bond-equivalent / par-yield basis**  
+- ❌ No discount-yield → bond-equivalent conversion is applied  
+- ✔️ The spread is computed directly as:
 
   **`10Y − 3M`**
 
 ---
 
 **🧮 Spread Calculation**  
-- **Daily spread** = `10-Year Treasury Yield − 3-Month Treasury Yield`  
-- For validation, the **last 3 months of daily observations** are printed as a table before charting  
+- **Daily spread** = *10-Year Treasury Yield* minus *3-Month Treasury Yield*  
+- For validation purposes, the **last 3 months of daily spread values** are printed as a table before any visualization  
 
 ---
 
 **📊 Visualization Logic**  
-- Yield curves:  
-  - **Today (latest available)**  
+- Yield curve comparisons may include:  
+  - **Latest available curve (Today)**  
   - **1 Month Ago**  
-  - **Fixed reference date: 2025-01-02** (with fallback values if XML is unavailable)  
-- Spread chart (when enabled):  
-  - Focused on **recent periods** (e.g. last 3 or 12 months)  
-  - Includes a **zero reference line** to highlight curve inversion  
+  - **Fixed reference date: 2025-01-02** (with manual fallback values if XML data is unavailable)  
+- Spread charts (when enabled):  
+  - Focus on **recent periods** (e.g. last 3 or 12 months)  
+  - Include a **zero reference line** to highlight yield-curve inversion  
 
 ---
 
 **🧼 Data Quality & Safeguards**  
-- Missing or invalid values are excluded  
-- Percentage vs. decimal sanity checks are applied  
-- Y-axis scaling uses **dynamic padding** for visual clarity  
+- Missing or invalid observations are excluded  
+- Percentage sanity checks prevent decimal/percent confusion  
+- Dynamic y-axis scaling improves visual readability  
 
 ---
 
 **🧠 Design Philosophy**  
+- **U.S. Treasury definitions are followed exactly**  
 - **No hidden transformations**  
-- **No duplicated yield conversions**  
-- Calculations are kept **transparent, reproducible, and auditable**  
+- **No double yield conversions**  
+- Results are **transparent, reproducible, and auditable**  
 
 ---
 
 **✅ Validation Check**  
-- Results are cross-checked against known reference points  
-  - Example: `30.11.2025 → 10Y = 4.09, 3M = 3.87 → Spread = 0.22`  
-- Confirms alignment with **official Treasury/FED spread definitions**
+- Outputs are cross-checked against known U.S. Treasury references  
+- Example:  
+  - `30.11.2025 → 10Y = 4.09, 3M = 3.87 → Spread = 0.22`  
+- Confirms consistency with the **official U.S. Treasury yield curve spread**
         """
     )
+
 
 # --------------------------- Footer -------------------------------
 
