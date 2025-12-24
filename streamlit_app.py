@@ -476,6 +476,40 @@ with col2:
         badge_text="Cash Flows"
     )
 
+ col1, col2 = st.columns(2, gap="large")
+
+with col1:
+    gradient_project_card(
+        title="Treasury General Account (TGA) Cash Position",
+        tagline="Daily Treasury Statement • Operating cash balance tracking",
+        description=(
+            "Monitor daily changes in the Treasury General Account with detailed cash position "
+            "statements. Features annual trend analysis, liquidity impact assessments, and "
+            "historical context for understanding Treasury operations."
+        ),
+        page_path="pages/01_TGA.py",
+        link_label="🔍 Track TGA Position",
+        icon="🏛️",
+        gradient_class="gradient-tga",
+        badge_text="Daily Updates"
+    )
+
+with col2:
+    gradient_project_card(
+        title="Public Balance & Cash Flows",
+        tagline="Daily Treasury Statement • Receipts, expenditures & debt operations",
+        description=(
+            "Comprehensive decomposition of daily Treasury inflows and outflows including tax "
+            "receipts, expenditures, new issuance, and redemptions. Monitor top-10 categories "
+            "in receipts and expenditures with trend analysis and seasonal adjustments."
+        ),
+        page_path="pages/01_PublicBalance.py",
+        link_label="🔍 Analyze Public Balance",
+        icon="📊",
+        gradient_class="gradient-balance",
+        badge_text="Cash Flows"
+    )   
+
 # Eurodollar Section (moved to bottom)
 st.markdown("""
     <div class="category-header">
