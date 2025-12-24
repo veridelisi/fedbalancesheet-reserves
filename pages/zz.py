@@ -1,17 +1,16 @@
 # streamlit_app.py
-import math, re, requests
-from datetime import timedelta, date
+import math
+from datetime import date, timedelta
+import requests
+import xml.etree.ElementTree as ET
+
 import pandas as pd
-import numpy as np
 import streamlit as st
-from dateutil.relativedelta import relativedelta
-import matplotlib.pyplot as plt
-from matplotlib.ticker import FuncFormatter, AutoLocator
+import plotly.graph_objects as go
 
 st.set_page_config(page_title="Veridelisi • Yield Curve", layout="wide")
 
 # ---------------------------- Top nav (your template) -----------------
-
 cols = st.columns(10)
 with cols[0]:
     st.page_link("streamlit_app.py", label="🏠 Home")
@@ -46,19 +45,10 @@ st.markdown(
 )
 
 # ============================================================
-# Streamlit: US Treasury Yield Curve (XML)
-# Curves: Today (latest), 1 Month Ago, 2025-01-02
-# Tenors order: 1M -> 3M -> 6M -> 1Y -> 2Y -> 3Y -> 5Y -> 7Y -> 10Y
-# Controls (buttons) under the chart
+# US Treasury Yield Curve (XML)
+# Curves (always shown): Today (latest), 1 Month Ago, 2025-01-02
+# Tenors order: 1M -> 2M -> 3M -> 4M -> 6M -> 1Y -> 2Y -> 3Y -> 5Y -> 7Y -> 10Y
 # ============================================================
-
-import streamlit as st
-import requests
-import xml.etree.ElementTree as ET
-import pandas as pd
-import plotly.graph_objects as go
-import math
-from datetime import date, timedelta
 
 # ----------------------------
 # Settings
@@ -66,10 +56,11 @@ from datetime import date, timedelta
 BASE = "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xmlview"
 DATASET = "daily_treasury_yield_curve"
 
-# Requested tenor order
 TENOR_ORDER = [
     ("1M",  ["BC_1MONTH", "bc_1month", "BC_1MO", "bc_1mo"]),
+    ("2M",  ["BC_2MONTH", "bc_2month", "BC_2MO", "bc_2mo"]),
     ("3M",  ["BC_3MONTH", "bc_3month", "BC_3MO", "bc_3mo"]),
+    ("4M",  ["BC_4MONTH", "bc_4month", "BC_4MO", "bc_4mo"]),
     ("6M",  ["BC_6MONTH", "bc_6month", "BC_6MO", "bc_6mo"]),
     ("1Y",  ["BC_1YEAR",  "bc_1year"]),
     ("2Y",  ["BC_2YEAR",  "bc_2year"]),
@@ -87,13 +78,15 @@ MIN_VISIBLE_RANGE = 0.30
 PADDING_RATIO = 0.12
 DTICK = 0.1
 
-# Fixed reference date (your “2025 first day” example)
+# Fixed reference date
 REF_DATE = date(2025, 1, 2)
 
-# Your provided reference yields for 2025-01-02 (fallback if XML lookup fails)
+# Fallback yields for 2025-01-02 (from your screenshot)
 REF_CURVE_FALLBACK = {
     "1M": 4.45,
+    "2M": 4.36,
     "3M": 4.36,
+    "4M": 4.31,
     "6M": 4.25,
     "1Y": 4.17,
     "2Y": 4.25,
@@ -104,26 +97,19 @@ REF_CURVE_FALLBACK = {
 }
 
 # ----------------------------
-# Helpers: date and url
+# Helpers
 # ----------------------------
 def yyyymm(d: date) -> str:
     return f"{d.year}{d.month:02d}"
 
 def month_starts_to_try_for_target(d: date):
-    """
-    For a target date, we try that month first; if not found,
-    try previous month as a fallback (in case of missing early-month data).
-    """
     first = date(d.year, d.month, 1)
-    prev = (date(d.year - 1, 12, 1) if d.month == 1 else date(d.year, d.month - 1, 1))
+    prev = date(d.year - 1, 12, 1) if d.month == 1 else date(d.year, d.month - 1, 1)
     return [first, prev]
 
 def build_url(mm: str) -> str:
     return f"{BASE}?data={DATASET}&field_tdr_date_value_month={mm}"
 
-# ----------------------------
-# Helpers: XML parsing
-# ----------------------------
 def strip_ns(tag: str) -> str:
     return tag.split("}", 1)[-1] if "}" in tag else tag
 
@@ -138,10 +124,6 @@ def fetch_xml(url: str) -> str:
     return r.text
 
 def parse_month_history(xml_text: str) -> pd.DataFrame:
-    """
-    Parse an XML month into a DataFrame with:
-    Date, and tenor columns (as floats).
-    """
     root = ET.fromstring(xml_text)
 
     candidates = []
@@ -157,7 +139,6 @@ def parse_month_history(xml_text: str) -> pd.DataFrame:
         rec = {}
         for child in node.iter():
             tag = strip_ns(child.tag)
-
             if child.text and child.text.strip():
                 rec[tag] = child.text.strip()
 
@@ -171,12 +152,7 @@ def parse_month_history(xml_text: str) -> pd.DataFrame:
                 rec_date = rec[dk]
                 break
 
-        # Must have a date and at least one tenor field
-        has_any = False
-        for _, keys in TENOR_ORDER:
-            if any(k in rec for k in keys):
-                has_any = True
-                break
+        has_any = any(any(k in rec for k in keys) for _, keys in TENOR_ORDER)
 
         if rec_date and has_any:
             rec["_date"] = rec_date
@@ -189,22 +165,12 @@ def parse_month_history(xml_text: str) -> pd.DataFrame:
     df["Date"] = pd.to_datetime(df["_date"], errors="coerce")
     df = df.dropna(subset=["Date"]).sort_values("Date")
 
-    # Build clean tenor columns
     out = pd.DataFrame({"Date": df["Date"]})
-
     for tenor, keys in TENOR_ORDER:
-        col = None
-        for k in keys:
-            if k in df.columns:
-                col = k
-                break
-        if col:
-            out[tenor] = pd.to_numeric(df[col], errors="coerce")
-        else:
-            out[tenor] = pd.NA
+        col = next((k for k in keys if k in df.columns), None)
+        out[tenor] = pd.to_numeric(df[col], errors="coerce") if col else pd.NA
 
-    out = out.dropna(subset=["Date"]).reset_index(drop=True)
-    return out
+    return out.dropna(subset=["Date"]).reset_index(drop=True)
 
 @st.cache_data(ttl=1800)
 def load_month(mm: str) -> pd.DataFrame:
@@ -212,15 +178,11 @@ def load_month(mm: str) -> pd.DataFrame:
     return parse_month_history(xml_text)
 
 def pick_curve_on_or_before(month_df: pd.DataFrame, target: date):
-    """
-    From month df, pick the latest row with Date <= target.
-    Returns (picked_date, curve_dict) or None.
-    """
     if month_df.empty:
         return None
 
     target_ts = pd.to_datetime(target)
-    df = month_df[month_df["Date"] <= target_ts].copy()
+    df = month_df[month_df["Date"] <= target_ts]
     if df.empty:
         return None
 
@@ -235,26 +197,18 @@ def pick_curve_on_or_before(month_df: pd.DataFrame, target: date):
     return picked_date, curve
 
 def get_curve_for_target_date(target: date):
-    """
-    Try to fetch the curve for a specific target date by loading the XML month(s),
-    then selecting the nearest on-or-before row.
-    """
     for mstart in month_starts_to_try_for_target(target):
         mm = yyyymm(mstart)
         try:
             month_df = load_month(mm)
             picked = pick_curve_on_or_before(month_df, target)
             if picked is not None:
-                return picked  # (picked_date, curve)
+                return picked
         except Exception:
             pass
     return None
 
 def compute_nice_y_range(series_list):
-    """
-    series_list: list of lists (each is y values in %)
-    Returns y0, y1 for axis.
-    """
     all_vals = []
     for s in series_list:
         for v in s:
@@ -264,7 +218,7 @@ def compute_nice_y_range(series_list):
     if not all_vals:
         raise ValueError("No valid values for y-axis scaling.")
 
-    # Decimal vs percent sanity (if somehow <=1)
+    # If decimals (0.04), convert to percent (4.0)
     if max(all_vals) <= 1.0:
         all_vals = [v * 100 for v in all_vals]
 
@@ -285,12 +239,11 @@ def compute_nice_y_range(series_list):
     return y0, y1
 
 def curve_to_xy(curve: dict):
-    x = []
-    y = []
+    x, y = [], []
     for tenor, _ in TENOR_ORDER:
         v = curve.get(tenor)
         if v is None or pd.isna(v):
-            # keep gaps out; alternatively you could append None to show breaks
+            # keep gaps out
             continue
         x.append(tenor)
         y.append(float(v))
@@ -299,23 +252,24 @@ def curve_to_xy(curve: dict):
 # ============================================================
 # App
 # ============================================================
-st.title("US Treasury Yield Curve (XML)")
+st.title("US Treasury Yield Curve")
 
-# --- Fetch curves ---
-# Today = latest available observation (from this month, else previous month)
+# --- Today curve (latest available observation) ---
 today = date.today()
-
-# 1) Latest “today” curve: get latest row from the newest month we can load
 latest_picked = None
+
 for mstart in month_starts_to_try_for_target(today):
     mm = yyyymm(mstart)
     try:
         month_df = load_month(mm)
         if not month_df.empty:
             row = month_df.iloc[-1]
-            latest_date = row["Date"]
-            latest_curve = {tenor: (None if pd.isna(row.get(tenor)) else float(row.get(tenor))) for tenor, _ in TENOR_ORDER}
-            latest_picked = (latest_date, latest_curve)
+            latest_date_ts = row["Date"]
+            latest_curve = {
+                tenor: (None if pd.isna(row.get(tenor)) else float(row.get(tenor)))
+                for tenor, _ in TENOR_ORDER
+            }
+            latest_picked = (latest_date_ts, latest_curve)
             break
     except Exception:
         pass
@@ -327,40 +281,57 @@ if latest_picked is None:
 today_date_ts, today_curve = latest_picked
 today_date = today_date_ts.date()
 
-# 2) 1 Month Ago curve (relative to latest observation date)
+# --- 1 Month Ago curve ---
 one_month_target = today_date - timedelta(days=30)
 m1_picked = get_curve_for_target_date(one_month_target)
 if m1_picked is None:
-    st.warning("Could not find 1 Month Ago in XML. (This can happen around month boundaries.)")
+    # If month boundary causes empty, try 45 days as fallback (still “about 1 month”)
+    m1_picked = get_curve_for_target_date(today_date - timedelta(days=45))
+
+if m1_picked is None:
+    st.warning("Could not find 1 Month Ago in XML.")
     m1_date_ts, m1_curve = None, {}
 else:
     m1_date_ts, m1_curve = m1_picked
 
-# 3) Fixed 2025-01-02 curve
+# --- 2025-01-02 curve ---
 ref_picked = get_curve_for_target_date(REF_DATE)
 if ref_picked is None:
-    # fallback to your provided values
     ref_date_ts = pd.to_datetime(REF_DATE)
     ref_curve = REF_CURVE_FALLBACK.copy()
 else:
     ref_date_ts, ref_curve = ref_picked
 
-
-
-# --- Build traces based on selection ---
+# ============================================================
+# Build traces (NO UI controls, always show)
+# ============================================================
 traces = []
 all_y_for_scaling = []
 
+# Today
+x_t, y_t = curve_to_xy(today_curve)
+traces.append(("TODAY", x_t, y_t, f"Today ({today_date})", "solid"))
+all_y_for_scaling.append(y_t)
 
-# Nice y-axis range from selected curves
+# 1 Month Ago
+if m1_curve:
+    x_m1, y_m1 = curve_to_xy(m1_curve)
+    traces.append(("M1", x_m1, y_m1, f"1 Month Ago ({m1_date_ts.date()})", "dot"))
+    all_y_for_scaling.append(y_m1)
+
+# 2025-01-02
+x_ref, y_ref = curve_to_xy(ref_curve)
+traces.append(("REF", x_ref, y_ref, "2025-01-02", "dash"))
+all_y_for_scaling.append(y_ref)
+
+# Y-axis range
 y0, y1 = compute_nice_y_range(all_y_for_scaling)
 
-# ----------------------------
-# Plot (kibar / clean style) — replace ONLY this block
-# ----------------------------
+# ============================================================
+# Plot (kibar / clean style)
+# ============================================================
 fig = go.Figure()
 
-# traces listende zaten: (key, x, y, name, dash_style)
 for _key, x, y, name, dash_style in traces:
     fig.add_trace(
         go.Scatter(
@@ -394,9 +365,10 @@ fig.update_layout(
         font=dict(size=16),
     ),
     hovermode="x unified",
+    paper_bgcolor="white",
+    plot_bgcolor="white",
 )
 
-# Axes styling
 fig.update_xaxes(
     title_text="",
     tickfont=dict(size=16),
@@ -414,15 +386,11 @@ fig.update_yaxes(
     showgrid=True,
     gridcolor="rgba(230,236,245,1)",
     zeroline=False,
+    dtick=DTICK,
+    ticks="outside",
 )
 
-# Soft background like “card”
-fig.update_layout(
-    paper_bgcolor="white",
-    plot_bgcolor="white",
-)
-
-# Optional: subtle frame
+# Subtle frame
 fig.update_layout(
     shapes=[
         dict(
@@ -440,4 +408,4 @@ fig.update_layout(
     ]
 )
 
-chart_slot.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, use_container_width=True)
