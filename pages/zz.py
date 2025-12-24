@@ -1,3 +1,53 @@
+# streamlit_app.py
+import math, re, requests
+from datetime import timedelta, date
+import pandas as pd
+import numpy as np
+import streamlit as st
+from dateutil.relativedelta import relativedelta
+import matplotlib.pyplot as plt
+from matplotlib.ticker import FuncFormatter, AutoLocator
+
+st.set_page_config(page_title="Veridelisi • Reserve Page", layout="wide")
+
+# ---------------------------- Top nav (your template) -----------------
+
+cols = st.columns(10)
+with cols[0]:
+    st.page_link("streamlit_app.py", label="🏠 Home")
+with cols[1]:
+    st.page_link("pages/01_Reserves.py", label="🌍 Reserves")
+with cols[2]:
+    st.page_link("pages/01_FDIC.py", label="🏦 FDIC")
+with cols[3]:
+    st.page_link("pages/01_Repo.py", label="🔄 Repo")
+with cols[4]:
+    st.page_link("pages/01_Repo2.py", label="♻️ Repo 2")
+with cols[5]:
+    st.page_link("pages/01_TGA.py", label="🏛️ TGA")
+with cols[6]:
+    st.page_link("pages/01_PublicBalance.py", label="📊 P.Balance")
+with cols[7]:
+    st.page_link("pages/01_Interest.py", label="📈 Rates")
+with cols[8]:
+    st.page_link("pages/01_Desk.py", label="🛰️ Desk")
+with cols[9]:
+    st.page_link("pages/01_Eurodollar.py", label="💡 Eurodollar")
+
+# ---------------------------- STOP Expanded -----------------
+st.markdown(
+    """
+<style>
+    [data-testid="stSidebarNav"] {display: none;}
+    section[data-testid="stSidebar"][aria-expanded="true"]{display: none;}
+</style>
+""",
+    unsafe_allow_html=True,
+)
+
+# ---------------------------- CODE -----------------
+
+
 # ============================================================
 # Streamlit: US Treasury Yield Curve (XML)
 # Curves: Today (latest), 1 Month Ago, 2025-01-02
