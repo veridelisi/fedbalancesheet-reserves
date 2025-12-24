@@ -341,30 +341,89 @@ if not traces:
 # Nice y-axis range from selected curves
 y0, y1 = compute_nice_y_range(all_y_for_scaling)
 
+# ----------------------------
+# Plot (kibar / clean style) — replace ONLY this block
+# ----------------------------
 fig = go.Figure()
+
+# traces listende zaten: (key, x, y, name, dash_style)
 for _key, x, y, name, dash_style in traces:
     fig.add_trace(
         go.Scatter(
             x=x,
             y=y,
             mode="lines+markers",
-            line=dict(width=3, dash=dash_style),
-            marker=dict(size=7),
             name=name,
+            line=dict(width=2, dash=dash_style),
+            marker=dict(size=5),
+            hovertemplate="<b>%{x}</b><br>Yield: %{y:.2f}%<extra></extra>",
         )
     )
 
 fig.update_layout(
-    title=f"US Yield Curve (Tenors: 1M → 10Y) | Latest obs: {today_date}",
-    xaxis_title="Maturity",
-    yaxis_title="Yield (%)",
-    yaxis=dict(range=[y0, y1]),
+    title=dict(
+        text="Yield Curve",
+        x=0.0,
+        xanchor="left",
+        font=dict(size=24),
+    ),
     template="plotly_white",
-    height=520,
-    margin=dict(l=40, r=20, t=70, b=55),
-    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+    height=560,
+    margin=dict(l=55, r=35, t=85, b=65),
+    legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=1.02,
+        xanchor="left",
+        x=0.0,
+        bgcolor="rgba(0,0,0,0)",
+        font=dict(size=16),
+    ),
+    hovermode="x unified",
 )
 
-fig.update_yaxes(dtick=DTICK, ticks="outside", showgrid=True)
+# Axes styling
+fig.update_xaxes(
+    title_text="",
+    tickfont=dict(size=16),
+    showgrid=True,
+    gridcolor="rgba(230,236,245,1)",
+    zeroline=False,
+)
+
+fig.update_yaxes(
+    title_text="",
+    range=[y0, y1],
+    tickformat=".1f",
+    ticksuffix="%",
+    tickfont=dict(size=16),
+    showgrid=True,
+    gridcolor="rgba(230,236,245,1)",
+    zeroline=False,
+)
+
+# Soft background like “card”
+fig.update_layout(
+    paper_bgcolor="white",
+    plot_bgcolor="white",
+)
+
+# Optional: subtle frame
+fig.update_layout(
+    shapes=[
+        dict(
+            type="rect",
+            xref="paper",
+            yref="paper",
+            x0=0,
+            y0=0,
+            x1=1,
+            y1=1,
+            line=dict(width=1, color="rgba(0,0,0,0.18)"),
+            fillcolor="rgba(0,0,0,0)",
+            layer="below",
+        )
+    ]
+)
 
 chart_slot.plotly_chart(fig, use_container_width=True)
