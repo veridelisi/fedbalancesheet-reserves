@@ -11,7 +11,7 @@ import plotly.graph_objects as go
 st.set_page_config(page_title="Veridelisi • Yield Curve", layout="wide")
 
 # ---------------------------- Top nav (your template) -----------------
-cols = st.columns(10)
+cols = st.columns(11)
 with cols[0]:
     st.page_link("streamlit_app.py", label="🏠 Home")
 with cols[1]:
@@ -31,6 +31,8 @@ with cols[7]:
 with cols[8]:
     st.page_link("pages/01_Desk.py", label="🛰️ Desk")
 with cols[9]:
+    st.page_link("pages/01_Yield.py", label="🛰️ Yield")
+with cols[10]:
     st.page_link("pages/01_Eurodollar.py", label="💡 Eurodollar")
 
 # ---------------------------- STOP Expanded -----------------
