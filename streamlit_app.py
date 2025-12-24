@@ -476,39 +476,31 @@ with col2:
         badge_text="Cash Flows"
     )
 
- col1, col2 = st.columns(2, gap="large")
+# --- Second row (Yield Curve) ---
+st.markdown("<div style='margin-top: 30px;'></div>", unsafe_allow_html=True)
 
-with col1:
+col_y1, col_y2 = st.columns(2, gap="large")
+
+with col_y1:
     gradient_project_card(
-        title="Treasury General Account (TGA) Cash Position",
-        tagline="Daily Treasury Statement • Operating cash balance tracking",
+        title="U.S. Treasury Yield Curve & Spreads",
+        tagline="Daily Treasury Yield Curve • Term structure & inversion tracking",
         description=(
-            "Monitor daily changes in the Treasury General Account with detailed cash position "
-            "statements. Features annual trend analysis, liquidity impact assessments, and "
-            "historical context for understanding Treasury operations."
+            "Analyze the U.S. Treasury yield curve using official Treasury data. Track "
+            "yield curve shifts, term-structure dynamics, and key recession indicators "
+            "such as the 10Y–3M spread with transparent, auditable methodology."
         ),
-        page_path="pages/01_TGA.py",
-        link_label="🔍 Track TGA Position",
-        icon="🏛️",
-        gradient_class="gradient-tga",
-        badge_text="Daily Updates"
+        page_path="pages/01_Yield.py",
+        link_label="📈 View Yield Curve",
+        icon="📈",
+        gradient_class="gradient-yield",
+        badge_text="Yield Curve"
     )
 
-with col2:
-    gradient_project_card(
-        title="Public Balance & Cash Flows",
-        tagline="Daily Treasury Statement • Receipts, expenditures & debt operations",
-        description=(
-            "Comprehensive decomposition of daily Treasury inflows and outflows including tax "
-            "receipts, expenditures, new issuance, and redemptions. Monitor top-10 categories "
-            "in receipts and expenditures with trend analysis and seasonal adjustments."
-        ),
-        page_path="pages/01_PublicBalance.py",
-        link_label="🔍 Analyze Public Balance",
-        icon="📊",
-        gradient_class="gradient-balance",
-        badge_text="Cash Flows"
-    )   
+with col_y2:
+    st.empty()  # reserved for future module
+
+    
 
 # Eurodollar Section (moved to bottom)
 st.markdown("""
