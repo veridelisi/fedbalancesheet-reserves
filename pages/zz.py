@@ -409,3 +409,159 @@ fig.update_layout(
 )
 
 st.plotly_chart(fig, use_container_width=True)
+
+
+# ============================================================
+# 10Y - 3M Spread (3M Bond Equivalent Basis)
+# Daily / Monthly / Yearly
+# Paste this UNDER your existing Yield Curve chart code
+# ============================================================
+
+st.subheader("10Y – 3M Spread (3M Bond-Equivalent Basis)")
+
+# --- 3M Discount Yield -> Bond Equivalent Yield (BEY) ---
+# BEY = (365 * BDY) / (360 - BDY * t)
+# where BDY is in decimal (e.g., 0.0382), t = days to maturity (3M ~ 91)
+def bdy_to_bey(bdy_percent: float, t_days: int = 91) -> float:
+    if bdy_percent is None or pd.isna(bdy_percent):
+        return np.nan
+    bdy = float(bdy_percent) / 100.0
+    denom = (360.0 - bdy * t_days)
+    if denom <= 0:
+        return np.nan
+    bey = (365.0 * bdy) / denom
+    return bey * 100.0  # back to percent
+
+def month_starts_between(start: date, end: date):
+    cur = date(start.year, start.month, 1)
+    last = date(end.year, end.month, 1)
+    out = []
+    while cur <= last:
+        out.append(cur)
+        # next month
+        cur = (cur + relativedelta(months=1))
+    return out
+
+@st.cache_data(ttl=1800)
+def load_10y_3m_series(start: date, end: date) -> pd.DataFrame:
+    parts = []
+    for mstart in month_starts_between(start, end):
+        mm = yyyymm(mstart)
+        try:
+            dfm = load_month(mm)  # your existing function
+            if dfm.empty:
+                continue
+            parts.append(dfm[["Date", "3M", "10Y"]].copy() if "3M" in dfm.columns and "10Y" in dfm.columns else dfm.copy())
+        except Exception:
+            continue
+
+    if not parts:
+        return pd.DataFrame(columns=["Date", "10Y", "3M", "3M_BEY", "SPREAD"])
+
+    df = pd.concat(parts, ignore_index=True)
+    df = df.dropna(subset=["Date"]).sort_values("Date")
+    df = df[(df["Date"].dt.date >= start) & (df["Date"].dt.date <= end)].copy()
+
+    # Ensure numeric
+    df["3M"] = pd.to_numeric(df.get("3M"), errors="coerce")
+    df["10Y"] = pd.to_numeric(df.get("10Y"), errors="coerce")
+
+    # Compute 3M bond-equivalent and spread
+    df["3M_BEY"] = df["3M"].apply(lambda v: bdy_to_bey(v, t_days=91))
+    df["SPREAD"] = df["10Y"] - df["3M_BEY"]
+
+    return df.dropna(subset=["10Y", "3M_BEY", "SPREAD"]).reset_index(drop=True)
+
+# ----------------------------
+# Range + frequency controls
+# ----------------------------
+colA, colB, colC = st.columns([1, 1, 1.2])
+
+with colA:
+    years_back = st.selectbox("Lookback", [1, 2, 3, 5, 10], index=1)  # default 2Y
+with colB:
+    freq = st.radio("Frequency", ["Daily", "Monthly", "Yearly"], horizontal=True)
+with colC:
+    t_days = st.selectbox("3M days (for BEY)", [91, 90, 92], index=0)
+
+end_d = date.today()
+start_d = end_d - relativedelta(years=years_back)
+
+df_sp = load_10y_3m_series(start_d, end_d).copy()
+
+# Recompute BEY with chosen t_days (so UI changes reflect)
+if not df_sp.empty:
+    df_sp["3M_BEY"] = df_sp["3M"].apply(lambda v: bdy_to_bey(v, t_days=int(t_days)))
+    df_sp["SPREAD"] = df_sp["10Y"] - df_sp["3M_BEY"]
+
+# ----------------------------
+# Resample: Daily / Monthly / Yearly
+# (using last observation of each period)
+# ----------------------------
+if df_sp.empty:
+    st.info("No spread data found for the selected range.")
+else:
+    ts = df_sp.set_index("Date")[["SPREAD"]].sort_index()
+
+    if freq == "Daily":
+        out = ts.copy()
+    elif freq == "Monthly":
+        out = ts.resample("M").last()
+    else:  # Yearly
+        out = ts.resample("Y").last()
+
+    out = out.dropna()
+
+    # Nice y-axis range (similar logic to your chart)
+    vals = out["SPREAD"].values.astype(float)
+    y_min, y_max = float(np.nanmin(vals)), float(np.nanmax(vals))
+    rng = y_max - y_min
+    if rng < 0.30:
+        rng = 0.30
+    pad = rng * 0.12
+    y0 = math.floor((y_min - pad) / 0.1) * 0.1
+    y1 = math.ceil((y_max + pad) / 0.1) * 0.1
+
+    fig2 = go.Figure()
+    fig2.add_trace(
+        go.Scatter(
+            x=out.index,
+            y=out["SPREAD"],
+            mode="lines",
+            name="10Y - 3M (BEY)",
+            line=dict(width=2),
+            hovertemplate="<b>%{x|%Y-%m-%d}</b><br>Spread: %{y:.2f} pp<extra></extra>",
+        )
+    )
+
+    # zero line
+    fig2.add_hline(y=0, line_width=1, line_dash="dot", opacity=0.5)
+
+    fig2.update_layout(
+        title=dict(text="10Y – 3M Spread", x=0.0, xanchor="left", font=dict(size=22)),
+        template="plotly_white",
+        height=480,
+        margin=dict(l=55, r=35, t=75, b=55),
+        hovermode="x unified",
+        paper_bgcolor="white",
+        plot_bgcolor="white",
+    )
+
+    fig2.update_xaxes(
+        title_text="",
+        tickfont=dict(size=14),
+        showgrid=True,
+        gridcolor="rgba(230,236,245,1)",
+        zeroline=False,
+    )
+
+    fig2.update_yaxes(
+        title_text="Spread (percentage points)",
+        range=[y0, y1],
+        tickfont=dict(size=14),
+        showgrid=True,
+        gridcolor="rgba(230,236,245,1)",
+        zeroline=False,
+    )
+
+    st.plotly_chart(fig2, use_container_width=True)
