@@ -412,12 +412,6 @@ st.plotly_chart(fig, use_container_width=True)
 
 
 # ============================================================
-# 10Y - 3M Spread (3M Bond Equivalent Basis)
-# Daily / Monthly / Yearly
-# Paste this UNDER your existing Yield Curve chart code
-# ============================================================
-
-# ============================================================
 # 10Y - 3M Spread (3M Bond-Equivalent Basis) — Last 1 Year only
 # Paste UNDER your existing code
 # ============================================================
@@ -507,4 +501,22 @@ else:
             mode="lines",
             line=dict(width=2),
             name="10Y - 3M (BEY)",
-            hovertemplate="<b>%{x|%Y-%m-%d}</b>
+            hovertemplate="<b>%{x|%Y-%m-%d}</b><br>Spread: %{y:.2f} pp<extra></extra>",
+        )
+    )
+
+    # zero line
+    fig_sp.add_hline(y=0, line_width=1, line_dash="dot", opacity=0.5)
+
+    fig_sp.update_layout(
+        template="plotly_white",
+        height=420,
+        margin=dict(l=55, r=25, t=50, b=45),
+        title=dict(text="10Y – 3M Spread (Last 12 Months)", x=0.0, xanchor="left"),
+        hovermode="x unified",
+    )
+
+    fig_sp.update_xaxes(showgrid=True, gridcolor="rgba(230,236,245,1)")
+    fig_sp.update_yaxes(range=[y0, y1], title_text="Spread (percentage points)", showgrid=True, gridcolor="rgba(230,236,245,1)")
+
+    st.plotly_chart(fig_sp, use_container_width=True)
