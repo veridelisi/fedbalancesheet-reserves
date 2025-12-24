@@ -351,24 +351,6 @@ else:
 traces = []
 all_y_for_scaling = []
 
-if "Today" in selected:
-    x, y = curve_to_xy(today_curve)
-    traces.append(("Today", x, y, f"Today ({today_date})", "solid"))
-    all_y_for_scaling.append(y)
-
-if "1 Month Ago" in selected and m1_curve:
-    x, y = curve_to_xy(m1_curve)
-    traces.append(("1M", x, y, f"1 Month Ago ({m1_date_ts.date()})", "dot"))
-    all_y_for_scaling.append(y)
-
-if "2025-01-02" in selected:
-    x, y = curve_to_xy(ref_curve)
-    traces.append(("REF", x, y, "2025-01-02", "dash"))
-    all_y_for_scaling.append(y)
-
-if not traces:
-    chart_slot.info("Select at least one curve below to display the chart.")
-    st.stop()
 
 # Nice y-axis range from selected curves
 y0, y1 = compute_nice_y_range(all_y_for_scaling)
