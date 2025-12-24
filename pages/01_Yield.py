@@ -31,7 +31,7 @@ with cols[7]:
 with cols[8]:
     st.page_link("pages/01_Desk.py", label="🛰️ Desk")
 with cols[9]:
-    st.page_link("pages/01_Yield.py", label="🛰️ Yield")
+    st.page_link("pages/01_Yield.py", label="🌍 Yield")
 with cols[10]:
     st.page_link("pages/01_Eurodollar.py", label="💡 Eurodollar")
 
@@ -540,6 +540,7 @@ with st.expander("🔎 Click to expand methodology details", expanded=False):
 - Dataset: **Daily U.S. Treasury Yield Curve (XML)**  
 - Endpoint: `daily_treasury_yield_curve`  
 - Key tenors used: **3-Month (3M)** and **10-Year (10Y)**  
+- https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xmlview
 
 ---
 
