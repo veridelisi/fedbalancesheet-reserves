@@ -8,7 +8,7 @@ from dateutil.relativedelta import relativedelta
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter, AutoLocator
 
-st.set_page_config(page_title="Veridelisi • Reserve Page", layout="wide")
+st.set_page_config(page_title="Veridelisi • Yield Curve", layout="wide")
 
 # ---------------------------- Top nav (your template) -----------------
 
@@ -44,9 +44,6 @@ st.markdown(
 """,
     unsafe_allow_html=True,
 )
-
-# ---------------------------- CODE -----------------
-
 
 # ============================================================
 # Streamlit: US Treasury Yield Curve (XML)
@@ -348,45 +345,7 @@ if ref_picked is None:
 else:
     ref_date_ts, ref_curve = ref_picked
 
-# --- Placeholders to keep buttons UNDER the chart but still control it ---
-chart_slot = st.empty()
-controls_slot = st.container()
 
-# Default selected curves
-if "selected_curves" not in st.session_state:
-    st.session_state.selected_curves = ["Today", "1 Month Ago", "2025-01-02"]
-
-with controls_slot:
-    st.caption("Select which curves to show (controls are below the chart):")
-    selected = st.multiselect(
-        label="Curves",
-        options=["Today", "1 Month Ago", "2025-01-02"],
-        default=st.session_state.selected_curves,
-        key="selected_curves",
-    )
-
-# --- Build traces based on selection ---
-traces = []
-all_y_for_scaling = []
-
-if "Today" in selected:
-    x, y = curve_to_xy(today_curve)
-    traces.append(("Today", x, y, f"Today ({today_date})", "solid"))
-    all_y_for_scaling.append(y)
-
-if "1 Month Ago" in selected and m1_curve:
-    x, y = curve_to_xy(m1_curve)
-    traces.append(("1M", x, y, f"1 Month Ago ({m1_date_ts.date()})", "dot"))
-    all_y_for_scaling.append(y)
-
-if "2025-01-02" in selected:
-    x, y = curve_to_xy(ref_curve)
-    traces.append(("REF", x, y, "2025-01-02", "dash"))
-    all_y_for_scaling.append(y)
-
-if not traces:
-    chart_slot.info("Select at least one curve below to display the chart.")
-    st.stop()
 
 # Nice y-axis range from selected curves
 y0, y1 = compute_nice_y_range(all_y_for_scaling)
