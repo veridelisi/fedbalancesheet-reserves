@@ -218,15 +218,29 @@ except Exception as e:
 
 # --------------------- helpers ---------------------
 def add_shading(fig):
-    crisis = [(pd.to_datetime("2007-12-01"), pd.to_datetime("2009-06-01"), "Financial Crisis"),
-              (pd.to_datetime("2020-02-01"), pd.to_datetime("2020-04-01"), "COVID-19")]
-    for x0,x1,lab in crisis:
-        fig.add_vrect(x0=x0,x1=x1,fillcolor="red",opacity=.10,line_width=0,
-                      annotation_text=lab,annotation_position="top left")
-    fig.add_vrect(x0=pd.to_datetime("2022-06-01"),
-                  x1=pd.to_datetime(df["Time"].max()),
-                  fillcolor="orange",opacity=.08,line_width=0,
-                  annotation_text="Fed Tightening",annotation_position="top left")
+    crisis = [
+        (pd.to_datetime("2007-12-01"), pd.to_datetime("2009-06-01"), "Financial Crisis"),
+        (pd.to_datetime("2020-02-01"), pd.to_datetime("2020-04-01"), "COVID-19"),
+    ]
+    for x0, x1, lab in crisis:
+        fig.add_vrect(x0=x0, x1=x1, fillcolor="red", opacity=.10, line_width=0,
+                      annotation_text=lab, annotation_position="top left")
+
+    # ✅ Fed Tightening sabit bitiş
+    x0 = pd.to_datetime("2022-06-01")
+    x1 = pd.to_datetime("2025-10-31")
+
+    # Veri max'ını aşmasın diye kırp
+    max_t = pd.to_datetime(df["Time"].max())
+    x1_eff = min(x1, max_t)
+
+    if x1_eff > x0:
+        fig.add_vrect(
+            x0=x0, x1=x1_eff,
+            fillcolor="orange", opacity=.08, line_width=0,
+            annotation_text="Fed Tightening", annotation_position="top left"
+        )
+
 
 def yaxis_k(fig, tickvals=None, decimals=0):
     # 1,250B stili: binlik ayraç + B son ek
