@@ -47,28 +47,105 @@ st.markdown(
 FLOW_PATH = "dataflow/BIS/WS_GLI/1.0"
 HEADERS   = {"Accept": "application/vnd.sdmx.genericdata+xml;version=2.1"}
 
+
+
+
+import time
+import random
+import requests
+
+@st.cache_resource
+def _bis_session():
+    s = requests.Session()
+    # User-Agent bazı gateway'lerde işe yarıyor
+    s.headers.update({
+        "User-Agent": "Mozilla/5.0 (Streamlit; EurodollarDashboard)",
+        "Accept": "application/vnd.sdmx.genericdata+xml;version=2.1",
+    })
+    return s
+
+def _safe_bis_get(url: str, max_tries: int = 4, timeout: int = 60) -> bytes | None:
+    """
+    BIS API: 429/5xx olabilir. Asla exception fırlatma.
+    Başarılıysa content döner; değilse None.
+    """
+    sess = _bis_session()
+
+    for i in range(max_tries):
+        try:
+            r = sess.get(url, timeout=timeout)
+            # 200 ise OK
+            if r.status_code == 200 and r.content:
+                return r.content
+
+            # 404/400 gibi: key yok -> direkt vazgeç
+            if r.status_code in (400, 404):
+                return None
+
+            # 429/5xx: retry
+            if r.status_code in (429, 500, 502, 503, 504):
+                # exponential backoff + jitter
+                sleep_s = (2 ** i) + random.random()
+                time.sleep(sleep_s)
+                continue
+
+            # diğer status: vazgeç
+            return None
+
+        except requests.exceptions.RequestException:
+            # network glitch -> retry
+            sleep_s = (2 ** i) + random.random()
+            time.sleep(sleep_s)
+
+    return None
+
 @st.cache_data(ttl=3600, show_spinner=False)
 def bis_series_xml(key: str, start="2000", end="2025") -> pd.DataFrame:
-    url = f"https://stats.bis.org/api/v2/data/{FLOW_PATH}/{key}/all?detail=full&startPeriod={start}&endPeriod={end}"
-    r = requests.get(url, headers=HEADERS, timeout=60)
-    r.raise_for_status()
-    root = ET.fromstring(r.content)
+    url = (
+        f"https://stats.bis.org/api/v2/data/{FLOW_PATH}/{key}/all"
+        f"?detail=full&startPeriod={start}&endPeriod={end}"
+    )
+
+    content = _safe_bis_get(url, max_tries=4, timeout=60)
+    if content is None:
+        return pd.DataFrame(columns=["Time", "Val"])
+
+    try:
+        root = ET.fromstring(content)
+    except ET.ParseError:
+        return pd.DataFrame(columns=["Time", "Val"])
+
     ns = {'g': 'http://www.sdmx.org/resources/sdmxml/schemas/v2_1/data/generic'}
+
     rows = []
     for series in root.findall('.//g:Series', ns):
         for obs in series.findall('.//g:Obs', ns):
             dim = obs.find('g:ObsDimension', ns)
             val = obs.find('g:ObsValue', ns)
-            if val is None: continue
-            rows.append({'period': (dim.get('value') if dim is not None else None),
-                         'Val': val.get('value')})
+            if val is None:
+                continue
+            period = (dim.get('value') if dim is not None else None)
+            v = val.get('value')
+            if not period or v is None or v == "":
+                continue
+            rows.append({"period": period, "Val": v})
+
     df = pd.DataFrame(rows)
-    if df.empty: return df
+    if df.empty:
+        return pd.DataFrame(columns=["Time", "Val"])
+
     df["Val"] = pd.to_numeric(df["Val"], errors="coerce")
-    # 'YYYY-Qn' -> çeyrek sonu
-    per = pd.PeriodIndex(df["period"].astype(str).str.replace("-Q","Q"), freq="Q")
+
+    # 'YYYY-Qn' -> quarter end timestamp
+    per = pd.PeriodIndex(df["period"].astype(str).str.replace("-Q", "Q"), freq="Q")
     df["Time"] = per.to_timestamp(how="end")
-    return df.dropna(subset=["Time","Val"]).sort_values("Time")[["Time","Val"]].reset_index(drop=True)
+
+    out = df.dropna(subset=["Time", "Val"]).sort_values("Time")[["Time", "Val"]].reset_index(drop=True)
+    return out
+
+
+
+
 
 # --- Seriler ---
 SERIES = {
@@ -89,19 +166,29 @@ end_year   = st.sidebar.text_input("End", "2025")
 try:
     dfs = []
     for name, key in SERIES.items():
-        s = bis_series_xml(key, start=str(start_year), end=(end_year or "2025")).rename(columns={"Val": name})
-        dfs.append(s)
+        s = bis_series_xml(key, start=str(start_year), end=(end_year or "2025"))
+        if not s.empty:
+            dfs.append(s.rename(columns={"Val": name}))
+    
+    if not dfs:
+        st.error("❌ Could not retrieve any data from BIS API. Please check the API status or try again later.")
+        st.stop()
+    
     df = dfs[0]
     for s in dfs[1:]: df = df.merge(s, on="Time", how="outer")
 
     df = df.sort_values("Time").reset_index(drop=True)
     df["Year"] = df["Time"].dt.year
-    for c in SERIES.keys(): df[c] = pd.to_numeric(df[c], errors="coerce") / 1000.0  # M$ → B$
+    for c in SERIES.keys(): 
+        if c in df.columns:
+            df[c] = pd.to_numeric(df[c], errors="coerce") / 1000.0  # M$ → B$
     # Advanced = Total − Emerging
-    df["AdvancedDebtSecurities"] = df["DebtSecurities"] - df["EmeDebt"]
-    df["AdvancedLoans"]          = df["Loans"]          - df["EmeBankLoans"]
+    if "DebtSecurities" in df.columns and "EmeDebt" in df.columns:
+        df["AdvancedDebtSecurities"] = df["DebtSecurities"] - df["EmeDebt"]
+    if "Loans" in df.columns and "EmeBankLoans" in df.columns:
+        df["AdvancedLoans"]          = df["Loans"]          - df["EmeBankLoans"]
 except Exception as e:
-    st.error(f"BIS verisi çekilemedi: {e}"); st.stop()
+    st.error(f"❌ Error processing BIS data: {e}"); st.stop()
 
 # --------------------- helpers ---------------------
 def add_shading(fig):
