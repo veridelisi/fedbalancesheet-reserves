@@ -158,9 +158,35 @@ SERIES = {
     "EmeBankLoans":  "Q.USD.4T.N.B.I.G.USD",
 }
 
+
+# --- Date Range ---
+from datetime import date
+
 st.sidebar.header("BIS WS_GLI")
-start_year = st.sidebar.number_input("Start", 1980, 2025, 2000)
-end_year   = st.sidebar.text_input("End", "2025")
+
+CURRENT_YEAR = date.today().year
+
+# Start year: otomatik olarak her yıl genişlesin
+start_year = st.sidebar.number_input(
+    "Start",
+    min_value=1980,
+    max_value=CURRENT_YEAR,   # ✅ 2026 gelince otomatik 2026 olur
+    value=2000
+)
+
+# End year: otomatik ve "buffer" ile (Q4/Q1 geçişlerinde kırpmasın)
+auto_end_year = str(CURRENT_YEAR + 1)  # ✅ yeni veri geldikçe yakalar
+
+# İstersen kullanıcı override edebilsin (boş bırakırsa otomatik)
+end_year_input = st.sidebar.text_input("End (leave blank = auto)", value="")
+end_year = end_year_input.strip() or auto_end_year
+
+# (Opsiyonel ama öneririm) Cache'i elle temizleme butonu
+if st.sidebar.button("🔄 Refresh BIS data now"):
+    st.cache_data.clear()
+    st.rerun()
+
+
 
 # --- Pull & merge ana seriler ---
 try:
