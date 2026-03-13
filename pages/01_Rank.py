@@ -7,8 +7,6 @@ from datetime import datetime
 from pathlib import Path
 import re
 import csv
-import time
-import threading
 
 # ------------------------------ Page Config ------------------------------
 st.set_page_config(
@@ -27,9 +25,7 @@ st.markdown("""
 # ------------------------------ Settings ------------------------------
 ASIN       = "B0G584KJ73"
 URL        = f"https://www.amazon.com/dp/{ASIN}"
-CSV_DIR    = Path(__file__).parent.parent   # project root
-OUTPUT_CSV = CSV_DIR / f"ranks_{ASIN}.csv"
-INTERVAL_S = 3600
+OUTPUT_CSV = Path(__file__).parent.parent / f"ranks_{ASIN}.csv"
 
 HEADERS = {
     "User-Agent": (
@@ -108,67 +104,35 @@ def load_csv() -> pd.DataFrame:
     df["rank"] = df["rank"].astype(int)
     return df
 
-# ------------------------------ Background Tracker ------------------------------
-def tracker_loop():
-    while st.session_state.get("tracking", False):
-        result = fetch_rank()
-        append_csv(result)
-        st.session_state["last_result"] = result
-        st.session_state["last_fetch"]  = datetime.now().strftime("%H:%M:%S")
-        time.sleep(INTERVAL_S)
-
-# ------------------------------ Session State ------------------------------
-if "tracking"    not in st.session_state: st.session_state["tracking"]    = False
-if "last_result" not in st.session_state: st.session_state["last_result"] = None
-if "last_fetch"  not in st.session_state: st.session_state["last_fetch"]  = "—"
-
 # ------------------------------ Header ------------------------------
 st.title("📈 Amazon Best Seller Rank Tracker")
-st.markdown(
-    f"Hourly tracking of **Money & Monetary Policy** category rank · "
-    f"ASIN: `{ASIN}` · CSV saved to project root"
-)
+st.markdown("**Money & Monetary Policy** category · ASIN: `B0G584KJ73`")
 st.divider()
 
-# ------------------------------ Controls ------------------------------
-col_a, col_b, col_c = st.columns([1, 1, 6])
+# ------------------------------ Fetch Button ------------------------------
+col_btn, col_status = st.columns([1, 5])
 
-with col_a:
-    if not st.session_state["tracking"]:
-        if st.button("▶ Start", use_container_width=True):
-            st.session_state["tracking"] = True
-            threading.Thread(target=tracker_loop, daemon=True).start()
-            st.rerun()
-    else:
-        if st.button("⏹ Stop", use_container_width=True):
-            st.session_state["tracking"] = False
-            st.rerun()
+with col_btn:
+    fetch_clicked = st.button("🔄 Fetch Rank", use_container_width=True)
 
-with col_b:
-    if st.button("🔄 Fetch Now", use_container_width=True):
-        with st.spinner("Fetching..."):
+with col_status:
+    if fetch_clicked:
+        with st.spinner("Fetching from Amazon..."):
             result = fetch_rank()
             append_csv(result)
-            st.session_state["last_result"] = result
-            st.session_state["last_fetch"]  = datetime.now().strftime("%H:%M:%S")
-        st.rerun()
-
-with col_c:
-    status_text = "🟢 Tracking active" if st.session_state["tracking"] else "⚪ Tracking stopped"
-    last_result = st.session_state["last_result"]
-    fetch_status = last_result["status"] if last_result else "—"
-    st.markdown(
-        f"<p style='margin-top:8px;color:gray;font-size:14px'>"
-        f"{status_text} &nbsp;·&nbsp; Last fetch: {st.session_state['last_fetch']} "
-        f"&nbsp;·&nbsp; Status: <code>{fetch_status}</code></p>",
-        unsafe_allow_html=True
-    )
+        if result["status"] == "ok":
+            st.success(f"✅ Rank fetched: **#{result['rank']}** at {result['fetched_at']}")
+        elif result["status"] == "captcha":
+            st.error("⚠️ Amazon returned a CAPTCHA. Try again in a few minutes.")
+        else:
+            st.error(f"❌ {result['status']}")
 
 st.divider()
 
-# ------------------------------ Metrics ------------------------------
+# ------------------------------ Load Data ------------------------------
 df = load_csv()
 
+# ------------------------------ Metrics ------------------------------
 m1, m2, m3, m4 = st.columns(4)
 
 current  = int(df["rank"].iloc[-1]) if len(df) > 0 else None
@@ -190,7 +154,7 @@ st.subheader("📊 Rank History")
 if len(df) >= 2:
     fig = go.Figure()
 
-    # Shaded band: highlight when rank > 100 (big swings down to ~300)
+    # Red shaded zone below rank 100
     fig.add_hrect(
         y0=100, y1=df["rank"].max() + 20,
         fillcolor="rgba(255,100,100,0.05)",
@@ -213,27 +177,25 @@ if len(df) >= 2:
     ))
 
     # Best rank annotation
-    if best:
-        best_row = df.loc[df["rank"].idxmin()]
-        fig.add_annotation(
-            x=best_row["fetched_at"],
-            y=best,
-            text=f"🏆 Best: #{best}",
-            showarrow=True,
-            arrowhead=2,
-            arrowcolor="#2ca02c",
-            font=dict(color="#2ca02c", size=12),
-            bgcolor="rgba(255,255,255,0.8)",
-            bordercolor="#2ca02c",
-        )
+    best_row = df.loc[df["rank"].idxmin()]
+    fig.add_annotation(
+        x=best_row["fetched_at"],
+        y=int(best_row["rank"]),
+        text=f"🏆 Best: #{int(best_row['rank'])}",
+        showarrow=True,
+        arrowhead=2,
+        arrowcolor="#2ca02c",
+        font=dict(color="#2ca02c", size=12),
+        bgcolor="rgba(255,255,255,0.8)",
+        bordercolor="#2ca02c",
+    )
 
     fig.update_layout(
         yaxis=dict(
             autorange="reversed",
             title="Rank (lower = better)",
             tickprefix="#",
-            # ensure axis covers full swing range
-            range=[max(df["rank"].max() + 30, worst + 30 if worst else 350), 1],
+            range=[df["rank"].max() + 30, 1],
         ),
         xaxis=dict(title=""),
         margin=dict(l=0, r=0, t=20, b=0),
@@ -243,9 +205,9 @@ if len(df) >= 2:
     st.plotly_chart(fig, use_container_width=True)
 
 elif len(df) == 1:
-    st.info("Chart requires at least 2 data points. Wait one hour or press **Fetch Now** again.")
+    st.info("Chart requires at least 2 data points. Press **Fetch Rank** again later.")
 else:
-    st.info("No data yet. Press **Fetch Now** to collect the first data point.")
+    st.info("No data yet. Press **Fetch Rank** to get started.")
 
 # ------------------------------ Methodology ------------------------------
 st.markdown("### 📋 Methodology")
@@ -254,10 +216,10 @@ with st.expander("🔎 Click to expand methodology details", expanded=False):
     - **Source:** Amazon product page scraped via `requests` + `BeautifulSoup`
     - **ASIN:** `{ASIN}` · [View on Amazon]({URL})
     - **Category tracked:** Money & Monetary Policy
-    - **Frequency:** Every hour (background thread)
-    - **Storage:** CSV file saved to project root → `ranks_{ASIN}.csv`
-    - **Rank range:** Can swing from top 10 to ~300+, chart is scaled accordingly
-    - **Note:** Amazon may occasionally return a CAPTCHA. If status shows `captcha`, the row is saved but rank will be empty. Retry will resume automatically next hour.
+    - **Frequency:** Manual — press the Fetch Rank button to update
+    - **Storage:** CSV saved to project root → `ranks_{ASIN}.csv`
+    - **Rank range:** Can swing from top 10 to ~300+, chart scaled accordingly
+    - **Note:** Amazon may occasionally return a CAPTCHA. If so, wait a few minutes and try again.
     """)
 
 # ------------------------------ Footer ------------------------------
