@@ -1,4 +1,8 @@
 import streamlit as st
+
+# set_page_config EN BAŞTA ve SADECE BİR KERE çağrılmalı
+st.set_page_config(page_title="Money & Monetary Policy Rank Tracker", layout="wide")
+
 import pandas as pd
 import requests
 from datetime import datetime
@@ -144,8 +148,6 @@ def auto_fetch():
     return df
 
 def main():
-    st.set_page_config(page_title="Money & Monetary Policy Rank Tracker", layout="wide")
-    
     # Initialize session state
     if 'last_auto_fetch' not in st.session_state:
         st.session_state['last_auto_fetch'] = None
@@ -166,7 +168,7 @@ def main():
             st.caption(st.session_state['auto_fetch_status'])
     
     # Perform auto-fetch on refresh
-    if count > 0:  # This runs on every auto-refresh
+    if count > 0 and count % 60 == 0:  # This runs on every auto-refresh (hourly)
         auto_fetch()
     
     # Sidebar
