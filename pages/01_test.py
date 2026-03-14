@@ -283,7 +283,36 @@ if __name__ == "__main__":
 import os
 import streamlit as st
 
-# CSV dosyasının tam yolunu göster
-CSV_FILE = "rank_tracking.csv"
-tam_yol = os.path.abspath(CSV_FILE)
-st.info(f"📁 CSV Dosya Konumu: `{tam_yol}`")    
+# main fonksiyonunun en altına ekleyin:
+
+st.markdown("---")
+st.subheader("📁 Dosya Bilgileri")
+
+if os.path.isfile(CSV_FILE):
+    df = pd.read_csv(CSV_FILE)
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Toplam Kayıt", len(df))
+    with col2:
+        st.metric("Dosya Boyutu", f"{os.path.getsize(CSV_FILE)/1024:.1f} KB")
+    with col3:
+        st.metric("Son Güncelleme", datetime.fromtimestamp(os.path.getmtime(CSV_FILE)).strftime('%Y-%m-%d %H:%M'))
+    
+    # Dosya yolunu göster
+    st.code(f"📂 {os.path.abspath(CSV_FILE)}")
+    
+    # İndirme butonu
+    with open(CSV_FILE, "rb") as f:
+        st.download_button(
+            label="📥 CSV İndir",
+            data=f,
+            file_name=f"rank_tracking_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+            mime="text/csv"
+        )
+    
+    # Son kayıtları göster
+    with st.expander("📋 Son 10 Kayıt"):
+        st.dataframe(df.tail(10))
+else:
+    st.warning("⚠️ CSV dosyası henüz oluşturulmamış. 'Yeni Kontrol Yap' butonuyla ilk kaydı oluşturun.") 
