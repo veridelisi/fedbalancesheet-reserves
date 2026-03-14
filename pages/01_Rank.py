@@ -1,6 +1,5 @@
 import streamlit as st
 import requests
-import re
 import csv
 import pandas as pd
 import plotly.graph_objects as go
@@ -28,70 +27,57 @@ URL        = f"https://www.amazon.com/dp/{ASIN}"
 OUTPUT_CSV = Path(__file__).parent.parent / f"ranks_{ASIN}.csv"
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                  "AppleWebKit/537.36 (KHTML, like Gecko) "
-                  "Chrome/124.0.0.0 Safari/537.36",
-    "Accept-Language": "en-US,en;q=0.9",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.157 Safari/537.36",
+    "Accept-Language": "en-US, en;q=0.5"
 }
 
-CATEGORIES = [
-    (r"#([\d,]+)\s+in Money & Monetary Policy", "rank"),
-]
-
 # ------------------------------ Fetch ------------------------------
-def fetch_ranks():
-    result = {col: None for _, col in CATEGORIES}
-    result["fetched_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    result["status"] = "ok"
+def fetch_rank() -> dict:
+    result = {
+        "fetched_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "rank": None,
+        "status": "ok",
+    }
 
     try:
-        r = requests.get(URL, headers=HEADERS, timeout=15)
+        webpage = requests.get(URL, headers=HEADERS, timeout=15)
     except Exception as e:
         result["status"] = f"error: {e}"
         return result
 
-    if r.status_code != 200:
-        result["status"] = f"http_{r.status_code}"
+    if webpage.status_code != 200:
+        result["status"] = f"http_{webpage.status_code}"
         return result
 
-    if "captcha" in r.text.lower():
+    if "captcha" in webpage.text.lower():
         result["status"] = "captcha"
         return result
 
-    soup = BeautifulSoup(r.text, "html.parser")
-    bsr_text = ""
+    soup = BeautifulSoup(webpage.content, "lxml")
 
-    for li in soup.select("#detailBulletsWrapper_feature_div li"):
-        text = li.get_text(" ", strip=True)
-        if "Best Sellers Rank" in text:
-            bsr_text = text
-            break
-
-    if not bsr_text:
-        for row in soup.select("#productDetails_db_sections tr, #prodDetails tr"):
-            th, td = row.find("th"), row.find("td")
-            if th and td and "Best Sellers Rank" in th.get_text():
-                bsr_text = td.get_text(" ", strip=True)
+    # Exact selector from inspected HTML: subcategory ranks are in ul.zg_hrsr li
+    try:
+        for li in soup.select("ul.zg_hrsr li span.a-list-item"):
+            text = li.get_text(" ", strip=True)
+            if "Money" in text and "Monetary" in text:
+                # text looks like: "#73 in Money & Monetary Policy (Books)"
+                rank_str = text.split()[0].replace("#", "").replace(",", "")
+                result["rank"] = int(rank_str)
                 break
-
-    if not bsr_text:
-        result["status"] = "rank_not_found"
+    except Exception as e:
+        result["status"] = f"parse_error: {e}"
         return result
 
-    for pattern, col in CATEGORIES:
-        m = re.search(pattern, bsr_text)
-        if m:
-            result[col] = m.group(1).replace(",", "")
+    if result["rank"] is None:
+        result["status"] = "rank_not_found"
 
     return result
 
 # ------------------------------ CSV Helpers ------------------------------
 def append_csv(row: dict):
-    fieldnames = ["fetched_at"] + [col for _, col in CATEGORIES] + ["status"]
     file_exists = OUTPUT_CSV.exists()
     with open(OUTPUT_CSV, "a", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer = csv.DictWriter(f, fieldnames=["fetched_at", "rank", "status"])
         if not file_exists:
             writer.writeheader()
         writer.writerow(row)
@@ -119,10 +105,10 @@ with col_btn:
 with col_status:
     if fetch_clicked:
         with st.spinner("Fetching from Amazon..."):
-            data = fetch_ranks()
+            data = fetch_rank()
             append_csv(data)
         if data["status"] == "ok":
-            st.success(f"✅ rank: **#{data['rank']}** · rank_books: **#{data['rank_books']}** · {data['fetched_at']}")
+            st.success(f"✅ Rank: **#{data['rank']}** · {data['fetched_at']}")
         elif data["status"] == "captcha":
             st.error("⚠️ CAPTCHA — try again in a few minutes.")
         else:
@@ -139,7 +125,7 @@ current  = int(df["rank"].iloc[-1]) if len(df) > 0 else None
 previous = int(df["rank"].iloc[-2]) if len(df) > 1 else None
 best     = int(df["rank"].min())    if len(df) > 0 else None
 worst    = int(df["rank"].max())    if len(df) > 0 else None
-delta    = (current - previous) if current and previous else None
+delta    = (current - previous)     if current and previous else None
 
 m1.metric("Current Rank",  f"#{current}" if current else "—", delta=f"{delta:+d}" if delta else None, delta_color="inverse")
 m2.metric("Best Rank",     f"#{best}"    if best    else "—")
@@ -211,7 +197,7 @@ else:
 st.markdown("### 📋 Methodology")
 with st.expander("🔎 Click to expand methodology details", expanded=False):
     st.markdown(f"""
-    - **Source:** Amazon product page scraped via `requests` + `BeautifulSoup`
+    - **Source:** Amazon product page · `ul.zg_hrsr li` selector
     - **ASIN:** `{ASIN}` · [View on Amazon]({URL})
     - **Category tracked:** Money & Monetary Policy
     - **Frequency:** Manual — press Fetch Rank button
