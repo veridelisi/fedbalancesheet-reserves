@@ -40,15 +40,7 @@ with cols[10]:
     st.page_link("pages/01_Eurodollar.py", label="💡 Eurodollar")
 
 # ---------------------------- STOP Expanded -----------------
-st.markdown(
-    """
-<style>
-    [data-testid="stSidebarNav"] {display: none;}
-    section[data-testid="stSidebar"][aria-expanded="true"]{display: none;}
-</style>
-""",
-    unsafe_allow_html=True,
-)
+
 # ---------------------------- CODE -----------------
 
 
