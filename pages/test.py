@@ -1,17 +1,11 @@
-# csv_reset.py
+# create_csv_headers.py
 import pandas as pd
 import os
-from datetime import datetime
 
-CSV_FILE = "rank_tracking.csv"
+CSV_FILE = "pages/rank_tracking.csv"  # pages klasöründe oluştur
 
-# Eski CSV'yi sil (varsa)
-if os.path.isfile(CSV_FILE):
-    os.remove(CSV_FILE)
-    print(f"✅ Eski CSV silindi: {CSV_FILE}")
-
-# Yeni CSV oluştur (sadece başlıklarla)
-df_new = pd.DataFrame(columns=[
+# Column'ları olan boş DataFrame
+df = pd.DataFrame(columns=[
     'timestamp', 
     'datetime', 
     'asin', 
@@ -22,15 +16,9 @@ df_new = pd.DataFrame(columns=[
     'status'
 ])
 
-# Boş CSV'yi kaydet
-df_new.to_csv(CSV_FILE, index=False)
-print(f"✅ Yeni CSV oluşturuldu: {CSV_FILE}")
-print(f"📁 Konum: {os.path.abspath(CSV_FILE)}")
+# CSV'yi kaydet
+df.to_csv(CSV_FILE, index=False)
 
-# Kontrol
-if os.path.isfile(CSV_FILE):
-    df = pd.read_csv(CSV_FILE)
-    print(f"📊 CSV boyutu: {len(df)} kayıt")
-    print(f"📁 Dosya boyutu: {os.path.getsize(CSV_FILE)} bytes")
-else:
-    print("❌ CSV oluşturulamadı!")
+print(f"✅ CSV oluşturuldu: {os.path.abspath(CSV_FILE)}")
+print(f"📊 Column'lar: {list(df.columns)}")
+print(f"📁 Dosya boyutu: {os.path.getsize(CSV_FILE)} bytes")
