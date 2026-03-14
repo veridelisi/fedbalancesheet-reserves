@@ -1,218 +1,165 @@
-import streamlit as st
-import requests
 import csv
-import pandas as pd
-import plotly.graph_objects as go
-from bs4 import BeautifulSoup
+import time
 from datetime import datetime
-from pathlib import Path
+from requests_html import HTMLSession
+import os
 
-# ------------------------------ Page Config ------------------------------
-st.set_page_config(
-    page_title="Amazon Rank Tracker",
-    page_icon="📈",
-    layout="wide"
-)
+# Kitap bilgileri
+ASIN = "B0G584KJ73"
+URL = f"https://www.amazon.com/dp/{ASIN}"
+CATEGORY = "Money & Monetary Policy (Books)"
+CSV_FILE = "amazon_rank_tracker.csv"
 
-st.markdown("""
-<style>
-    [data-testid="stSidebarNav"] {display: none;}
-    section[data-testid="stSidebar"][aria-expanded="true"]{display: none;}
-</style>
-""", unsafe_allow_html=True)
-
-# ------------------------------ Settings ------------------------------
-ASIN       = "B0G584KJ73"
-URL        = f"https://www.amazon.com/dp/{ASIN}"
-OUTPUT_CSV = Path(__file__).parent.parent / f"ranks_{ASIN}.csv"
-
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.157 Safari/537.36",
-    "Accept-Language": "en-US, en;q=0.5"
-}
-
-# ------------------------------ Fetch ------------------------------
-def fetch_rank() -> dict:
-    result = {
-        "fetched_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "rank": None,
-        "status": "ok",
+def fetch_book_rank():
+    """Amazon sayfasından kitabın güncel sıralamasını çeker"""
+    session = HTMLSession()
+    
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1'
     }
-
+    
     try:
-        webpage = requests.get(URL, headers=HEADERS, timeout=15)
-    except Exception as e:
-        result["status"] = f"error: {e}"
-        return result
-
-    if webpage.status_code != 200:
-        result["status"] = f"http_{webpage.status_code}"
-        return result
-
-    if "captcha" in webpage.text.lower():
-        result["status"] = "captcha"
-        return result
-
-    soup = BeautifulSoup(webpage.content, "lxml")
-
-    # Exact selector from inspected HTML: subcategory ranks are in ul.zg_hrsr li
-    try:
-        for li in soup.select("ul.zg_hrsr li span.a-list-item"):
-            text = li.get_text(" ", strip=True)
-            if "Money" in text and "Monetary" in text:
-                # text looks like: "#73 in Money & Monetary Policy (Books)"
-                rank_str = text.split()[0].replace("#", "").replace(",", "")
-                result["rank"] = int(rank_str)
+        # Sayfayı al ve JavaScript'i render et
+        response = session.get(URL, headers=headers, timeout=30)
+        response.html.render(sleep=3, keep_page=True, scrolldown=1)
+        
+        # Best Sellers Rank bilgisini bul
+        # Farklı olası selector'ları dene
+        rank_selectors = [
+            '#productDetails_detailBullets_sections1 tr:contains("Best Sellers Rank") td span',
+            '#productDetails_detailBullets_sections1 tr:contains("Best Sellers Rank") td',
+            '.a-section .a-row:contains("Best Sellers Rank") span',
+            '#detailBullets_feature_div span:contains("Best Sellers Rank")',
+            'th:contains("Best Sellers Rank") + td',
+        ]
+        
+        rank_text = None
+        for selector in rank_selectors:
+            elements = response.html.find(selector)
+            if elements:
+                rank_text = elements[0].text
                 break
-    except Exception as e:
-        result["status"] = f"parse_error: {e}"
-        return result
-
-    if result["rank"] is None:
-        result["status"] = "rank_not_found"
-
-    return result
-
-# ------------------------------ CSV Helpers ------------------------------
-def append_csv(row: dict):
-    file_exists = OUTPUT_CSV.exists()
-    with open(OUTPUT_CSV, "a", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["fetched_at", "rank", "status"])
-        if not file_exists:
-            writer.writeheader()
-        writer.writerow(row)
-
-def load_csv() -> pd.DataFrame:
-    if not OUTPUT_CSV.exists():
-        return pd.DataFrame(columns=["fetched_at", "rank", "status"])
-    df = pd.read_csv(OUTPUT_CSV)
-    df["fetched_at"] = pd.to_datetime(df["fetched_at"])
-    df = df[df["rank"].notna()].copy()
-    df["rank"] = df["rank"].astype(int)
-    return df
-
-# ------------------------------ Header ------------------------------
-st.title("📈 Amazon Best Seller Rank Tracker")
-st.markdown("**Money & Monetary Policy** category · ASIN: `B0G584KJ73`")
-st.divider()
-
-# ------------------------------ Button ------------------------------
-col_btn, col_status = st.columns([1, 5])
-
-with col_btn:
-    fetch_clicked = st.button("🔄 Fetch Rank", use_container_width=True)
-
-with col_status:
-    if fetch_clicked:
-        with st.spinner("Fetching from Amazon..."):
-            data = fetch_rank()
-            append_csv(data)
-        if data["status"] == "ok":
-            st.success(f"✅ Rank: **#{data['rank']}** · {data['fetched_at']}")
-        elif data["status"] == "captcha":
-            st.error("⚠️ CAPTCHA — try again in a few minutes.")
+        
+        if not rank_text:
+            # Sayfanın HTML'inde ara
+            html_text = response.html.text
+            if "Best Sellers Rank" in html_text:
+                # Best Sellers Rank'ten sonraki kısmı al
+                start_idx = html_text.find("Best Sellers Rank") + len("Best Sellers Rank")
+                end_idx = html_text.find("(", start_idx)
+                if end_idx == -1:
+                    end_idx = start_idx + 200
+                rank_text = html_text[start_idx:end_idx].strip()
+        
+        if rank_text:
+            # Kategori sıralamasını bul
+            category_rank = None
+            if CATEGORY in html_text:
+                cat_idx = html_text.find(CATEGORY)
+                # Kategoriden önceki sayıyı bul (sondan 20 karaktere kadar bak)
+                search_start = max(0, cat_idx - 50)
+                search_area = html_text[search_start:cat_idx]
+                import re
+                numbers = re.findall(r'#?(\d{1,3}(?:,\d{3})*(?:\.\d+)?)', search_area)
+                if numbers:
+                    category_rank = numbers[-1].replace(',', '')
+            
+            return {
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'asin': ASIN,
+                'rank_text': rank_text,
+                'category_rank': category_rank,
+                'category': CATEGORY,
+                'url': URL
+            }
         else:
-            st.error(f"❌ {data['status']}")
+            print(f"[{datetime.now()}] Rank bilgisi bulunamadı")
+            return None
+            
+    except Exception as e:
+        print(f"[{datetime.now()}] Hata oluştu: {str(e)}")
+        return None
+    finally:
+        session.close()
 
-st.divider()
+def save_to_csv(data):
+    """Verileri CSV'ye kaydeder"""
+    file_exists = os.path.isfile(CSV_FILE)
+    
+    with open(CSV_FILE, 'a', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        
+        # Dosya yoksa başlıkları yaz
+        if not file_exists:
+            writer.writerow([
+                'Timestamp', 
+                'ASIN', 
+                'Full Rank Text', 
+                'Category Rank',
+                'Category',
+                'URL'
+            ])
+        
+        if data:
+            writer.writerow([
+                data['timestamp'],
+                data['asin'],
+                data['rank_text'],
+                data['category_rank'],
+                data['category'],
+                data['url']
+            ])
+            print(f"[{data['timestamp']}] Veri kaydedildi: {data['rank_text']}")
+        else:
+            # Veri yoksa da zaman damgasıyla boş kayıt ekle
+            writer.writerow([
+                datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                ASIN,
+                'VERI_YOK',
+                '',
+                CATEGORY,
+                URL
+            ])
+            print(f"[{datetime.now()}] Veri yok - boş kayıt eklendi")
 
-# ------------------------------ Load & Metrics ------------------------------
-df = load_csv()
+def track_rank_hourly():
+    """Saatlik takip yapar"""
+    print(f"Amazon Rank Takip Başladı - ASIN: {ASIN}")
+    print(f"Hedef Kategori: {CATEGORY}")
+    print(f"Çıktı Dosyası: {CSV_FILE}")
+    print("-" * 50)
+    
+    while True:
+        try:
+            # Veriyi çek
+            data = fetch_book_rank()
+            
+            # CSV'ye kaydet
+            save_to_csv(data)
+            
+            # 1 saat bekle (3600 saniye)
+            next_check = datetime.now().replace(minute=0, second=0) + timedelta(hours=1)
+            wait_seconds = (next_check - datetime.now()).total_seconds()
+            
+            if wait_seconds > 0:
+                print(f"Sonraki kontrol: {next_check.strftime('%Y-%m-%d %H:%M:%S')}")
+                print(f"Bekleniyor ({int(wait_seconds/60)} dakika)...")
+                print("-" * 50)
+                time.sleep(wait_seconds)
+            
+        except KeyboardInterrupt:
+            print("\nTakip durduruldu.")
+            break
+        except Exception as e:
+            print(f"Beklenmeyen hata: {e}")
+            print("1 saat sonra tekrar deneniyor...")
+            time.sleep(3600)
 
-m1, m2, m3, m4 = st.columns(4)
-
-current  = int(df["rank"].iloc[-1]) if len(df) > 0 else None
-previous = int(df["rank"].iloc[-2]) if len(df) > 1 else None
-best     = int(df["rank"].min())    if len(df) > 0 else None
-worst    = int(df["rank"].max())    if len(df) > 0 else None
-delta    = (current - previous)     if current and previous else None
-
-m1.metric("Current Rank",  f"#{current}" if current else "—", delta=f"{delta:+d}" if delta else None, delta_color="inverse")
-m2.metric("Best Rank",     f"#{best}"    if best    else "—")
-m3.metric("Worst Rank",    f"#{worst}"   if worst   else "—")
-m4.metric("Total Records", len(df))
-
-st.divider()
-
-# ------------------------------ Chart ------------------------------
-st.subheader("📊 Rank History — Money & Monetary Policy")
-
-if len(df) >= 2:
-    fig = go.Figure()
-
-    fig.add_hrect(
-        y0=100, y1=worst + 20,
-        fillcolor="rgba(255,100,100,0.05)",
-        line_width=0,
-        annotation_text="Below #100",
-        annotation_position="top left",
-        annotation_font_color="salmon",
-        annotation_font_size=11,
-    )
-
-    fig.add_trace(go.Scatter(
-        x=df["fetched_at"],
-        y=df["rank"],
-        mode="lines+markers",
-        line=dict(color="#1f77b4", width=2),
-        marker=dict(size=6, color="#1f77b4"),
-        fill="tozeroy",
-        fillcolor="rgba(31,119,180,0.07)",
-        hovertemplate="<b>Rank #%{y}</b><br>%{x}<extra></extra>",
-    ))
-
-    best_row = df.loc[df["rank"].idxmin()]
-    fig.add_annotation(
-        x=best_row["fetched_at"],
-        y=int(best_row["rank"]),
-        text=f"🏆 Best: #{int(best_row['rank'])}",
-        showarrow=True,
-        arrowhead=2,
-        arrowcolor="#2ca02c",
-        font=dict(color="#2ca02c", size=12),
-        bgcolor="rgba(255,255,255,0.8)",
-        bordercolor="#2ca02c",
-    )
-
-    fig.update_layout(
-        yaxis=dict(
-            autorange="reversed",
-            title="Rank (lower = better)",
-            tickprefix="#",
-            range=[worst + 30, 1],
-        ),
-        xaxis=dict(title=""),
-        margin=dict(l=0, r=0, t=20, b=0),
-        height=420,
-        hovermode="x unified",
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
-elif len(df) == 1:
-    st.info("Chart requires at least 2 data points. Press **Fetch Rank** again later.")
-else:
-    st.info("No data yet. Press **Fetch Rank** to get started.")
-
-# ------------------------------ Methodology ------------------------------
-st.markdown("### 📋 Methodology")
-with st.expander("🔎 Click to expand methodology details", expanded=False):
-    st.markdown(f"""
-    - **Source:** Amazon product page · `ul.zg_hrsr li` selector
-    - **ASIN:** `{ASIN}` · [View on Amazon]({URL})
-    - **Category tracked:** Money & Monetary Policy
-    - **Frequency:** Manual — press Fetch Rank button
-    - **Storage:** CSV saved to project root → `ranks_{ASIN}.csv`
-    - **Note:** Amazon may occasionally return a CAPTCHA. Wait a few minutes and try again.
-    """)
-
-# ------------------------------ Footer ------------------------------
-st.markdown("---")
-st.markdown(
-    """
-    <div style="text-align:center;color:#64748b;font-size:0.95rem;padding:20px 0;">
-        <a href="https://veridelisi.substack.com/">Veri Delisi</a>🚀 <br>
-        <em>Engin Yılmaz • Ankara • March 2026</em>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+if __name__ == "__main__":
+    from datetime import timedelta
+    track_rank_hourly()
