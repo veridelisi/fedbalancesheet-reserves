@@ -277,3 +277,13 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+import os
+import streamlit as st
+
+# CSV dosyasının tam yolunu göster
+CSV_FILE = "rank_tracking.csv"
+tam_yol = os.path.abspath(CSV_FILE)
+st.info(f"📁 CSV Dosya Konumu: `{tam_yol}`")    
