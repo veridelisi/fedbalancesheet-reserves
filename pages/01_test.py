@@ -4,15 +4,20 @@ import requests
 from datetime import datetime
 import re
 import os
+import time
+from streamlit_autorefresh import st_autorefresh
 
-# Kitap bilgileri
+# Book information
 ASIN = "B0G584KJ73"
 URL = f"https://www.amazon.com/dp/{ASIN}"
 CATEGORY = "Money & Monetary Policy (Books)"
 CSV_FILE = "rank_tracking.csv"
 
+# Auto-refresh every 60 minutes (3600000 milliseconds)
+count = st_autorefresh(interval=60 * 60 * 1000, key="hourly_refresh")
+
 def fetch_book_rank():
-    """Amazon sayfasından Money & Monetary Policy rankını çeker"""
+    """Fetches the Money & Monetary Policy rank from Amazon page"""
     
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -24,37 +29,37 @@ def fetch_book_rank():
     }
     
     try:
-        st.info(f"Amazon'dan veri çekiliyor... ({datetime.now().strftime('%Y-%m-%d %H:%M:%S')})")
+        st.info(f"Fetching data from Amazon... ({datetime.now().strftime('%Y-%m-%d %H:%M:%S')})")
         
-        # Sayfayı çek
+        # Fetch the page
         response = requests.get(URL, headers=headers, timeout=30)
         html_text = response.text
         
-        # Money & Monetary Policy rankını bul
+        # Find Money & Monetary Policy rank
         category_rank = None
         full_text = ""
         
-        # Pattern: Money & Monetary Policy linki içindeki rank
-        # Örnek: #86 in <a href='/gp/bestsellers/books/2598/ref=pd_zg_hrsr_books'>Money & Monetary Policy
+        # Pattern: Rank inside Money & Monetary Policy link
+        # Example: #86 in <a href='/gp/bestsellers/books/2598/ref=pd_zg_hrsr_books'>Money & Monetary Policy
         pattern = r'#(\d{1,3}(?:,\d{3})*)\s+in\s+<a[^>]*>' + re.escape("Money & Monetary Policy")
         match = re.search(pattern, html_text, re.IGNORECASE)
         
         if match:
             category_rank = match.group(1).replace(',', '')
             full_text = f"#{category_rank} in Money & Monetary Policy (Books)"
-            st.success(f"✓ Money & Monetary Policy rankı bulundu: #{category_rank}")
+            st.success(f"✓ Money & Monetary Policy rank found: #{category_rank}")
         else:
-            # Alternatif pattern: Daha genel
+            # Alternative pattern: More general
             pattern2 = r'#(\d{1,3}(?:,\d{3})*)\s+in\s+<a[^>]*>Money\s*&\s*Monetary\s*Policy'
             match2 = re.search(pattern2, html_text, re.IGNORECASE)
             
             if match2:
                 category_rank = match2.group(1).replace(',', '')
                 full_text = f"#{category_rank} in Money & Monetary Policy (Books)"
-                st.success(f"✓ Alternatif pattern ile bulundu: #{category_rank}")
+                st.success(f"✓ Found with alternative pattern: #{category_rank}")
         
         if category_rank:
-            # Rank değerini temizle
+            # Clean rank value
             if '.' in str(category_rank):
                 category_rank = str(category_rank).split('.')[0]
             
@@ -69,10 +74,10 @@ def fetch_book_rank():
                 'status': 'SUCCESS'
             }
         else:
-            st.warning("⚠️ Money & Monetary Policy rankı bulunamadı")
+            st.warning("⚠️ Money & Monetary Policy rank not found")
             
-            # Debug: Money & Monetary Policy içeren satırları göster
-            with st.expander("🔍 Debug - Money & Monetary Policy İçeren Satırlar"):
+            # Debug: Show lines containing Money & Monetary Policy
+            with st.expander("🔍 Debug - Lines containing Money & Monetary Policy"):
                 lines = html_text.split('\n')
                 cat_lines = [line.strip() for line in lines if "Money & Monetary Policy" in line]
                 for i, line in enumerate(cat_lines[:10]):
@@ -81,14 +86,14 @@ def fetch_book_rank():
             return None
             
     except Exception as e:
-        st.error(f"❌ Hata oluştu: {str(e)}")
+        st.error(f"❌ Error occurred: {str(e)}")
         return None
 
 def save_to_csv(data):
-    """Verileri CSV'ye kaydeder"""
+    """Saves data to CSV file"""
     file_exists = os.path.isfile(CSV_FILE)
     
-    # DataFrame oluştur
+    # Create DataFrame
     if data:
         df_new = pd.DataFrame([data])
     else:
@@ -97,13 +102,13 @@ def save_to_csv(data):
             'datetime': datetime.now().strftime('%Y%m%d_%H%M%S'),
             'asin': ASIN,
             'category_rank': '',
-            'full_rank_text': 'VERI_BULUNAMADI',
+            'full_rank_text': 'DATA_NOT_FOUND',
             'category': "Money & Monetary Policy",
             'url': URL,
             'status': 'FAILED'
         }])
     
-    # CSV'ye ekle veya oluştur
+    # Append to CSV or create new
     if file_exists:
         df_existing = pd.read_csv(CSV_FILE)
         df_combined = pd.concat([df_existing, df_new], ignore_index=True)
@@ -114,10 +119,10 @@ def save_to_csv(data):
     return df_combined
 
 def format_rank(rank_value):
-    """Rank değerini formatlar"""
+    """Formats rank value"""
     if pd.notna(rank_value) and rank_value:
         try:
-            # Noktalı sayıyı temizle
+            # Clean decimal numbers
             if '.' in str(rank_value):
                 rank_int = int(float(str(rank_value)))
             else:
@@ -127,58 +132,89 @@ def format_rank(rank_value):
             return str(rank_value)
     return '-'
 
+def auto_fetch():
+    """Automatically fetches data and saves to CSV"""
+    data = fetch_book_rank()
+    df = save_to_csv(data)
+    if data:
+        st.session_state['last_auto_fetch'] = datetime.now()
+        st.session_state['auto_fetch_status'] = f"✅ Auto-fetch successful: #{data['category_rank']}"
+    else:
+        st.session_state['auto_fetch_status'] = "❌ Auto-fetch failed"
+    return df
+
 def main():
-    st.set_page_config(page_title="Money & Monetary Policy Rank Takip", layout="wide")
+    st.set_page_config(page_title="Money & Monetary Policy Rank Tracker", layout="wide")
     
-    st.title("💰 Money & Monetary Policy Rank Takip")
+    # Initialize session state
+    if 'last_auto_fetch' not in st.session_state:
+        st.session_state['last_auto_fetch'] = None
+    if 'auto_fetch_status' not in st.session_state:
+        st.session_state['auto_fetch_status'] = ""
+    
+    st.title("💰 Money & Monetary Policy Rank Tracker")
     st.markdown("---")
+    
+    # Auto-refresh info
+    col_info1, col_info2 = st.columns(2)
+    with col_info1:
+        st.info(f"🔄 Auto-fetch every hour | Refresh count: {count}")
+    with col_info2:
+        if st.session_state['last_auto_fetch']:
+            st.success(f"Last auto-fetch: {st.session_state['last_auto_fetch'].strftime('%Y-%m-%d %H:%M:%S')}")
+        if st.session_state['auto_fetch_status']:
+            st.caption(st.session_state['auto_fetch_status'])
+    
+    # Perform auto-fetch on refresh
+    if count > 0:  # This runs on every auto-refresh
+        auto_fetch()
     
     # Sidebar
     with st.sidebar:
-        st.header("📌 Kitap Bilgileri")
+        st.header("📌 Book Information")
         st.info(f"**ASIN:** {ASIN}")
-        st.info(f"**Kategori:** Money & Monetary Policy")
-        st.info(f"**CSV Dosyası:** {CSV_FILE}")
+        st.info(f"**Category:** Money & Monetary Policy")
+        st.info(f"**CSV File:** {CSV_FILE}")
         
         st.markdown("---")
-        if st.button("🔄 Yeni Kontrol Yap", type="primary"):
-            with st.spinner("Veri çekiliyor..."):
+        if st.button("🔄 Manual Check", type="primary"):
+            with st.spinner("Fetching data..."):
                 data = fetch_book_rank()
                 df = save_to_csv(data)
                 if data:
-                    st.success(f"✓ Veri kaydedildi!")
+                    st.success(f"✓ Data saved!")
                     st.info(f"🏷️ Rank: #{data['category_rank']}")
                 else:
-                    st.error("✗ Veri çekilemedi")
+                    st.error("✗ Failed to fetch data")
                 st.rerun()
     
-    # Ana içerik
+    # Main content
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("📈 Son Rank Bilgisi")
+        st.subheader("📈 Latest Rank Information")
         if os.path.isfile(CSV_FILE):
             df = pd.read_csv(CSV_FILE)
             if not df.empty:
-                son_kayit = df.iloc[-1]
-                if son_kayit['status'] == 'SUCCESS':
-                    if pd.notna(son_kayit['category_rank']) and son_kayit['category_rank']:
+                latest_record = df.iloc[-1]
+                if latest_record['status'] == 'SUCCESS':
+                    if pd.notna(latest_record['category_rank']) and latest_record['category_rank']:
                         st.metric(
                             label="🏷️ Money & Monetary Policy", 
-                            value=format_rank(son_kayit['category_rank'])
+                            value=format_rank(latest_record['category_rank'])
                         )
                     
-                    st.caption(f"Son güncelleme: {son_kayit['timestamp']}")
+                    st.caption(f"Last update: {latest_record['timestamp']}")
                     
-                    if pd.notna(son_kayit['full_rank_text']) and son_kayit['full_rank_text']:
-                        st.info(f"**Tam metin:** {son_kayit['full_rank_text']}")
+                    if pd.notna(latest_record['full_rank_text']) and latest_record['full_rank_text']:
+                        st.info(f"**Full text:** {latest_record['full_rank_text']}")
                 else:
-                    st.warning("⚠️ Son kontrol başarısız")
+                    st.warning("⚠️ Last check failed")
             else:
-                st.info("📭 Henüz veri yok")
+                st.info("📭 No data yet")
     
     with col2:
-        st.subheader("📊 Rank Grafiği")
+        st.subheader("📊 Rank Chart")
         if os.path.isfile(CSV_FILE):
             df = pd.read_csv(CSV_FILE)
             if len(df) > 1 and df['category_rank'].notna().any():
@@ -205,20 +241,20 @@ def main():
                             color='#ff4b4b'
                         )
                         
-                        son_rank = fig_data['category_rank_num'].iloc[-1]
-                        st.caption(f"Son rank: #{son_rank:,}")
+                        latest_rank = fig_data['category_rank_num'].iloc[-1]
+                        st.caption(f"Latest rank: #{latest_rank:,}")
                         
                         min_rank = fig_data['category_rank_num'].min()
                         max_rank = fig_data['category_rank_num'].max()
                         st.caption(f"Min: #{min_rank:,} | Max: #{max_rank:,}")
                 else:
-                    st.info("📭 Grafik için yeterli veri yok")
+                    st.info("📭 Not enough data for chart")
             else:
-                st.info("📭 Grafik için yeterli veri yok")
+                st.info("📭 Not enough data for chart")
     
-    # Tablo
+    # Table
     st.markdown("---")
-    st.subheader("📋 Son 20 Kayıt")
+    st.subheader("📋 Last 20 Records")
     if os.path.isfile(CSV_FILE):
         df = pd.read_csv(CSV_FILE)
         if not df.empty:
@@ -227,30 +263,30 @@ def main():
             
             display_cols = ['timestamp', 'category_rank_display', 'status']
             df_display = df_display[display_cols]
-            df_display.columns = ['Tarih', 'Money & Monetary Policy Rank', 'Durum']
+            df_display.columns = ['Date', 'Money & Monetary Policy Rank', 'Status']
             
             st.dataframe(df_display, use_container_width=True)
             
-            # İstatistikler
+            # Statistics
             st.markdown("---")
-            st.subheader("📊 İstatistikler")
+            st.subheader("📊 Statistics")
             col3, col4, col5 = st.columns(3)
             
-            basarili = df[df['status'] == 'SUCCESS'].shape[0]
-            basarisiz = df[df['status'] == 'FAILED'].shape[0]
+            successful = df[df['status'] == 'SUCCESS'].shape[0]
+            failed = df[df['status'] == 'FAILED'].shape[0]
             
             with col3:
-                st.metric("Toplam Kontrol", len(df))
+                st.metric("Total Checks", len(df))
             with col4:
-                st.metric("Başarılı", basarili)
+                st.metric("Successful", successful)
             with col5:
-                st.metric("Başarısız", basarisiz)
+                st.metric("Failed", failed)
             
-            # Ortalama rank
-            basarili_df = df[df['status'] == 'SUCCESS']
-            if not basarili_df.empty and basarili_df['category_rank'].notna().any():
+            # Average rank
+            successful_df = df[df['status'] == 'SUCCESS']
+            if not successful_df.empty and successful_df['category_rank'].notna().any():
                 ranks = []
-                for r in basarili_df['category_rank'].dropna():
+                for r in successful_df['category_rank'].dropna():
                     try:
                         if '.' in str(r):
                             ranks.append(int(float(str(r))))
@@ -260,59 +296,53 @@ def main():
                         pass
                 if ranks:
                     avg_rank = sum(ranks) / len(ranks)
-                    st.metric("Ortalama Rank", f"#{int(avg_rank):,}")
+                    st.metric("Average Rank", f"#{int(avg_rank):,}")
             
-            # CSV indirme butonu
+            # CSV download button
             csv_data = df.to_csv(index=False)
             st.download_button(
-                label="📥 CSV İndir",
+                label="📥 Download CSV",
                 data=csv_data,
                 file_name=f"money_policy_rank_{datetime.now().strftime('%Y%m%d')}.csv",
                 mime="text/csv"
             )
         else:
-            st.info("📭 Henüz kayıt yok")
+            st.info("📭 No records yet")
     else:
-        st.info("📭 CSV dosyası henüz oluşturulmamış. 'Yeni Kontrol Yap' butonuyla ilk kaydı oluşturun.")
+        st.info("📭 CSV file not created yet. Click 'Manual Check' to create the first record.")
+    
+    # File information section
+    st.markdown("---")
+    st.subheader("📁 File Information")
+
+    if os.path.isfile(CSV_FILE):
+        df = pd.read_csv(CSV_FILE)
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Total Records", len(df))
+        with col2:
+            st.metric("File Size", f"{os.path.getsize(CSV_FILE)/1024:.1f} KB")
+        with col3:
+            st.metric("Last Update", datetime.fromtimestamp(os.path.getmtime(CSV_FILE)).strftime('%Y-%m-%d %H:%M'))
+        
+        # Show file path
+        st.code(f"📂 {os.path.abspath(CSV_FILE)}")
+        
+        # Download button
+        with open(CSV_FILE, "rb") as f:
+            st.download_button(
+                label="📥 Download CSV File",
+                data=f,
+                file_name=f"rank_tracking_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                mime="text/csv"
+            )
+        
+        # Show last 10 records
+        with st.expander("📋 Last 10 Records"):
+            st.dataframe(df.tail(10))
+    else:
+        st.warning("⚠️ CSV file not created yet. Click 'Manual Check' to create the first record.")
 
 if __name__ == "__main__":
     main()
-
-
-
-import os
-import streamlit as st
-
-# main fonksiyonunun en altına ekleyin:
-
-st.markdown("---")
-st.subheader("📁 Dosya Bilgileri")
-
-if os.path.isfile(CSV_FILE):
-    df = pd.read_csv(CSV_FILE)
-    
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Toplam Kayıt", len(df))
-    with col2:
-        st.metric("Dosya Boyutu", f"{os.path.getsize(CSV_FILE)/1024:.1f} KB")
-    with col3:
-        st.metric("Son Güncelleme", datetime.fromtimestamp(os.path.getmtime(CSV_FILE)).strftime('%Y-%m-%d %H:%M'))
-    
-    # Dosya yolunu göster
-    st.code(f"📂 {os.path.abspath(CSV_FILE)}")
-    
-    # İndirme butonu
-    with open(CSV_FILE, "rb") as f:
-        st.download_button(
-            label="📥 CSV İndir",
-            data=f,
-            file_name=f"rank_tracking_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
-            mime="text/csv"
-        )
-    
-    # Son kayıtları göster
-    with st.expander("📋 Son 10 Kayıt"):
-        st.dataframe(df.tail(10))
-else:
-    st.warning("⚠️ CSV dosyası henüz oluşturulmamış. 'Yeni Kontrol Yap' butonuyla ilk kaydı oluşturun.") 
