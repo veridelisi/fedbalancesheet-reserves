@@ -1,8 +1,4 @@
 import streamlit as st
-
-# set_page_config EN BAŞTA ve SADECE BİR KERE çağrılmalı
-st.set_page_config(page_title="Money & Monetary Policy Rank Tracker", layout="wide")
-
 import pandas as pd
 import requests
 from datetime import datetime
@@ -10,6 +6,52 @@ import re
 import os
 import time
 from streamlit_autorefresh import st_autorefresh
+
+# Page configuration
+st.set_page_config(
+    page_title="Money & Monetary Policy Rank Tracker",
+    page_icon="📊",
+    layout="wide"
+)
+
+# ---------------------------- Top nav (your template) -----------------
+cols = st.columns(11)
+with cols[0]:
+    st.page_link("streamlit_app.py", label="🏠 Home")
+with cols[1]:
+    st.page_link("pages/01_Reserves.py", label="🌍 Reserves")
+with cols[2]:
+    st.page_link("pages/01_FDIC.py", label="🏦 FDIC")
+with cols[3]:
+    st.page_link("pages/01_Repo.py", label="🔄 Repo")
+with cols[4]:
+    st.page_link("pages/01_Repo2.py", label="♻️ Repo 2")
+with cols[5]:
+    st.page_link("pages/01_TGA.py", label="🏛️ TGA")
+with cols[6]:
+    st.page_link("pages/01_PublicBalance.py", label="📊 P.Balance")
+with cols[7]:
+    st.page_link("pages/01_Interest.py", label="📈 Rates")
+with cols[8]:
+    st.page_link("pages/01_Desk.py", label="🛰️ Desk")
+with cols[9]:
+    st.page_link("pages/01_Yield.py", label="🌍 Yield")
+with cols[10]:
+    st.page_link("pages/01_Eurodollar.py", label="💡 Eurodollar")
+
+# ---------------------------- STOP Expanded -----------------
+st.markdown(
+    """
+<style>
+    [data-testid="stSidebarNav"] {display: none;}
+    section[data-testid="stSidebar"][aria-expanded="true"]{display: none;}
+</style>
+""",
+    unsafe_allow_html=True,
+)
+# ---------------------------- CODE -----------------
+
+
 
 # Book information
 ASIN = "B0G584KJ73"
