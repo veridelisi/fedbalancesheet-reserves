@@ -4,7 +4,6 @@ import requests
 from datetime import datetime
 import re
 import os
-import time
 
 # Kitap bilgileri
 ASIN = "B0G584KJ73"
@@ -13,7 +12,7 @@ CATEGORY = "Money & Monetary Policy (Books)"
 CSV_FILE = "rank_tracking.csv"
 
 def fetch_book_rank():
-    """Amazon sayfasından kitabın güncel sıralamasını çeker (requests_html olmadan)"""
+    """Amazon sayfasından kitabın güncel sıralamasını çeker"""
     
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -31,38 +30,65 @@ def fetch_book_rank():
         response = requests.get(URL, headers=headers, timeout=30)
         html_text = response.text
         
-        # Best Sellers Rank bilgisini bul
+        # DEBUG: HTML'in bir kısmını görelim
+        with st.expander("Debug - HTML İçeriği"):
+            st.code(html_text[:2000])  # İlk 2000 karakter
+        
+        # Best Sellers Rank bilgisini bul - ÖZEL PATTERN
         rank_text = None
+        main_rank = None
+        category_rank = None
         
-        # Pattern 1: Best Sellers Rank metnini bul
-        pattern1 = r'Best Sellers Rank[:\s]+([^#]+?)(?=#|\n|$)'
-        match1 = re.search(pattern1, html_text, re.IGNORECASE)
-        if match1:
-            rank_text = match1.group(1).strip()
+        # Pattern 1: Tam rank metni (ekran görüntüsündeki format)
+        # "#177,453 in Books (See Top 100 in Books) #86 in Money & Monetary Policy (Books)"
+        pattern_full = r'#(\d{1,3}(?:,\d{3})*)\s+in\s+Books.*?#(\d{1,3}(?:,\d{3})*)\s+in\s+' + re.escape(CATEGORY)
+        match_full = re.search(pattern_full, html_text, re.IGNORECASE | re.DOTALL)
         
-        # Pattern 2: Detaylı rank bilgisi
-        if not rank_text:
-            pattern2 = r'#(\d{1,3}(?:,\d{3})*)\s+in\s+Books'
-            match2 = re.search(pattern2, html_text)
-            if match2:
-                rank_text = f"#{match2.group(1)} in Books"
+        if match_full:
+            main_rank = match_full.group(1).replace(',', '')
+            category_rank = match_full.group(2).replace(',', '')
+            rank_text = f"#{match_full.group(1)} in Books, #{match_full.group(2)} in {CATEGORY}"
+            st.success(f"Pattern 1 ile bulundu: {rank_text}")
         
-        if rank_text:
-            # Ana rank sayısını bul
-            main_rank = None
-            rank_numbers = re.findall(r'#(\d{1,3}(?:,\d{3})*)', rank_text)
-            if rank_numbers:
-                main_rank = rank_numbers[0].replace(',', '')
+        # Pattern 2: Ayrı ayrı rankler
+        if not main_rank:
+            # Books rank
+            pattern_books = r'#(\d{1,3}(?:,\d{3})*)\s+in\s+Books'
+            match_books = re.search(pattern_books, html_text)
+            if match_books:
+                main_rank = match_books.group(1).replace(',', '')
             
-            # Kategori sıralamasını bul
-            category_rank = None
-            if CATEGORY in html_text:
-                cat_idx = html_text.find(CATEGORY)
-                search_start = max(0, cat_idx - 50)
-                search_area = html_text[search_start:cat_idx]
-                numbers = re.findall(r'#?(\d{1,3}(?:,\d{3})*(?:\.\d+)?)', search_area)
-                if numbers:
-                    category_rank = numbers[-1].replace(',', '')
+            # Kategori rank
+            pattern_category = r'#(\d{1,3}(?:,\d{3})*)\s+in\s+' + re.escape(CATEGORY)
+            match_category = re.search(pattern_category, html_text)
+            if match_category:
+                category_rank = match_category.group(1).replace(',', '')
+            
+            if main_rank or category_rank:
+                rank_text = f"#{main_rank} in Books, #{category_rank} in {CATEGORY}"
+                st.success(f"Pattern 2 ile bulundu: {rank_text}")
+        
+        # Pattern 3: Best Sellers Rank genel metni
+        if not main_rank:
+            pattern_bsr = r'Best Sellers Rank[:\s]+([^#]+?)(?=#|\n|$)'
+            match_bsr = re.search(pattern_bsr, html_text, re.IGNORECASE)
+            if match_bsr:
+                rank_text_raw = match_bsr.group(1)
+                # İçindeki rankleri bul
+                numbers = re.findall(r'#(\d{1,3}(?:,\d{3})*)', rank_text_raw)
+                if len(numbers) >= 1:
+                    main_rank = numbers[0].replace(',', '')
+                if len(numbers) >= 2:
+                    category_rank = numbers[1].replace(',', '')
+                rank_text = rank_text_raw.strip()
+                st.success(f"Pattern 3 ile bulundu: {rank_text}")
+        
+        if main_rank or category_rank:
+            # Rank değerlerini temizle (nokta varsa kaldır)
+            if main_rank and '.' in main_rank:
+                main_rank = main_rank.split('.')[0]
+            if category_rank and '.' in category_rank:
+                category_rank = category_rank.split('.')[0]
             
             return {
                 'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -70,13 +96,16 @@ def fetch_book_rank():
                 'asin': ASIN,
                 'main_rank': main_rank,
                 'category_rank': category_rank,
-                'full_rank_text': rank_text,
+                'full_rank_text': rank_text or f"#{main_rank} in Books, #{category_rank} in {CATEGORY}",
                 'category': CATEGORY,
                 'url': URL,
                 'status': 'SUCCESS'
             }
         else:
             st.warning("Rank bilgisi bulunamadı")
+            # HTML'de "Best Sellers Rank" geçiyor mu kontrol et
+            if "Best Sellers Rank" in html_text:
+                st.info("'Best Sellers Rank' metni bulundu ama parse edilemedi")
             return None
             
     except Exception as e:
@@ -131,7 +160,10 @@ def main():
             with st.spinner("Veri çekiliyor..."):
                 data = fetch_book_rank()
                 df = save_to_csv(data)
-                st.success("Veri kaydedildi!")
+                if data:
+                    st.success(f"✓ Veri kaydedildi! Ana Rank: #{data['main_rank']}, Kategori Rank: #{data['category_rank']}")
+                else:
+                    st.error("✗ Veri çekilemedi")
                 st.rerun()
     
     # Ana içerik
@@ -144,13 +176,25 @@ def main():
             if not df.empty:
                 son_kayit = df.iloc[-1]
                 if son_kayit['status'] == 'SUCCESS':
-                    st.metric(
-                        label="Ana Rank", 
-                        value=f"#{son_kayit['main_rank']}" if pd.notna(son_kayit['main_rank']) else "Bulunamadı"
-                    )
+                    # Ana rank
+                    if pd.notna(son_kayit['main_rank']) and son_kayit['main_rank']:
+                        st.metric(
+                            label="📚 Books Kategorisi Rank", 
+                            value=f"#{int(float(son_kayit['main_rank'])):,}" if '.' in str(son_kayit['main_rank']) else f"#{int(son_kayit['main_rank']):,}"
+                        )
+                    
+                    # Kategori rank
                     if pd.notna(son_kayit['category_rank']) and son_kayit['category_rank']:
-                        st.metric(label="Kategori Rank", value=f"#{son_kayit['category_rank']}")
+                        st.metric(
+                            label=f"🏷️ {CATEGORY} Rank", 
+                            value=f"#{int(float(son_kayit['category_rank'])):,}" if '.' in str(son_kayit['category_rank']) else f"#{int(son_kayit['category_rank']):,}"
+                        )
+                    
                     st.caption(f"Son güncelleme: {son_kayit['timestamp']}")
+                    
+                    # Tam metin
+                    if pd.notna(son_kayit['full_rank_text']):
+                        st.info(f"**Tam metin:** {son_kayit['full_rank_text']}")
                 else:
                     st.warning("Son kontrol başarısız")
             else:
@@ -160,19 +204,28 @@ def main():
         st.subheader("📊 Rank Grafiği")
         if os.path.isfile(CSV_FILE):
             df = pd.read_csv(CSV_FILE)
-            if len(df) > 1 and df['main_rank'].notna().any():
+            if len(df) > 1 and df['category_rank'].notna().any():
                 # Rank değerlerini sayıya çevir
-                df_plot = df[df['main_rank'].notna()].copy()
-                df_plot['main_rank_num'] = pd.to_numeric(df_plot['main_rank'], errors='coerce')
+                df_plot = df[df['category_rank'].notna()].copy()
+                # Noktalı sayıları temizle
+                df_plot['category_rank_num'] = df_plot['category_rank'].apply(
+                    lambda x: int(float(x)) if pd.notna(x) and '.' in str(x) else pd.to_numeric(x, errors='coerce')
+                )
                 df_plot['timestamp_dt'] = pd.to_datetime(df_plot['timestamp'])
                 
-                if not df_plot.empty:
-                    fig_data = df_plot[['timestamp_dt', 'main_rank_num']].dropna()
+                if not df_plot.empty and df_plot['category_rank_num'].notna().any():
+                    fig_data = df_plot[['timestamp_dt', 'category_rank_num']].dropna()
                     if not fig_data.empty:
                         st.line_chart(
                             fig_data.set_index('timestamp_dt'),
                             color='#ff4b4b'
                         )
+                        
+                        # Son değer
+                        son_rank = fig_data['category_rank_num'].iloc[-1]
+                        st.caption(f"Son kategori rank: #{int(son_rank):,}")
+                else:
+                    st.info("Grafik için yeterli veri yok")
             else:
                 st.info("Grafik için yeterli veri yok")
     
@@ -184,8 +237,22 @@ def main():
         if not df.empty:
             # Son 20 kaydı göster
             df_display = df.tail(20).copy()
-            df_display = df_display[['timestamp', 'main_rank', 'category_rank', 'status']]
-            df_display.columns = ['Tarih', 'Ana Rank', 'Kategori Rank', 'Durum']
+            
+            # Rank değerlerini formatla
+            df_display['main_rank_display'] = df_display['main_rank'].apply(
+                lambda x: f"#{int(float(x)):,}" if pd.notna(x) and x and '.' in str(x) 
+                else (f"#{int(x):,}" if pd.notna(x) and x else '-')
+            )
+            
+            df_display['category_rank_display'] = df_display['category_rank'].apply(
+                lambda x: f"#{int(float(x)):,}" if pd.notna(x) and x and '.' in str(x) 
+                else (f"#{int(x):,}" if pd.notna(x) and x else '-')
+            )
+            
+            display_cols = ['timestamp', 'main_rank_display', 'category_rank_display', 'status']
+            df_display = df_display[display_cols]
+            df_display.columns = ['Tarih', 'Books Rank', f'{CATEGORY} Rank', 'Durum']
+            
             st.dataframe(df_display, use_container_width=True)
             
             # İstatistikler
