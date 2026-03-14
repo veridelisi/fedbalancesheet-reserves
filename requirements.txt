@@ -8,6 +8,9 @@ plotly>=5.15.0
 numpy
 openpyxl
 beautifulsoup4
-requests_html
+requests-html==0.10.0
+lxml==4.9.3
+lxml_html_clean
+pyppeteer
 
 
