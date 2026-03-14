@@ -12,7 +12,7 @@ CATEGORY = "Money & Monetary Policy (Books)"
 CSV_FILE = "rank_tracking.csv"
 
 def fetch_book_rank():
-    """Amazon sayfasından kitabın güncel sıralamasını çeker"""
+    """Amazon sayfasından sadece belirtilen kategorideki rank'ı çeker"""
     
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -30,76 +30,55 @@ def fetch_book_rank():
         response = requests.get(URL, headers=headers, timeout=30)
         html_text = response.text
         
-        # Best Sellers Rank bilgisini bul
-        main_rank = None
+        # SADECE "Money & Monetary Policy (Books)" kategorisindeki rank'ı bul
         category_rank = None
         full_text = ""
         
-        # Pattern 1: İki satırlı format (ekran görüntünüzdeki gibi)
-        # "Best Sellers Rank: #177,453 in Books (See Top 100 in Books) #86 in Money & Monetary Policy (Books)"
-        pattern_double = r'Best Sellers Rank[:\s]+#(\d{1,3}(?:,\d{3})*)\s+in\s+Books[^#]+#(\d{1,3}(?:,\d{3})*)\s+in\s+' + re.escape(CATEGORY)
-        match_double = re.search(pattern_double, html_text, re.IGNORECASE | re.DOTALL)
+        # Pattern 1: Direkt kategori rank'ı
+        pattern_category = r'#(\d{1,3}(?:,\d{3})*)\s+in\s+' + re.escape(CATEGORY)
+        match_category = re.search(pattern_category, html_text)
         
-        if match_double:
-            main_rank = match_double.group(1).replace(',', '')
-            category_rank = match_double.group(2).replace(',', '')
-            full_text = f"Best Sellers Rank: #{main_rank} in Books, #{category_rank} in {CATEGORY}"
-            st.success(f"✓ Çift rank bulundu - Books: #{main_rank}, {CATEGORY}: #{category_rank}")
+        if match_category:
+            category_rank = match_category.group(1).replace(',', '')
+            full_text = f"#{category_rank} in {CATEGORY}"
+            st.success(f"✓ Kategori rank'ı bulundu: #{category_rank}")
         
-        # Pattern 2: Ayrı ayrı satırlar
-        if not main_rank:
-            # Books rank satırı
-            pattern_books = r'#(\d{1,3}(?:,\d{3})*)\s+in\s+Books'
-            match_books = re.search(pattern_books, html_text)
-            if match_books:
-                main_rank = match_books.group(1).replace(',', '')
-            
-            # Kategori rank satırı - tam eşleme
-            pattern_category = r'#(\d{1,3}(?:,\d{3})*)\s+in\s+' + re.escape(CATEGORY)
-            match_category = re.search(pattern_category, html_text)
-            if match_category:
-                category_rank = match_category.group(1).replace(',', '')
-            
-            if main_rank or category_rank:
-                full_text = f"#{main_rank} in Books, #{category_rank} in {CATEGORY}"
-                st.success(f"✓ Ayrı rankler bulundu - Books: #{main_rank}, {CATEGORY}: #{category_rank}")
-        
-        # Pattern 3: Best Sellers Rank genel metni
-        if not main_rank and not category_rank:
-            pattern_bsr = r'Best Sellers Rank[:\s]+([^#]+(?:#\d{1,3}(?:,\d{3})*[^#]*)+)'
+        # Pattern 2: Best Sellers Rank içinde ara
+        if not category_rank:
+            pattern_bsr = r'Best Sellers Rank[:\s]+.*?#(\d{1,3}(?:,\d{3})*)\s+in\s+' + re.escape(CATEGORY)
             match_bsr = re.search(pattern_bsr, html_text, re.IGNORECASE | re.DOTALL)
-            if match_bsr:
-                rank_text_raw = match_bsr.group(1)
-                # Tüm rankleri bul
-                numbers = re.findall(r'#(\d{1,3}(?:,\d{3})*)', rank_text_raw)
-                categories = re.findall(r'in\s+([^(]+?)(?:\s*\(|$)', rank_text_raw)
-                
-                if len(numbers) >= 1:
-                    main_rank = numbers[0].replace(',', '')
-                if len(numbers) >= 2:
-                    category_rank = numbers[1].replace(',', '')
-                
-                full_text = rank_text_raw.strip()
-                st.success(f"✓ Genel metin bulundu")
-        
-        if main_rank or category_rank:
-            # Rank değerlerini temizle
-            if main_rank and '.' in main_rank:
-                main_rank = main_rank.split('.')[0]
-            if category_rank and '.' in category_rank:
-                category_rank = category_rank.split('.')[0]
             
-            # Debug: Bulunan değerleri göster
-            with st.expander("🔍 Debug - Bulunan Değerler"):
-                st.write(f"Main Rank (Books): {main_rank}")
-                st.write(f"Category Rank ({CATEGORY}): {category_rank}")
+            if match_bsr:
+                category_rank = match_bsr.group(1).replace(',', '')
+                full_text = f"#{category_rank} in {CATEGORY}"
+                st.success(f"✓ Best Sellers Rank içinde bulundu: #{category_rank}")
+        
+        # Pattern 3: Sayfadaki tüm rankleri bul ve kategoriyi eşleştir
+        if not category_rank:
+            # Tüm rank pattern'lerini bul
+            all_ranks = re.findall(r'#(\d{1,3}(?:,\d{3})*)\s+in\s+([^(]+?)(?:\s*\(|$)', html_text)
+            
+            for rank_num, rank_cat in all_ranks:
+                if CATEGORY.lower() in rank_cat.lower():
+                    category_rank = rank_num.replace(',', '')
+                    full_text = f"#{category_rank} in {rank_cat.strip()}"
+                    st.success(f"✓ Kategori eşleşmesi ile bulundu: #{category_rank}")
+                    break
+        
+        if category_rank:
+            # Rank değerini temizle
+            if '.' in str(category_rank):
+                category_rank = str(category_rank).split('.')[0]
+            
+            # Debug: Bulunan değeri göster
+            with st.expander("🔍 Debug - Bulunan Değer"):
+                st.write(f"Kategori Rank ({CATEGORY}): {category_rank}")
                 st.write(f"Full Text: {full_text}")
             
             return {
                 'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 'datetime': datetime.now().strftime('%Y%m%d_%H%M%S'),
                 'asin': ASIN,
-                'main_rank': main_rank,
                 'category_rank': category_rank,
                 'full_rank_text': full_text,
                 'category': CATEGORY,
@@ -107,13 +86,13 @@ def fetch_book_rank():
                 'status': 'SUCCESS'
             }
         else:
-            st.warning("⚠️ Rank bilgisi bulunamadı")
+            st.warning("⚠️ Kategori rank bilgisi bulunamadı")
             
-            # Debug: Best Sellers Rank geçen satırları göster
-            with st.expander("🔍 Debug - Best Sellers Rank İçeren Satırlar"):
+            # Debug: Kategori adını içeren satırları göster
+            with st.expander("🔍 Debug - Kategori İçeren Satırlar"):
                 lines = html_text.split('\n')
-                bsr_lines = [line.strip() for line in lines if 'Best Sellers Rank' in line or '#86 in' in line]
-                for line in bsr_lines[:5]:  # İlk 5 satır
+                cat_lines = [line.strip() for line in lines if CATEGORY in line]
+                for line in cat_lines[:5]:
                     st.code(line)
             
             return None
@@ -134,7 +113,6 @@ def save_to_csv(data):
             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             'datetime': datetime.now().strftime('%Y%m%d_%H%M%S'),
             'asin': ASIN,
-            'main_rank': '',
             'category_rank': '',
             'full_rank_text': 'VERI_BULUNAMADI',
             'category': CATEGORY,
@@ -167,9 +145,9 @@ def format_rank(rank_value):
     return '-'
 
 def main():
-    st.set_page_config(page_title="Amazon Rank Takip", layout="wide")
+    st.set_page_config(page_title="Amazon Kategori Rank Takip", layout="wide")
     
-    st.title("📊 Amazon Rank Takip Sistemi")
+    st.title(f"📊 {CATEGORY} Rank Takip")
     st.markdown("---")
     
     # Sidebar
@@ -186,7 +164,6 @@ def main():
                 df = save_to_csv(data)
                 if data:
                     st.success(f"✓ Veri kaydedildi!")
-                    st.info(f"📚 Books Rank: #{data['main_rank']}")
                     st.info(f"🏷️ {CATEGORY} Rank: #{data['category_rank']}")
                 else:
                     st.error("✗ Veri çekilemedi")
@@ -202,17 +179,10 @@ def main():
             if not df.empty:
                 son_kayit = df.iloc[-1]
                 if son_kayit['status'] == 'SUCCESS':
-                    # Ana rank (Books)
-                    if pd.notna(son_kayit['main_rank']) and son_kayit['main_rank']:
-                        st.metric(
-                            label="📚 Books Kategorisi Rank", 
-                            value=format_rank(son_kayit['main_rank'])
-                        )
-                    
-                    # Kategori rank
+                    # Sadece kategori rank
                     if pd.notna(son_kayit['category_rank']) and son_kayit['category_rank']:
                         st.metric(
-                            label=f"🏷️ {CATEGORY} Rank", 
+                            label=f"🏷️ {CATEGORY}", 
                             value=format_rank(son_kayit['category_rank'])
                         )
                     
@@ -227,7 +197,7 @@ def main():
                 st.info("📭 Henüz veri yok")
     
     with col2:
-        st.subheader("📊 Rank Grafiği (Kategori)")
+        st.subheader("📊 Rank Grafiği")
         if os.path.isfile(CSV_FILE):
             df = pd.read_csv(CSV_FILE)
             if len(df) > 1 and df['category_rank'].notna().any():
@@ -258,7 +228,12 @@ def main():
                         
                         # Son değer
                         son_rank = fig_data['category_rank_num'].iloc[-1]
-                        st.caption(f"Son kategori rank: #{son_rank:,}")
+                        st.caption(f"Son rank: #{son_rank:,}")
+                        
+                        # Min/Max değerler
+                        min_rank = fig_data['category_rank_num'].min()
+                        max_rank = fig_data['category_rank_num'].max()
+                        st.caption(f"Min: #{min_rank:,} | Max: #{max_rank:,}")
                 else:
                     st.info("📭 Grafik için yeterli veri yok")
             else:
@@ -274,12 +249,11 @@ def main():
             df_display = df.tail(20).copy()
             
             # Rank değerlerini formatla
-            df_display['main_rank_display'] = df_display['main_rank'].apply(format_rank)
             df_display['category_rank_display'] = df_display['category_rank'].apply(format_rank)
             
-            display_cols = ['timestamp', 'main_rank_display', 'category_rank_display', 'status']
+            display_cols = ['timestamp', 'category_rank_display', 'status']
             df_display = df_display[display_cols]
-            df_display.columns = ['Tarih', 'Books Rank', f'{CATEGORY} Rank', 'Durum']
+            df_display.columns = ['Tarih', f'{CATEGORY} Rank', 'Durum']
             
             st.dataframe(df_display, use_container_width=True)
             
@@ -297,6 +271,22 @@ def main():
                 st.metric("Başarılı", basarili)
             with col5:
                 st.metric("Başarısız", basarisiz)
+            
+            # Ortalama rank
+            basarili_df = df[df['status'] == 'SUCCESS']
+            if not basarili_df.empty and basarili_df['category_rank'].notna().any():
+                ranks = []
+                for r in basarili_df['category_rank'].dropna():
+                    try:
+                        if '.' in str(r):
+                            ranks.append(int(float(str(r))))
+                        else:
+                            ranks.append(int(str(r).replace(',', '')))
+                    except:
+                        pass
+                if ranks:
+                    avg_rank = sum(ranks) / len(ranks)
+                    st.metric("Ortalama Rank", f"#{int(avg_rank):,}")
             
             # CSV indirme butonu
             csv_data = df.to_csv(index=False)
