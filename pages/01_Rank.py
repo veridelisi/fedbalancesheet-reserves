@@ -36,8 +36,7 @@ HEADERS = {
 }
 
 CATEGORIES = [
-    (r"#([\d,]+)\s+in Books(?!\s*>)",          "rank_books"),
-    (r"#([\d,]+)\s+in Money & Monetary Policy", "rank_money_monetary"),
+    (r"#([\d,]+)\s+in Money & Monetary Policy", "rank"),
 ]
 
 # ------------------------------ Fetch ------------------------------
@@ -99,11 +98,11 @@ def append_csv(row: dict):
 
 def load_csv() -> pd.DataFrame:
     if not OUTPUT_CSV.exists():
-        return pd.DataFrame(columns=["fetched_at", "rank_money_monetary", "status"])
+        return pd.DataFrame(columns=["fetched_at", "rank", "status"])
     df = pd.read_csv(OUTPUT_CSV)
     df["fetched_at"] = pd.to_datetime(df["fetched_at"])
-    df = df[df["rank_money_monetary"].notna()].copy()
-    df["rank_money_monetary"] = df["rank_money_monetary"].astype(int)
+    df = df[df["rank"].notna()].copy()
+    df["rank"] = df["rank"].astype(int)
     return df
 
 # ------------------------------ Header ------------------------------
@@ -123,7 +122,7 @@ with col_status:
             data = fetch_ranks()
             append_csv(data)
         if data["status"] == "ok":
-            st.success(f"✅ rank_money_monetary: **#{data['rank_money_monetary']}** · rank_books: **#{data['rank_books']}** · {data['fetched_at']}")
+            st.success(f"✅ rank: **#{data['rank']}** · rank_books: **#{data['rank_books']}** · {data['fetched_at']}")
         elif data["status"] == "captcha":
             st.error("⚠️ CAPTCHA — try again in a few minutes.")
         else:
@@ -136,10 +135,10 @@ df = load_csv()
 
 m1, m2, m3, m4 = st.columns(4)
 
-current  = int(df["rank_money_monetary"].iloc[-1]) if len(df) > 0 else None
-previous = int(df["rank_money_monetary"].iloc[-2]) if len(df) > 1 else None
-best     = int(df["rank_money_monetary"].min())    if len(df) > 0 else None
-worst    = int(df["rank_money_monetary"].max())    if len(df) > 0 else None
+current  = int(df["rank"].iloc[-1]) if len(df) > 0 else None
+previous = int(df["rank"].iloc[-2]) if len(df) > 1 else None
+best     = int(df["rank"].min())    if len(df) > 0 else None
+worst    = int(df["rank"].max())    if len(df) > 0 else None
 delta    = (current - previous) if current and previous else None
 
 m1.metric("Current Rank",  f"#{current}" if current else "—", delta=f"{delta:+d}" if delta else None, delta_color="inverse")
@@ -167,7 +166,7 @@ if len(df) >= 2:
 
     fig.add_trace(go.Scatter(
         x=df["fetched_at"],
-        y=df["rank_money_monetary"],
+        y=df["rank"],
         mode="lines+markers",
         line=dict(color="#1f77b4", width=2),
         marker=dict(size=6, color="#1f77b4"),
@@ -176,11 +175,11 @@ if len(df) >= 2:
         hovertemplate="<b>Rank #%{y}</b><br>%{x}<extra></extra>",
     ))
 
-    best_row = df.loc[df["rank_money_monetary"].idxmin()]
+    best_row = df.loc[df["rank"].idxmin()]
     fig.add_annotation(
         x=best_row["fetched_at"],
-        y=int(best_row["rank_money_monetary"]),
-        text=f"🏆 Best: #{int(best_row['rank_money_monetary'])}",
+        y=int(best_row["rank"]),
+        text=f"🏆 Best: #{int(best_row['rank'])}",
         showarrow=True,
         arrowhead=2,
         arrowcolor="#2ca02c",
