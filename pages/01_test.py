@@ -1,19 +1,19 @@
-import csv
-import time
+import streamlit as st
+import pandas as pd
+import requests
 from datetime import datetime
-from requests_html import HTMLSession
-import os
 import re
+import os
+import time
 
 # Kitap bilgileri
 ASIN = "B0G584KJ73"
 URL = f"https://www.amazon.com/dp/{ASIN}"
 CATEGORY = "Money & Monetary Policy (Books)"
-CSV_FILE = "rank_tracking.csv"  # Sabit dosya adı
+CSV_FILE = "rank_tracking.csv"
 
 def fetch_book_rank():
-    """Amazon sayfasından kitabın güncel sıralamasını çeker"""
-    session = HTMLSession()
+    """Amazon sayfasından kitabın güncel sıralamasını çeker (requests_html olmadan)"""
     
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -25,162 +25,196 @@ def fetch_book_rank():
     }
     
     try:
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Amazon'dan veri çekiliyor...")
+        st.info(f"Amazon'dan veri çekiliyor... ({datetime.now().strftime('%Y-%m-%d %H:%M:%S')})")
         
-        # Sayfayı al ve JavaScript'i render et
-        response = session.get(URL, headers=headers, timeout=30)
-        response.html.render(sleep=3, keep_page=True, scrolldown=1)
+        # Sayfayı çek
+        response = requests.get(URL, headers=headers, timeout=30)
+        html_text = response.text
         
         # Best Sellers Rank bilgisini bul
-        rank_selectors = [
-            '#productDetails_detailBullets_sections1 tr:contains("Best Sellers Rank") td span',
-            '#productDetails_detailBullets_sections1 tr:contains("Best Sellers Rank") td',
-            '.a-section .a-row:contains("Best Sellers Rank") span',
-            '#detailBullets_feature_div span:contains("Best Sellers Rank")',
-            'th:contains("Best Sellers Rank") + td',
-            '#SalesRank',
-            '.a-row:contains("Best Sellers Rank")'
-        ]
-        
         rank_text = None
-        for selector in rank_selectors:
-            elements = response.html.find(selector)
-            if elements:
-                rank_text = elements[0].text
-                break
         
+        # Pattern 1: Best Sellers Rank metnini bul
+        pattern1 = r'Best Sellers Rank[:\s]+([^#]+?)(?=#|\n|$)'
+        match1 = re.search(pattern1, html_text, re.IGNORECASE)
+        if match1:
+            rank_text = match1.group(1).strip()
+        
+        # Pattern 2: Detaylı rank bilgisi
         if not rank_text:
-            # Sayfanın tüm metninde ara
-            html_text = response.html.text
-            if "Best Sellers Rank" in html_text:
-                # Best Sellers Rank'ten sonraki kısmı al
-                pattern = r'Best Sellers Rank[:\s]+([^#]+?)(?=#|\n|$)'
-                match = re.search(pattern, html_text, re.IGNORECASE)
-                if match:
-                    rank_text = match.group(1).strip()
+            pattern2 = r'#(\d{1,3}(?:,\d{3})*)\s+in\s+Books'
+            match2 = re.search(pattern2, html_text)
+            if match2:
+                rank_text = f"#{match2.group(1)} in Books"
         
         if rank_text:
-            # Kategori sıralamasını bul
-            category_rank = None
-            if CATEGORY in response.html.text:
-                html_text = response.html.text
-                cat_idx = html_text.find(CATEGORY)
-                # Kategoriden önceki sayıyı bul
-                search_start = max(0, cat_idx - 50)
-                search_area = html_text[search_start:cat_idx]
-                numbers = re.findall(r'#?(\d{1,3}(?:,\d{3})*(?:\.\d+)?)', search_area)
-                if numbers:
-                    category_rank = numbers[-1].replace(',', '')
-            
             # Ana rank sayısını bul
             main_rank = None
             rank_numbers = re.findall(r'#(\d{1,3}(?:,\d{3})*)', rank_text)
             if rank_numbers:
                 main_rank = rank_numbers[0].replace(',', '')
             
+            # Kategori sıralamasını bul
+            category_rank = None
+            if CATEGORY in html_text:
+                cat_idx = html_text.find(CATEGORY)
+                search_start = max(0, cat_idx - 50)
+                search_area = html_text[search_start:cat_idx]
+                numbers = re.findall(r'#?(\d{1,3}(?:,\d{3})*(?:\.\d+)?)', search_area)
+                if numbers:
+                    category_rank = numbers[-1].replace(',', '')
+            
             return {
                 'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'datetime': datetime.now().strftime('%Y%m%d_%H%M%S'),  # Dosya adı için format
+                'datetime': datetime.now().strftime('%Y%m%d_%H%M%S'),
                 'asin': ASIN,
                 'main_rank': main_rank,
                 'category_rank': category_rank,
                 'full_rank_text': rank_text,
                 'category': CATEGORY,
-                'url': URL
+                'url': URL,
+                'status': 'SUCCESS'
             }
         else:
-            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ✗ Rank bilgisi bulunamadı")
+            st.warning("Rank bilgisi bulunamadı")
             return None
             
     except Exception as e:
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ✗ Hata oluştu: {str(e)}")
+        st.error(f"Hata oluştu: {str(e)}")
         return None
-    finally:
-        session.close()
 
 def save_to_csv(data):
-    """Verileri CSV'ye kaydeder - her çalıştırmada yeni satır ekler"""
+    """Verileri CSV'ye kaydeder"""
     file_exists = os.path.isfile(CSV_FILE)
     
-    with open(CSV_FILE, 'a', newline='', encoding='utf-8') as f:
-        writer = csv.writer(f)
-        
-        # Dosya yoksa başlıkları yaz
-        if not file_exists:
-            writer.writerow([
-                'Timestamp',           # Okunabilir tarih-saat
-                'Datetime_File',        # Dosya adı için format
-                'ASIN',
-                'Main_Rank',            # Ana sıralama (#86 gibi)
-                'Category_Rank',         # Kategori içindeki sıra
-                'Full_Rank_Text',        # Tam rank metni
-                'Category',
-                'URL',
-                'Status'                 # Başarılı/başarısız
-            ])
-        
-        if data:
-            writer.writerow([
-                data['timestamp'],
-                data['datetime'],
-                data['asin'],
-                data['main_rank'],
-                data['category_rank'],
-                data['full_rank_text'],
-                data['category'],
-                data['url'],
-                'SUCCESS'
-            ])
-            print(f"[{data['timestamp']}] ✓ Veri kaydedildi - Rank: {data['main_rank']}")
-        else:
-            # Veri yoksa da zaman damgasıyla boş kayıt ekle
-            now = datetime.now()
-            writer.writerow([
-                now.strftime('%Y-%m-%d %H:%M:%S'),
-                now.strftime('%Y%m%d_%H%M%S'),
-                ASIN,
-                '',
-                '',
-                'VERI_BULUNAMADI',
-                CATEGORY,
-                URL,
-                'FAILED'
-            ])
-            print(f"[{now.strftime('%Y-%m-%d %H:%M:%S')}] ✗ Veri yok - başarısız kayıt eklendi")
-
-def print_last_records(n=5):
-    """Son n kaydı gösterir"""
-    if os.path.isfile(CSV_FILE):
-        with open(CSV_FILE, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-            if len(lines) > 1:
-                print(f"\n📊 Son {min(n, len(lines)-1)} kayıt:")
-                print("-" * 80)
-                for i in range(max(1, len(lines)-n), len(lines)):
-                    print(lines[i].strip())
+    # DataFrame oluştur
+    if data:
+        df_new = pd.DataFrame([data])
+    else:
+        df_new = pd.DataFrame([{
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'datetime': datetime.now().strftime('%Y%m%d_%H%M%S'),
+            'asin': ASIN,
+            'main_rank': '',
+            'category_rank': '',
+            'full_rank_text': 'VERI_BULUNAMADI',
+            'category': CATEGORY,
+            'url': URL,
+            'status': 'FAILED'
+        }])
+    
+    # CSV'ye ekle veya oluştur
+    if file_exists:
+        df_existing = pd.read_csv(CSV_FILE)
+        df_combined = pd.concat([df_existing, df_new], ignore_index=True)
+    else:
+        df_combined = df_new
+    
+    df_combined.to_csv(CSV_FILE, index=False)
+    return df_combined
 
 def main():
-    """Ana fonksiyon - her çalıştırmada bir kere çalışır"""
-    print("=" * 60)
-    print("AMAZON RANK TAKİP - TEK ÇALIŞTIRMA")
-    print("=" * 60)
-    print(f"ASIN: {ASIN}")
-    print(f"Kategori: {CATEGORY}")
-    print(f"CSV Dosyası: {CSV_FILE}")
-    print("-" * 60)
+    st.set_page_config(page_title="Amazon Rank Takip", layout="wide")
     
-    # Veriyi çek
-    data = fetch_book_rank()
+    st.title("📊 Amazon Rank Takip Sistemi")
+    st.markdown("---")
     
-    # CSV'ye kaydet
-    save_to_csv(data)
+    # Sidebar
+    with st.sidebar:
+        st.header("📌 Kitap Bilgileri")
+        st.info(f"**ASIN:** {ASIN}")
+        st.info(f"**Kategori:** {CATEGORY}")
+        st.info(f"**CSV Dosyası:** {CSV_FILE}")
+        
+        st.markdown("---")
+        if st.button("🔄 Yeni Kontrol Yap", type="primary"):
+            with st.spinner("Veri çekiliyor..."):
+                data = fetch_book_rank()
+                df = save_to_csv(data)
+                st.success("Veri kaydedildi!")
+                st.rerun()
     
-    # Son kayıtları göster
-    print_last_records()
+    # Ana içerik
+    col1, col2 = st.columns(2)
     
-    print("\n" + "=" * 60)
-    print(f"İşlem tamamlandı! Kayıtlar {CSV_FILE} dosyasına eklendi.")
-    print("=" * 60)
+    with col1:
+        st.subheader("📈 Son Rank Bilgisi")
+        if os.path.isfile(CSV_FILE):
+            df = pd.read_csv(CSV_FILE)
+            if not df.empty:
+                son_kayit = df.iloc[-1]
+                if son_kayit['status'] == 'SUCCESS':
+                    st.metric(
+                        label="Ana Rank", 
+                        value=f"#{son_kayit['main_rank']}" if pd.notna(son_kayit['main_rank']) else "Bulunamadı"
+                    )
+                    if pd.notna(son_kayit['category_rank']) and son_kayit['category_rank']:
+                        st.metric(label="Kategori Rank", value=f"#{son_kayit['category_rank']}")
+                    st.caption(f"Son güncelleme: {son_kayit['timestamp']}")
+                else:
+                    st.warning("Son kontrol başarısız")
+            else:
+                st.info("Henüz veri yok")
+    
+    with col2:
+        st.subheader("📊 Rank Grafiği")
+        if os.path.isfile(CSV_FILE):
+            df = pd.read_csv(CSV_FILE)
+            if len(df) > 1 and df['main_rank'].notna().any():
+                # Rank değerlerini sayıya çevir
+                df_plot = df[df['main_rank'].notna()].copy()
+                df_plot['main_rank_num'] = pd.to_numeric(df_plot['main_rank'], errors='coerce')
+                df_plot['timestamp_dt'] = pd.to_datetime(df_plot['timestamp'])
+                
+                if not df_plot.empty:
+                    fig_data = df_plot[['timestamp_dt', 'main_rank_num']].dropna()
+                    if not fig_data.empty:
+                        st.line_chart(
+                            fig_data.set_index('timestamp_dt'),
+                            color='#ff4b4b'
+                        )
+            else:
+                st.info("Grafik için yeterli veri yok")
+    
+    # Tablo
+    st.markdown("---")
+    st.subheader("📋 Tüm Kayıtlar")
+    if os.path.isfile(CSV_FILE):
+        df = pd.read_csv(CSV_FILE)
+        if not df.empty:
+            # Son 20 kaydı göster
+            df_display = df.tail(20).copy()
+            df_display = df_display[['timestamp', 'main_rank', 'category_rank', 'status']]
+            df_display.columns = ['Tarih', 'Ana Rank', 'Kategori Rank', 'Durum']
+            st.dataframe(df_display, use_container_width=True)
+            
+            # İstatistikler
+            st.markdown("---")
+            st.subheader("📊 İstatistikler")
+            col3, col4, col5 = st.columns(3)
+            
+            basarili = df[df['status'] == 'SUCCESS'].shape[0]
+            basarisiz = df[df['status'] == 'FAILED'].shape[0]
+            
+            with col3:
+                st.metric("Toplam Kontrol", len(df))
+            with col4:
+                st.metric("Başarılı", basarili)
+            with col5:
+                st.metric("Başarısız", basarisiz)
+            
+            # CSV indirme butonu
+            csv_data = df.to_csv(index=False)
+            st.download_button(
+                label="📥 CSV İndir",
+                data=csv_data,
+                file_name=f"amazon_rank_{datetime.now().strftime('%Y%m%d')}.csv",
+                mime="text/csv"
+            )
+        else:
+            st.info("Henüz kayıt yok")
+    else:
+        st.info("CSV dosyası henüz oluşturulmamış. 'Yeni Kontrol Yap' butonuyla ilk kaydı oluşturun.")
 
 if __name__ == "__main__":
     main()
