@@ -1,12 +1,12 @@
 import streamlit as st
 import requests
+import re
+import csv
 import pandas as pd
 import plotly.graph_objects as go
 from bs4 import BeautifulSoup
 from datetime import datetime
 from pathlib import Path
-import re
-import csv
 
 # ------------------------------ Page Config ------------------------------
 st.set_page_config(
@@ -28,22 +28,24 @@ URL        = f"https://www.amazon.com/dp/{ASIN}"
 OUTPUT_CSV = Path(__file__).parent.parent / f"ranks_{ASIN}.csv"
 
 HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/124.0.0.0 Safari/537.36"
-    ),
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                  "AppleWebKit/537.36 (KHTML, like Gecko) "
+                  "Chrome/124.0.0.0 Safari/537.36",
     "Accept-Language": "en-US,en;q=0.9",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
 }
 
+CATEGORIES = [
+    (r"#([\d,]+)\s+in Books(?!\s*>)",          "rank_books"),
+    (r"#([\d,]+)\s+in Money & Monetary Policy", "rank_money_monetary"),
+]
+
 # ------------------------------ Fetch ------------------------------
-def fetch_rank() -> dict:
-    result = {
-        "fetched_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "rank": None,
-        "status": "ok",
-    }
+def fetch_ranks():
+    result = {col: None for _, col in CATEGORIES}
+    result["fetched_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    result["status"] = "ok"
+
     try:
         r = requests.get(URL, headers=HEADERS, timeout=15)
     except Exception as e:
@@ -78,30 +80,30 @@ def fetch_rank() -> dict:
         result["status"] = "rank_not_found"
         return result
 
-    m = re.search(r"#([\d,]+)\s+in Money & Monetary Policy", bsr_text)
-    if m:
-        result["rank"] = int(m.group(1).replace(",", ""))
-    else:
-        result["status"] = "rank_not_found"
+    for pattern, col in CATEGORIES:
+        m = re.search(pattern, bsr_text)
+        if m:
+            result[col] = m.group(1).replace(",", "")
 
     return result
 
 # ------------------------------ CSV Helpers ------------------------------
 def append_csv(row: dict):
+    fieldnames = ["fetched_at"] + [col for _, col in CATEGORIES] + ["status"]
     file_exists = OUTPUT_CSV.exists()
     with open(OUTPUT_CSV, "a", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["fetched_at", "rank", "status"])
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
         if not file_exists:
             writer.writeheader()
         writer.writerow(row)
 
 def load_csv() -> pd.DataFrame:
     if not OUTPUT_CSV.exists():
-        return pd.DataFrame(columns=["fetched_at", "rank", "status"])
+        return pd.DataFrame(columns=["fetched_at", "rank_money_monetary", "status"])
     df = pd.read_csv(OUTPUT_CSV)
     df["fetched_at"] = pd.to_datetime(df["fetched_at"])
-    df = df[df["rank"].notna()].copy()
-    df["rank"] = df["rank"].astype(int)
+    df = df[df["rank_money_monetary"].notna()].copy()
+    df["rank_money_monetary"] = df["rank_money_monetary"].astype(int)
     return df
 
 # ------------------------------ Header ------------------------------
@@ -109,7 +111,7 @@ st.title("📈 Amazon Best Seller Rank Tracker")
 st.markdown("**Money & Monetary Policy** category · ASIN: `B0G584KJ73`")
 st.divider()
 
-# ------------------------------ Fetch Button ------------------------------
+# ------------------------------ Button ------------------------------
 col_btn, col_status = st.columns([1, 5])
 
 with col_btn:
@@ -118,45 +120,43 @@ with col_btn:
 with col_status:
     if fetch_clicked:
         with st.spinner("Fetching from Amazon..."):
-            result = fetch_rank()
-            append_csv(result)
-        if result["status"] == "ok":
-            st.success(f"✅ Rank fetched: **#{result['rank']}** at {result['fetched_at']}")
-        elif result["status"] == "captcha":
-            st.error("⚠️ Amazon returned a CAPTCHA. Try again in a few minutes.")
+            data = fetch_ranks()
+            append_csv(data)
+        if data["status"] == "ok":
+            st.success(f"✅ rank_money_monetary: **#{data['rank_money_monetary']}** · rank_books: **#{data['rank_books']}** · {data['fetched_at']}")
+        elif data["status"] == "captcha":
+            st.error("⚠️ CAPTCHA — try again in a few minutes.")
         else:
-            st.error(f"❌ {result['status']}")
+            st.error(f"❌ {data['status']}")
 
 st.divider()
 
-# ------------------------------ Load Data ------------------------------
+# ------------------------------ Load & Metrics ------------------------------
 df = load_csv()
 
-# ------------------------------ Metrics ------------------------------
 m1, m2, m3, m4 = st.columns(4)
 
-current  = int(df["rank"].iloc[-1]) if len(df) > 0 else None
-previous = int(df["rank"].iloc[-2]) if len(df) > 1 else None
-best     = int(df["rank"].min())    if len(df) > 0 else None
-worst    = int(df["rank"].max())    if len(df) > 0 else None
-delta    = (current - previous)     if current and previous else None
+current  = int(df["rank_money_monetary"].iloc[-1]) if len(df) > 0 else None
+previous = int(df["rank_money_monetary"].iloc[-2]) if len(df) > 1 else None
+best     = int(df["rank_money_monetary"].min())    if len(df) > 0 else None
+worst    = int(df["rank_money_monetary"].max())    if len(df) > 0 else None
+delta    = (current - previous) if current and previous else None
 
-m1.metric("Current Rank",  f"#{current}"  if current else "—", delta=f"{delta:+d}" if delta else None, delta_color="inverse")
-m2.metric("Best Rank",     f"#{best}"     if best    else "—")
-m3.metric("Worst Rank",    f"#{worst}"    if worst   else "—")
+m1.metric("Current Rank",  f"#{current}" if current else "—", delta=f"{delta:+d}" if delta else None, delta_color="inverse")
+m2.metric("Best Rank",     f"#{best}"    if best    else "—")
+m3.metric("Worst Rank",    f"#{worst}"   if worst   else "—")
 m4.metric("Total Records", len(df))
 
 st.divider()
 
 # ------------------------------ Chart ------------------------------
-st.subheader("📊 Rank History")
+st.subheader("📊 Rank History — Money & Monetary Policy")
 
 if len(df) >= 2:
     fig = go.Figure()
 
-    # Red shaded zone below rank 100
     fig.add_hrect(
-        y0=100, y1=df["rank"].max() + 20,
+        y0=100, y1=worst + 20,
         fillcolor="rgba(255,100,100,0.05)",
         line_width=0,
         annotation_text="Below #100",
@@ -167,7 +167,7 @@ if len(df) >= 2:
 
     fig.add_trace(go.Scatter(
         x=df["fetched_at"],
-        y=df["rank"],
+        y=df["rank_money_monetary"],
         mode="lines+markers",
         line=dict(color="#1f77b4", width=2),
         marker=dict(size=6, color="#1f77b4"),
@@ -176,12 +176,11 @@ if len(df) >= 2:
         hovertemplate="<b>Rank #%{y}</b><br>%{x}<extra></extra>",
     ))
 
-    # Best rank annotation
-    best_row = df.loc[df["rank"].idxmin()]
+    best_row = df.loc[df["rank_money_monetary"].idxmin()]
     fig.add_annotation(
         x=best_row["fetched_at"],
-        y=int(best_row["rank"]),
-        text=f"🏆 Best: #{int(best_row['rank'])}",
+        y=int(best_row["rank_money_monetary"]),
+        text=f"🏆 Best: #{int(best_row['rank_money_monetary'])}",
         showarrow=True,
         arrowhead=2,
         arrowcolor="#2ca02c",
@@ -195,7 +194,7 @@ if len(df) >= 2:
             autorange="reversed",
             title="Rank (lower = better)",
             tickprefix="#",
-            range=[df["rank"].max() + 30, 1],
+            range=[worst + 30, 1],
         ),
         xaxis=dict(title=""),
         margin=dict(l=0, r=0, t=20, b=0),
@@ -216,10 +215,9 @@ with st.expander("🔎 Click to expand methodology details", expanded=False):
     - **Source:** Amazon product page scraped via `requests` + `BeautifulSoup`
     - **ASIN:** `{ASIN}` · [View on Amazon]({URL})
     - **Category tracked:** Money & Monetary Policy
-    - **Frequency:** Manual — press the Fetch Rank button to update
+    - **Frequency:** Manual — press Fetch Rank button
     - **Storage:** CSV saved to project root → `ranks_{ASIN}.csv`
-    - **Rank range:** Can swing from top 10 to ~300+, chart scaled accordingly
-    - **Note:** Amazon may occasionally return a CAPTCHA. If so, wait a few minutes and try again.
+    - **Note:** Amazon may occasionally return a CAPTCHA. Wait a few minutes and try again.
     """)
 
 # ------------------------------ Footer ------------------------------
