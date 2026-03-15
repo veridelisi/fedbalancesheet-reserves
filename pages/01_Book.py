@@ -18,7 +18,9 @@ CATEGORY = "Money & Monetary Policy (Books)"
 REQUIRED_COLUMNS = ['timestamp', 'datetime', 'asin', 'category_rank', 'full_rank_text', 'category', 'url', 'status']
 
 # GitHub bilgileri (Streamlit Cloud Secrets'tan alınacak)
-GITHUB_TOKEN = st.secrets["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"]
+
+
+GITHUB_TOKEN = "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"
 REPO_NAME = "veridelisi/fedbalancesheet-reserves"
 BRANCH = "main"
 CSV_PATH_IN_REPO = "pages/rank_tracking.csv"
