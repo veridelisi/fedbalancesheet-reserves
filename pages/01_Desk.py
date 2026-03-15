@@ -15,7 +15,7 @@ st.set_page_config(
 )
 
 # ---------------------------- Top nav (your template) -----------------
-cols = st.columns(11)
+cols = st.columns(12)
 with cols[0]:
     st.page_link("streamlit_app.py", label="🏠 Home")
 with cols[1]:
@@ -38,6 +38,8 @@ with cols[9]:
     st.page_link("pages/01_Yield.py", label="🌍 Yield")
 with cols[10]:
     st.page_link("pages/01_Eurodollar.py", label="💡 Eurodollar")
+with cols[11]:
+    st.page_link("pages/01_Book.py", label="💡 Book")
 
 # ---------------------------- STOP Expanded -----------------
 st.markdown(
