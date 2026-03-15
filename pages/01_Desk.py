@@ -37,7 +37,7 @@ with cols[8]:
 with cols[9]:
     st.page_link("pages/01_Yield.py", label="🌍 Yield")
 with cols[10]:
-    st.page_link("pages/01_Eurodollar.py", label="💡 Eurodolla")
+    st.page_link("pages/01_Eurodollar.py", label="💡 Eurodollar")
 with cols[11]:
     st.page_link("pages/01_Book.py", label="💡 Book")
 
