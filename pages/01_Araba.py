@@ -9,6 +9,29 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+
+# ---------------------------- STOP Expanded -----------------
+
+st.markdown(
+
+    """
+
+<style>
+
+    [data-testid="stSidebarNav"] {display: none;}
+
+    section[data-testid="stSidebar"][aria-expanded="true"]{display: none;}
+
+</style>
+
+""",
+
+    unsafe_allow_html=True,
+
+)
+
+
+
 # ─── CSS ──────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
