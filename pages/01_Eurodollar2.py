@@ -282,24 +282,9 @@ def two_series_panels(left_name, left_series, right_name, right_series,
 
     fig2 = go.Figure()
     fig2.add_trace(go.Bar(x=d2["Time"], y=d2[f"{left_series}_YoY"], name=f"{left_name} YoY",
-                        marker_color=color_left, hovertemplate="%{y:.1f}%<extra></extra>"))
-
-    fig2.add_trace(go.Bar(
-        x=d2["Time"],
-        y=d2[f"{right_series}_YoY"],
-        name=f"{right_name} YoY",
-        marker=dict(
-            color="white",
-            line=dict(color="black", width=1),
-            pattern=dict(
-                shape="/",
-                fgcolor="black",
-                bgcolor="white",
-                solidity=0.3
-            )
-        ),
-        hovertemplate="%{y:.1f}%<extra></extra>"
-    ))
+                          marker_color=color_left, hovertemplate="%{y:.1f}%<extra></extra>"))
+    fig2.add_trace(go.Bar(x=d2["Time"], y=d2[f"{right_series}_YoY"], name=f"{right_name} YoY",
+                          marker_color=color_right, hovertemplate="%{y:.1f}%<extra></extra>"))
     fig2.add_hline(y=0, line_dash="dash", line_color="black")
     add_shading(fig2)
     fig2.update_yaxes(title="YoY (%)", ticksuffix="%", tickformat=".1f")
@@ -515,7 +500,7 @@ with tEA:
             "Emerging Europe":      "Q.USD.3C.N.A.I.B.USD",
             "Latin America":        "Q.USD.4U.N.A.I.B.USD"
         }
-        COLORS = ["#0e0d0d8a", "#0e0d0d", "#0e0d0da3", "#0e0d0dab"]
+        COLORS = ["#0e0d0d", "#0e0d0d", "#0e0d0d", "#0e0d0d"]
 
         # 1️⃣ Serileri çek ve birleştir
         merged = None
