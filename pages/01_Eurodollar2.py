@@ -224,7 +224,7 @@ def add_shading(fig):
         (pd.to_datetime("2020-02-01"), pd.to_datetime("2020-04-01"), "COVID-19"),
     ]
     for x0, x1, lab in crisis:
-        fig.add_vrect(x0=x0, x1=x1, fillcolor="red", opacity=.10, line_width=0,
+        fig.add_vrect(x0=x0, x1=x1, fillcolor="black", opacity=.10, line_width=0,
                       annotation_text=lab, annotation_position="top left")
 
     # ✅ Fed Tightening sabit bitiş
