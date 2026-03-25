@@ -446,6 +446,7 @@ with tAE:
             "Advanced Loans", "AdvancedLoans",
             "Advanced Economies — Debt vs Loans (USD bn)",
             "Advanced — YoY (Debt vs Loans)",
+            dash_right="dot" 
             color_left="#121213", color_right="#0f0f0e"
         )
 
