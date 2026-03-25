@@ -392,7 +392,7 @@ def comparison():
     fig.add_trace(go.Scatter(x=df["Time"], y=df["DebtSecurities"], mode="lines",
                              name="Debt", line=dict(width=3, color="#121112")))
     fig.add_trace(go.Scatter(x=df["Time"], y=df["Loans"], mode="lines",
-                             name="Loans", line=dict(width=3, color="#171616")))
+                             name="Loans", line=dict(width=3, color="#171616",dash="dot")))
     add_shading(fig); yaxis_k(fig)
     fig.update_layout(title=dict(text=title_range("Comparison (USD bn)"), x=0.5),
                       height=620, legend=dict(orientation="h"))
