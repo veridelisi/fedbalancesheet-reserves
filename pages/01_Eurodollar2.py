@@ -274,24 +274,53 @@ def two_series_panels(left_name, left_series, right_name, right_series,
                       height=560, legend=dict(orientation="h"))
     st.plotly_chart(fig, use_container_width=True)
 
-    # --- YoY (alt) ---
-    lag = 4  # çeyrek
-    d[f"{left_series}_YoY"]  = d[left_series].pct_change(lag)*100
-    d[f"{right_series}_YoY"] = d[right_series].pct_change(lag)*100
-    d2 = d.dropna(subset=[f"{left_series}_YoY", f"{right_series}_YoY"])
+  # --- YoY (alt) ---
+lag = 4  # çeyrek
+d[f"{left_series}_YoY"]  = d[left_series].pct_change(lag)*100
+d[f"{right_series}_YoY"] = d[right_series].pct_change(lag)*100
+d2 = d.dropna(subset=[f"{left_series}_YoY", f"{right_series}_YoY"])
 
-    fig2 = go.Figure()
-    fig2.add_trace(go.Bar(x=d2["Time"], y=d2[f"{left_series}_YoY"], name=f"{left_name} YoY",
-                          marker_color=color_left, hovertemplate="%{y:.1f}%<extra></extra>"))
-    fig2.add_trace(go.Bar(x=d2["Time"], y=d2[f"{right_series}_YoY"], name=f"{right_name} YoY",
-                          marker_color=color_right, hovertemplate="%{y:.1f}%<extra></extra>"))
-    fig2.add_hline(y=0, line_dash="dash", line_color="black")
-    add_shading(fig2)
-    fig2.update_yaxes(title="YoY (%)", ticksuffix="%", tickformat=".1f")
-    fig2.update_layout(title=dict(text=title_range(title_yoy), x=0.5),
-                       barmode="group", height=420,
-                       legend=dict(orientation="h", yanchor="top", y=-0.25, xanchor="center", x=0.5))
-    st.plotly_chart(fig2, use_container_width=True)
+fig2 = go.Figure()
+
+# Left series -> solid black
+fig2.add_trace(go.Bar(
+    x=d2["Time"],
+    y=d2[f"{left_series}_YoY"],
+    name=f"{left_name} YoY",
+    marker=dict(
+        color="black"
+    ),
+    hovertemplate="%{y:.1f}%<extra></extra>"
+))
+
+# Right series -> patterned
+fig2.add_trace(go.Bar(
+    x=d2["Time"],
+    y=d2[f"{right_series}_YoY"],
+    name=f"{right_name} YoY",
+    marker=dict(
+        color="white",
+        line=dict(color="black", width=1),
+        pattern=dict(
+            shape="/",       # "/", "\\", "x", "-", "|", ".", "+"
+            fgcolor="black",
+            bgcolor="white",
+            solidity=0.3
+        )
+    ),
+    hovertemplate="%{y:.1f}%<extra></extra>"
+))
+
+fig2.add_hline(y=0, line_dash="dash", line_color="black")
+add_shading(fig2)
+fig2.update_yaxes(title="YoY (%)", ticksuffix="%", tickformat=".1f")
+fig2.update_layout(
+    title=dict(text=title_range(title_yoy), x=0.5),
+    barmode="group",
+    height=420,
+    legend=dict(orientation="h", yanchor="top", y=-0.25, xanchor="center", x=0.5)
+)
+st.plotly_chart(fig2, use_container_width=True)
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def load_series_billion(key: str) -> pd.DataFrame:
