@@ -361,7 +361,7 @@ def debt_securities():
     yoy = df.copy(); yoy["YoY"] = yoy["DebtSecurities"].pct_change(4)*100
     fig2 = go.Figure()
     fig2.add_trace(go.Bar(x=yoy["Time"], y=yoy["YoY"],
-                          marker_color=np.where(yoy["YoY"]>=0,"#27ae60","#e74c3c")))
+                          marker_color=np.where(yoy["YoY"]>=0,"#1a1b1a","#100f0f")))
     fig2.add_hline(y=0, line_dash="dash", line_color="black")
     fig2.update_layout(title=dict(text=title_range("Debt Securities — YoY"), x=0.5),
                        height=420)
@@ -370,7 +370,7 @@ def debt_securities():
 def loans():
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=df["Time"], y=df["Loans"], mode="lines",
-                             line=dict(width=3, color="#f39c12")))
+                             line=dict(width=3, color="#1a1918")))
     add_shading(fig); yaxis_k(fig)
     fig.update_layout(title=dict(text=title_range("Loans (USD bn)"), x=0.5),
                       height=520)
@@ -379,7 +379,7 @@ def loans():
     yoy = df.copy(); yoy["YoY"] = yoy["Loans"].pct_change(4)*100
     fig2 = go.Figure()
     fig2.add_trace(go.Bar(x=yoy["Time"], y=yoy["YoY"],
-                          marker_color=np.where(yoy["YoY"]>=0,"#27ae60","#e74c3c")))
+                          marker_color=np.where(yoy["YoY"]>=0,"#1a1b1a","#100f0f")))
     fig2.add_hline(y=0, line_dash="dash", line_color="black")
     fig2.update_layout(title=dict(text=title_range("Loans — YoY"), x=0.5),
                        height=420)
@@ -388,11 +388,11 @@ def loans():
 def comparison():
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=df["Time"], y=df["AllCredit"], mode="lines",
-                             name="Total", line=dict(width=3, color="#e74c3c")))
+                             name="Total", line=dict(width=3, color="#1d1c1c")))
     fig.add_trace(go.Scatter(x=df["Time"], y=df["DebtSecurities"], mode="lines",
-                             name="Debt", line=dict(width=3, color="#8e44ad")))
+                             name="Debt", line=dict(width=3, color="#121112")))
     fig.add_trace(go.Scatter(x=df["Time"], y=df["Loans"], mode="lines",
-                             name="Loans", line=dict(width=3, color="#f39c12")))
+                             name="Loans", line=dict(width=3, color="#171616")))
     add_shading(fig); yaxis_k(fig)
     fig.update_layout(title=dict(text=title_range("Comparison (USD bn)"), x=0.5),
                       height=620, legend=dict(orientation="h"))
@@ -405,11 +405,11 @@ def comparison():
     yoy_plot = d.dropna(subset=["TotalYoY","DebtYoY","LoansYoY"])
     fig2 = go.Figure()
     fig2.add_trace(go.Bar(x=yoy_plot["Time"], y=yoy_plot["TotalYoY"], name="Total YoY",
-                          marker_color="#e74c3c", hovertemplate="%{y:.1f}%<extra>Total</extra>"))
+                          marker_color="#201f1e", hovertemplate="%{y:.1f}%<extra>Total</extra>"))
     fig2.add_trace(go.Bar(x=yoy_plot["Time"], y=yoy_plot["DebtYoY"], name="Debt YoY",
-                          marker_color="#8e44ad", hovertemplate="%{y:.1f}%<extra>Debt</extra>"))
+                          marker_color="#0e0d0e", hovertemplate="%{y:.1f}%<extra>Debt</extra>"))
     fig2.add_trace(go.Bar(x=yoy_plot["Time"], y=yoy_plot["LoansYoY"], name="Loans YoY",
-                          marker_color="#f39c12", hovertemplate="%{y:.1f}%<extra>Loans</extra>"))
+                          marker_color="#131212", hovertemplate="%{y:.1f}%<extra>Loans</extra>"))
     fig2.add_hline(y=0, line_dash="dash", line_color="black")
     add_shading(fig2)
     fig2.update_yaxes(title="YoY (%)", ticksuffix="%", tickformat=".1f")
@@ -446,7 +446,7 @@ with tAE:
             "Advanced Loans", "AdvancedLoans",
             "Advanced Economies — Debt vs Loans (USD bn)",
             "Advanced — YoY (Debt vs Loans)",
-            color_left="#8e44ad", color_right="#f39c12"
+            color_left="#121213", color_right="#0f0f0e"
         )
 
     with sub2:
@@ -455,7 +455,7 @@ with tAE:
             "Emerging Bank Loans", "EmeBankLoans",
             "Emerging Economies — Debt vs Bank Loans (USD bn)",
             "Emerging — YoY (Debt vs Loans)",
-            color_left="#8e44ad", color_right="#27ae60"
+            color_left="#0c0c0c", color_right="#0d0e0e"
         )
 
     with sub3:
@@ -464,7 +464,7 @@ with tAE:
             "Emerging Debt", "EmeDebt",
             "Debt Securities — Advanced vs Emerging (USD bn)",
             "Debt — YoY (Adv vs Eme)",
-            color_left="#8e44ad", color_right="#27ae60"
+            color_left="#0c0c0c", color_right="#0d0e0e"
         )
 
     with sub4:
@@ -473,7 +473,7 @@ with tAE:
             "Emerging Bank Loans", "EmeBankLoans",
             "Loans — Advanced vs Emerging (USD bn)",
             "Loans — YoY (Adv vs Eme)",
-            color_left="#f39c12", color_right="#27ae60"
+            color_left="#0c0c0c", color_right="#0d0e0e"
         )
 
 # --- Emerging Area (ALT SEKME) ---
@@ -482,13 +482,13 @@ with tEA:
 
 
     with area_tabs[0]:
-        one_series_panels("Africa & Middle East", "Q.USD.4W.N.A.I.B.USD", color="#e74c3c")
+        one_series_panels("Africa & Middle East", "Q.USD.4W.N.A.I.B.USD", color="#0e0d0d")
     with area_tabs[1]:
-        one_series_panels("Emerging Asia", "Q.USD.4Y.N.A.I.B.USD", color="#27ae60")
+        one_series_panels("Emerging Asia", "Q.USD.4Y.N.A.I.B.USD", color="#0e0d0d")
     with area_tabs[2]:
-        one_series_panels("Emerging Europe", "Q.USD.3C.N.A.I.B.USD", color="#8e44ad")
+        one_series_panels("Emerging Europe", "Q.USD.3C.N.A.I.B.USD", color="#0e0d0d")
     with area_tabs[3]:
-        one_series_panels("Latin America", "Q.USD.4U.N.A.I.B.USD", color="#f39c12")
+        one_series_panels("Latin America", "Q.USD.4U.N.A.I.B.USD", color="#0e0d0d")
      # --- Comparison: Regional Shares + Time Evolution ---
     with area_tabs[4]:
         st.markdown("### 🌍 Emerging Areas — Regional Shares & Evolution")
@@ -499,7 +499,7 @@ with tEA:
             "Emerging Europe":      "Q.USD.3C.N.A.I.B.USD",
             "Latin America":        "Q.USD.4U.N.A.I.B.USD"
         }
-        COLORS = ["#e74c3c", "#27ae60", "#8e44ad", "#f39c12"]
+        COLORS = ["#0e0d0d", "#0e0d0d", "#0e0d0d", "#0e0d0d"]
 
         # 1️⃣ Serileri çek ve birleştir
         merged = None
@@ -643,9 +643,9 @@ with tEC:
             df_top["Text"] = df_top["Country"] + "\n" + (df_top["ShareTotal"]*100).round(1).astype(str) + "%"
 
             base_colors = [
-                "#e74c3c","#8e44ad","#f39c12","#27ae60","#2980b9",
-                "#d35400","#2c3e50","#9b59b6","#16a085","#c0392b",
-                "#7f8c8d","#1abc9c","#34495e","#f1c40f","#bdc3c7"
+                "#0e0d0d","#0e0d0d","#0e0d0d","#0e0d0d","#0e0d0d",
+                 "#0e0d0d","#0e0d0d","#0e0d0d","#0e0d0d","#0e0d0d",
+                 "#0e0d0d","#0e0d0d","#0e0d0d","#0e0d0d","#0e0d0d"
             ]
             colors = base_colors[:len(df_top)]
 
