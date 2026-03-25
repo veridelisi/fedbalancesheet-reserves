@@ -343,7 +343,7 @@ def total_credit():
     yoy = df.copy(); yoy["YoY"] = yoy["AllCredit"].pct_change(4)*100
     fig2 = go.Figure()
     fig2.add_trace(go.Bar(x=yoy["Time"], y=yoy["YoY"],
-                          marker_color=np.where(yoy["YoY"]>=0,"#27ae60","#e74c3c")))
+                          marker_color=np.where(yoy["YoY"]>=0,"#1a1b1a","#100f0f")))
     fig2.add_hline(y=0, line_dash="dash", line_color="black")
     fig2.update_layout(title=dict(text=title_range("Total Credit — YoY"), x=0.5),
                        height=420)
