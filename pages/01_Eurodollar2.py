@@ -515,7 +515,7 @@ with tEA:
             "Emerging Europe":      "Q.USD.3C.N.A.I.B.USD",
             "Latin America":        "Q.USD.4U.N.A.I.B.USD"
         }
-        COLORS = ["#0e0d0d", "#0e0d0d", "#0e0d0d", "#0e0d0d"]
+        COLORS = ["#0e0d0d8a", "#0e0d0d", "#0e0d0da3", "#0e0d0dab"]
 
         # 1️⃣ Serileri çek ve birleştir
         merged = None
