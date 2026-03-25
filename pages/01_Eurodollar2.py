@@ -4,6 +4,23 @@ import pandas as pd
 import numpy as np
 import streamlit as st
 import plotly.graph_objects as go
+import matplotlib.pyplot as plt
+
+# --- GLOBAL BLACK & WHITE STYLE ---
+plt.style.use('default')
+
+plt.rcParams.update({
+    'lines.color': 'black',
+    'axes.edgecolor': 'black',
+    'text.color': 'black',
+    'axes.labelcolor': 'black',
+    'xtick.color': 'black',
+    'ytick.color': 'black',
+    'grid.color': 'gray',
+    'axes.prop_cycle': plt.cycler(
+        color=['black', 'dimgray', 'gray', 'darkgray']
+    )
+})
 
 st.set_page_config(page_title="Eurodollar Market Evolution — 2000-2025", layout="wide")
 
