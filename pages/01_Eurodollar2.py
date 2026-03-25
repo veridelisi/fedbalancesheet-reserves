@@ -4,23 +4,7 @@ import pandas as pd
 import numpy as np
 import streamlit as st
 import plotly.graph_objects as go
-import matplotlib.pyplot as plt
 
-# --- GLOBAL BLACK & WHITE STYLE ---
-plt.style.use('default')
-
-plt.rcParams.update({
-    'lines.color': 'black',
-    'axes.edgecolor': 'black',
-    'text.color': 'black',
-    'axes.labelcolor': 'black',
-    'xtick.color': 'black',
-    'ytick.color': 'black',
-    'grid.color': 'gray',
-    'axes.prop_cycle': plt.cycler(
-        color=['black', 'dimgray', 'gray', 'darkgray']
-    )
-})
 
 st.set_page_config(page_title="Eurodollar Market Evolution — 2000-2025", layout="wide")
 
@@ -254,7 +238,7 @@ def add_shading(fig):
     if x1_eff > x0:
         fig.add_vrect(
             x0=x0, x1=x1_eff,
-            fillcolor="orange", opacity=.08, line_width=0,
+            fillcolor="black", opacity=.08, line_width=0,
             annotation_text="Fed Tightening", annotation_position="top left"
         )
 
@@ -276,7 +260,7 @@ def title_range(prefix):
 # --------------------- reusable panels ---------------------
 def two_series_panels(left_name, left_series, right_name, right_series,
                       title_top, title_yoy,
-                      color_left="#8e44ad", color_right="#f39c12"):
+                      color_left="#0b0b0cdb", color_right="#0e0e0d"):
     d = df[["Time", left_series, right_series]].sort_values("Time").copy()
 
     # --- Seviye (üst) ---
@@ -317,7 +301,7 @@ def load_series_billion(key: str) -> pd.DataFrame:
     s["Val"] = pd.to_numeric(s["Val"], errors="coerce") / 1000.0
     return s.dropna()
 
-def one_series_panels(label: str, key: str, color="#e74c3c"):
+def one_series_panels(label: str, key: str, color="#171616"):
     """Emerging Area / Country için tek seri paneli (seviye + YoY)."""
     s = load_series_billion(key)
     if s.empty:
