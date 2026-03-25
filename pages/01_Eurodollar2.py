@@ -334,7 +334,7 @@ def one_series_panels(label: str, key: str, color="#171616"):
 def total_credit():
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=df["Time"], y=df["AllCredit"], mode="lines",
-                             line=dict(width=3, color="#e74c3c")))
+                             line=dict(width=3, color="#11100f")))
     add_shading(fig)
     fig.update_layout(title=dict(text=title_range("Total Eurodollar Credit (USD bn)"), x=0.5),
                       height=520)
