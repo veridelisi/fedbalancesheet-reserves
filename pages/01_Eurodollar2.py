@@ -259,7 +259,7 @@ def title_range(prefix):
 
 # --------------------- reusable panels ---------------------
 def two_series_panels(left_name, left_series, right_name, right_series,
-                      title_top, title_yoy,
+                      title_top, title_yoy, dash_right="dot",
                       color_left="#0b0b0cdb", color_right="#0e0e0d"):
     d = df[["Time", left_series, right_series]].sort_values("Time").copy()
 
@@ -268,7 +268,7 @@ def two_series_panels(left_name, left_series, right_name, right_series,
     fig.add_trace(go.Scatter(x=d["Time"], y=d[left_series], mode="lines",
                              name=left_name, line=dict(width=3, color=color_left)))
     fig.add_trace(go.Scatter(x=d["Time"], y=d[right_series], mode="lines",
-                             name=right_name, line=dict(width=3, color=color_right)))
+                             name=right_name, line=dict(width=3, color=color_right,dash=dash_right)))
     add_shading(fig); yaxis_k(fig)
     fig.update_layout(title=dict(text=title_range(title_top), x=0.5),
                       height=560, legend=dict(orientation="h"))
