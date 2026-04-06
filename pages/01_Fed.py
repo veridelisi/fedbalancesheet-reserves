@@ -43,7 +43,7 @@ if st.session_state.selected is None:
                     st.rerun()
 else:
     base_dir = os.path.dirname(__file__)
-    file_path = os.path.join(base_dir, "proposals", st.session_state.selected)
+    file_path = os.path.join(base_dir, "Proposals", st.session_state.selected)
 
     st.write("Looking for:", file_path)
     st.write("Exists:", os.path.exists(file_path))
