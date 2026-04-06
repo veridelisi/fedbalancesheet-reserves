@@ -173,7 +173,7 @@ else:
         with open(file_path, "r", encoding="utf-8") as f:
             html_content = f.read()
 
-            components.html(
+        components.html(
         f"""
         <div style="padding-top: 40px;">
             {html_content}
