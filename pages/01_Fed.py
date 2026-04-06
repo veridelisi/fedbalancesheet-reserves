@@ -23,39 +23,19 @@ st.markdown(
             max-width: 100% !important;
         }
 
-        .fed-card {
-            border: 1px solid #d9dee8;
-            border-radius: 16px;
-            padding: 18px 14px;
-            height: 170px;
-            background: linear-gradient(180deg, #fbfcfe 0%, #f4f7fb 100%);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            box-shadow: 0 4px 14px rgba(15, 30, 60, 0.06);
-            margin-bottom: 8px;
+        .stButton > button {
+            background: #0f1e3c !important;
+            color: white !important;
+            border: 1px solid #c89b3c !important;
+            border-radius: 10px !important;
+            font-weight: 700 !important;
+            padding: 0.65rem 1rem !important;
         }
 
-        .fed-card-title {
-            font-size: 16px;
-            font-weight: 700;
-            color: #0f1e3c;
-            margin-bottom: 10px;
-            line-height: 1.3;
-        }
-
-        .fed-card-subtitle {
-            font-size: 13px;
-            color: #5f6b7a;
-            line-height: 1.45;
-        }
-
-        .fed-top-note {
-            font-size: 15px;
-            color: #536173;
-            margin-bottom: 20px;
+        .stButton > button:hover {
+            background: #16305e !important;
+            color: white !important;
+            border: 1px solid #e8b94a !important;
         }
     </style>
     """,
