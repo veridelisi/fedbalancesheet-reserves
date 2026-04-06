@@ -175,7 +175,7 @@ else:
 
             components.html(
         f"""
-        <div style="padding-top: 28px;">
+        <div style="padding-top: 40px;">
             {html_content}
         </div>
         """,
