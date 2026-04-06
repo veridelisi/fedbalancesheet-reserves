@@ -8,7 +8,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# ---------------------------- HIDE SIDEBAR / WIDEN PAGE ----------------------------
+# ---------------------------- STYLE ----------------------------
 st.markdown(
     """
     <style>
@@ -23,113 +23,72 @@ st.markdown(
             max-width: 100% !important;
         }
 
-        .stButton > button {
-            background: #0f1e3c !important;
-            color: white !important;
-            border: 1px solid #c89b3c !important;
-            border-radius: 10px !important;
-            font-weight: 700 !important;
-            padding: 0.65rem 1rem !important;
+        .fed-card {
+            border: 1px solid #d9dee8;
+            border-radius: 16px;
+            padding: 18px 14px;
+            height: 170px;
+            background: linear-gradient(180deg, #fbfcfe 0%, #f4f7fb 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            box-shadow: 0 4px 14px rgba(15, 30, 60, 0.06);
+            margin-bottom: 8px;
         }
 
-        .stButton > button:hover {
-            background: #16305e !important;
-            color: white !important;
-            border: 1px solid #e8b94a !important;
+        .fed-card-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #0f1e3c;
+            margin-bottom: 10px;
+        }
+
+        .fed-card-subtitle {
+            font-size: 13px;
+            color: #5f6b7a;
+        }
+
+        .fed-top-note {
+            font-size: 15px;
+            color: #536173;
+            margin-bottom: 20px;
         }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-# ---------------------------- SESSION STATE ----------------------------
+# ---------------------------- STATE ----------------------------
 if "selected_proposal" not in st.session_state:
     st.session_state.selected_proposal = None
 
-# ---------------------------- PROPOSAL METADATA ----------------------------
+# ---------------------------- PROPOSALS ----------------------------
 proposals = [
-    {
-        "id": "p1",
-        "title": "Policy Option 1",
-        "subtitle": "Recognize Discount Window Capacity in the LCR"
-    },
-    {
-        "id": "p2",
-        "title": "Policy Option 2",
-        "subtitle": "Proposal title coming soon"
-    },
-    {
-        "id": "p3",
-        "title": "Policy Option 3",
-        "subtitle": "Proposal title coming soon"
-    },
-    {
-        "id": "p4",
-        "title": "Policy Option 4",
-        "subtitle": "Revise Resolution Liquidity Requirements"
-    },
-    {
-        "id": "p5",
-        "title": "Policy Option 5",
-        "subtitle": "Proposal title coming soon"
-    },
-    {
-        "id": "p6",
-        "title": "Policy Option 6",
-        "subtitle": "Proposal title coming soon"
-    },
-    {
-        "id": "p7",
-        "title": "Policy Option 7",
-        "subtitle": "Proposal title coming soon"
-    },
-    {
-        "id": "p8",
-        "title": "Policy Option 8",
-        "subtitle": "Proposal title coming soon"
-    },
-    {
-        "id": "p9",
-        "title": "Policy Option 9",
-        "subtitle": "Proposal title coming soon"
-    },
-    {
-        "id": "p10",
-        "title": "Policy Option 10",
-        "subtitle": "Proposal title coming soon"
-    },
-    {
-        "id": "p11",
-        "title": "Policy Option 11",
-        "subtitle": "Proposal title coming soon"
-    },
-    {
-        "id": "p12",
-        "title": "Policy Option 12",
-        "subtitle": "Proposal title coming soon"
-    },
-    {
-        "id": "p13",
-        "title": "Policy Option 13",
-        "subtitle": "Proposal title coming soon"
-    },
-    {
-        "id": "p14",
-        "title": "Policy Option 14",
-        "subtitle": "Proposal title coming soon"
-    },
-    {
-        "id": "p15",
-        "title": "Policy Option 15",
-        "subtitle": "Proposal title coming soon"
-    },
+    {"id": "p1", "title": "Policy Option 1", "subtitle": "Recognize Discount Window Capacity in the LCR"},
+    {"id": "p2", "title": "Policy Option 2", "subtitle": "Coming soon"},
+    {"id": "p3", "title": "Policy Option 3", "subtitle": "Coming soon"},
+    {"id": "p4", "title": "Policy Option 4", "subtitle": "Revise Resolution Liquidity Requirements"},
+    {"id": "p5", "title": "Policy Option 5", "subtitle": "Coming soon"},
+    {"id": "p6", "title": "Policy Option 6", "subtitle": "Coming soon"},
+    {"id": "p7", "title": "Policy Option 7", "subtitle": "Coming soon"},
+    {"id": "p8", "title": "Policy Option 8", "subtitle": "Coming soon"},
+    {"id": "p9", "title": "Policy Option 9", "subtitle": "Coming soon"},
+    {"id": "p10", "title": "Policy Option 10", "subtitle": "Coming soon"},
+    {"id": "p11", "title": "Policy Option 11", "subtitle": "Coming soon"},
+    {"id": "p12", "title": "Policy Option 12", "subtitle": "Coming soon"},
+    {"id": "p13", "title": "Policy Option 13", "subtitle": "Coming soon"},
+    {"id": "p14", "title": "Policy Option 14", "subtitle": "Coming soon"},
+    {"id": "p15", "title": "Policy Option 15", "subtitle": "Coming soon"},
 ]
 
 # ---------------------------- MAIN GRID ----------------------------
 if st.session_state.selected_proposal is None:
     st.title("📊 Fed Balance Sheet Policy Guide")
+
     st.markdown(
-        "<div class='fed-top-note'>Select one of the policy options below to open the companion explainer.</div>",
+        "<div class='fed-top-note'>Select a policy option below.</div>",
         unsafe_allow_html=True,
     )
 
@@ -149,38 +108,24 @@ if st.session_state.selected_proposal is None:
                 )
 
                 if st.button(
-                    f"Open {proposal['title'].split()[-1]}",
+                    f"Open {proposal['id'].upper()}",
                     key=proposal["id"],
                     use_container_width=True
                 ):
                     st.session_state.selected_proposal = proposal["id"]
                     st.rerun()
 
-# ---------------------------- DETAIL VIEW ----------------------------
+# ---------------------------- HTML VIEW ----------------------------
 else:
-    left, center, right = st.columns([4, 2, 4])
-    with center:
-        if st.button("← Back to proposals", use_container_width=True):
-            st.session_state.selected_proposal = None
-            st.rerun()
-    st.markdown("<div style='height: 18px;'></div>", unsafe_allow_html=True)
     selected = st.session_state.selected_proposal
+
     base_dir = os.path.dirname(__file__)
-    
     file_path = os.path.join(base_dir, "Proposals", f"{selected}.html")
 
     if os.path.exists(file_path):
         with open(file_path, "r", encoding="utf-8") as f:
             html_content = f.read()
 
-        components.html(
-        f"""
-        <div style="padding-top: 40px;">
-            {html_content}
-        </div>
-        """,
-        height=2200,
-        scrolling=True
-)
+        components.html(html_content, height=2200, scrolling=True)
     else:
         st.warning(f"{selected.upper()} is not ready yet.")
