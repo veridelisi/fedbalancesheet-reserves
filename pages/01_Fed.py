@@ -163,9 +163,10 @@ else:
         if st.button("← Back to proposals", use_container_width=True):
             st.session_state.selected_proposal = None
             st.rerun()
-
+    st.markdown("<div style='height: 18px;'></div>", unsafe_allow_html=True)
     selected = st.session_state.selected_proposal
     base_dir = os.path.dirname(__file__)
+    
     file_path = os.path.join(base_dir, "Proposals", f"{selected}.html")
 
     if os.path.exists(file_path):
