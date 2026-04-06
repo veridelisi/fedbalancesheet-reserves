@@ -163,7 +163,7 @@ else:
         if st.button("← Back to proposals", use_container_width=True):
             st.session_state.selected_proposal = None
             st.rerun()
-    st.markdown("<div style='height: 30px;'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height: 18px;'></div>", unsafe_allow_html=True)
     selected = st.session_state.selected_proposal
     base_dir = os.path.dirname(__file__)
     
@@ -173,6 +173,14 @@ else:
         with open(file_path, "r", encoding="utf-8") as f:
             html_content = f.read()
 
-        components.html(html_content, height=2200, scrolling=True)
+            components.html(
+        f"""
+        <div style="padding-top: 28px;">
+            {html_content}
+        </div>
+        """,
+        height=2200,
+        scrolling=True
+)
     else:
         st.warning(f"{selected.upper()} is not ready yet.")
