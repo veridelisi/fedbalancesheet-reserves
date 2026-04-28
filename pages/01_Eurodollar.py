@@ -100,13 +100,18 @@ def _safe_bis_get(url: str, max_tries: int = 4, timeout: int = 60) -> bytes | No
     return None
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def bis_series_xml(key: str, start="2000", end="2025") -> pd.DataFrame:
+def bis_series_xml(key: str, start="2000", end=None) -> pd.DataFrame:
+
     url = (
         f"https://stats.bis.org/api/v2/data/{FLOW_PATH}/{key}/all"
-        f"?detail=full&startPeriod={start}&endPeriod={end}"
+        f"?detail=full&startPeriod={start}"
     )
 
+    if end is not None:
+        url += f"&endPeriod={end}"
+
     content = _safe_bis_get(url, max_tries=4, timeout=60)
+
     if content is None:
         return pd.DataFrame(columns=["Time", "Val"])
 
@@ -122,25 +127,38 @@ def bis_series_xml(key: str, start="2000", end="2025") -> pd.DataFrame:
         for obs in series.findall('.//g:Obs', ns):
             dim = obs.find('g:ObsDimension', ns)
             val = obs.find('g:ObsValue', ns)
+
             if val is None:
                 continue
+
             period = (dim.get('value') if dim is not None else None)
             v = val.get('value')
+
             if not period or v is None or v == "":
                 continue
+
             rows.append({"period": period, "Val": v})
 
     df = pd.DataFrame(rows)
+
     if df.empty:
         return pd.DataFrame(columns=["Time", "Val"])
 
     df["Val"] = pd.to_numeric(df["Val"], errors="coerce")
 
-    # 'YYYY-Qn' -> quarter end timestamp
-    per = pd.PeriodIndex(df["period"].astype(str).str.replace("-Q", "Q"), freq="Q")
+    per = pd.PeriodIndex(
+        df["period"].astype(str).str.replace("-Q", "Q"),
+        freq="Q"
+    )
+
     df["Time"] = per.to_timestamp(how="end")
 
-    out = df.dropna(subset=["Time", "Val"]).sort_values("Time")[["Time", "Val"]].reset_index(drop=True)
+    out = (
+        df.dropna(subset=["Time", "Val"])
+          .sort_values("Time")[["Time", "Val"]]
+          .reset_index(drop=True)
+    )
+
     return out
 
 
