@@ -171,10 +171,34 @@ def fetch_foreign_bank_branches_reserves_musd() -> float:
 st.title("🌍 Reserves (FDIC Call Reports)")
 st.caption("FDIC reserve proxy: **CHFRB** (Balances due from Federal Reserve Banks). If missing, fallback to **CHBALI** (Interest-bearing balances).")
 
+from datetime import datetime
+
+# Today's date
+today = datetime.today()
+
+# Automatically determine latest quarter-end
+year = today.year
+month = today.month
+
+if month <= 3:
+    repdte_default = f"{year-1}1231"
+elif month <= 6:
+    repdte_default = f"{year}0331"
+elif month <= 9:
+    repdte_default = f"{year}0630"
+else:
+    repdte_default = f"{year}0930"
+
 # Controls
 c1, c2 = st.columns([1.2, 2.8])
+
 with c1:
-    repdte = st.text_input("REPDTE (YYYYMMDD)", value="20250930", help="Example: 20250930 for 2025 Q3")
+    repdte = st.text_input(
+        "REPDTE (YYYYMMDD)",
+        value=repdte_default,
+        help="Automatically uses latest available quarter"
+    )
+
 with c2:
     refresh = st.button("🔄 Refresh (clear cache)")
 
