@@ -751,9 +751,12 @@ with tEC:
         LBS_HEADERS = {"Accept": "application/vnd.sdmx.genericdata+xml;version=2.1"}
 
         @st.cache_data(ttl=3600, show_spinner=False)
-        def lbs_series_xml(key: str, start="2000", end="2025") -> pd.DataFrame:
+        def lbs_series_xml(key: str, start="2000", end="None") -> pd.DataFrame:
             url = f"https://stats.bis.org/api/v2/data/{LBS_FLOW}/{key}/all"
-            params = {"detail":"full", "startPeriod":start, "endPeriod":end}
+            params = {"detail":"full", "startPeriod":start}
+
+            if end is not None:
+                params["endPeriod"] = end
             try:
                 r = requests.get(url, params=params, headers=LBS_HEADERS, timeout=60)
                 r.raise_for_status()
