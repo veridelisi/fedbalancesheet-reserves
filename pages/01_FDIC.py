@@ -172,22 +172,64 @@ st.title("🌍 Reserves (FDIC Call Reports)")
 st.caption("FDIC reserve proxy: **CHFRB** (Balances due from Federal Reserve Banks). If missing, fallback to **CHBALI** (Interest-bearing balances).")
 
 from datetime import datetime
+import requests
+import streamlit as st
 
-# Today's date
-today = datetime.today()
+# Candidate quarter-end dates
+def generate_candidate_dates():
+    today = datetime.today()
+    year = today.year
 
-# Automatically determine latest quarter-end
-year = today.year
-month = today.month
+    quarters = ["1231", "0930", "0630", "0331"]
 
-if month <= 3:
-    repdte_default = f"{year-1}1231"
-elif month <= 6:
-    repdte_default = f"{year}0331"
-elif month <= 9:
-    repdte_default = f"{year}0630"
-else:
-    repdte_default = f"{year}0930"
+    candidates = []
+
+    # current year + previous year
+    for y in [year, year - 1]:
+        for q in quarters:
+            candidates.append(f"{y}{q}")
+
+    # newest first
+    candidates.sort(reverse=True)
+
+    return candidates
+
+
+# Check whether FDIC data exists
+@st.cache_data(ttl=3600)
+def find_latest_available_repdte():
+
+    candidates = generate_candidate_dates()
+
+    for repdte in candidates:
+
+        url = (
+            f"https://banks.data.fdic.gov/api/financials"
+            f"?filters=REPDTE:{repdte}"
+            f"&limit=1"
+            f"&format=json"
+        )
+
+        try:
+            r = requests.get(url, timeout=10)
+
+            if r.status_code == 200:
+                data = r.json()
+
+                # if records exist
+                if data.get("data"):
+                    return repdte
+
+        except Exception:
+            pass
+
+    # fallback
+    return "20250930"
+
+
+# Automatically find latest available quarter
+repdte_default = find_latest_available_repdte()
+
 
 # Controls
 c1, c2 = st.columns([1.2, 2.8])
@@ -196,7 +238,7 @@ with c1:
     repdte = st.text_input(
         "REPDTE (YYYYMMDD)",
         value=repdte_default,
-        help="Automatically uses latest available quarter"
+        help="Automatically finds latest available FDIC quarter"
     )
 
 with c2:
